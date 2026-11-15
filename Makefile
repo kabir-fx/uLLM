@@ -39,6 +39,10 @@ contracts: ## Regenerate the telemetry JSON Schema and TypeScript types (C2)
 	$(UV) python scripts/export_contracts.py
 	pnpm -C terminal gen:contracts
 
+.PHONY: fixtures
+fixtures: ## Regenerate the synthetic telemetry traces in terminal/fixtures/
+	$(UV) python scripts/make_fixtures.py
+
 .PHONY: test
 test: ## Every test that runs without the model
 	$(UV) pytest -m "not mlx"

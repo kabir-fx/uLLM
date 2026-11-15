@@ -1,0 +1,32 @@
+# Decision records
+
+One short file per design decision, numbered in order (roadmap 3.3). A decision records what was chosen, why, what else was considered, and what follows from it. Records are not rewritten later. When a decision changes, a new record supersedes the old one, and the old one's status says so.
+
+| # | Decision | Task |
+|---|---|---|
+| [0001](0001-repo-conventions.md) | Repository conventions: Go module path, `scripts/`, stacked pull requests merged with merge commits, failing placeholder targets | M0-T1 |
+| [0002](0002-python-tooling.md) | Python tooling: uv, MLX only on Apple Silicon, ruff with the rule-11 bans, strict mypy, pytest and hypothesis | M0-T3 |
+| [0003](0003-contracts-v0.md) | Contracts v0: the OpenAI API, telemetry protocol v1, the runner protocol sketch | M0-T4 |
+| [0004](0004-synthetic-telemetry-fixtures.md) | Synthetic telemetry fixtures and the trace checker | M0-T5 |
+| [0005](0005-ci.md) | CI layout, and what MLX can use on GitHub's macOS runners | M0-T6 |
+| [0006](0006-models-and-goldens.md) | Pinned models, golden fixtures, and what crossing machines does to them | M0-T7 |
+
+## Template
+
+```markdown
+# NNNN: Title
+
+**Status:** proposed | accepted | superseded by NNNN · **Task:** M?-T?
+
+## Context
+What forces the decision, in a few lines.
+
+## Decision
+What was chosen, specifically enough to check against the code.
+
+## Alternatives considered
+Each with the reason it lost.
+
+## Consequences
+What this makes easier, harder, or necessary later.
+```

@@ -12,13 +12,13 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M0 in progress |
+| Phase | M0 built; gate G0 pending the merge of PRs #1 to #8 |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M0-T8 |
+| Next task | Gate G0, then M1-T1 `[design]` |
 | Lane A (engine) | M0 |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` once M0 is merged |
-| Blocked on the author | nothing |
-| Last session | M0-T1 to M0-T7: layout, `CLAUDE.md` and commands, pinned tooling, contracts v0 (0003), synthetic fixtures (0004), CI (0005), pinned models and goldens (0006). Finding: goldens diverge at near-ties on other hardware, so equivalence compares against mlx-lm on the same machine. PRs #1 onward are stacked and unmerged; branch protection is not yet on |
+| Blocked on the author | Merging PRs #1 to #8 in order; turning on branch protection (all four CI jobs required on `main`) |
+| Last session | Built all of M0 (T1 to T8): layout, `CLAUDE.md` and commands, pinned tooling (0002), contracts v0 (0003), synthetic fixtures and trace checker (0004), CI with four jobs (0005), pinned models and goldens (0006), docs skeleton with a seeded claims ledger. Key finding: goldens diverge at near-ties on other hardware, so equivalence compares against mlx-lm on the same machine |
 
 ---
 
@@ -561,7 +561,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [x] **M0-T5** Telemetry fixtures (O1): a seeded generator and two committed sample traces, so Lane B can start with no engine.
 - [x] **M0-T6** CI (F2).
 - [x] **M0-T7** Models and goldens (F4).
-- [ ] **M0-T8** Docs skeleton (F5).
+- [x] **M0-T8** Docs skeleton (F5).
 - [x] **M0-T9** `[user]` Install and log in to `gh`.
 
 **Gate G0:** `make check` and all CI jobs green (or the `mlx` job's limitation documented with its fallback); contracts merged; fixtures available.

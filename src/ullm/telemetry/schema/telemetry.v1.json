@@ -1,0 +1,695 @@
+{
+  "$defs": {
+    "Hello": {
+      "additionalProperties": false,
+      "description": "First event on every connection and in every recording.",
+      "properties": {
+        "commit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "epoch_unix_ms": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kv": {
+          "$ref": "#/$defs/KvInfo"
+        },
+        "limits": {
+          "$ref": "#/$defs/Limits"
+        },
+        "machine": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Machine"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "replica": {
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "engine",
+            "sim",
+            "fixture"
+          ],
+          "type": "string"
+        },
+        "t": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "type": {
+          "const": "hello",
+          "default": "hello",
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "t",
+        "replica",
+        "model",
+        "source",
+        "version",
+        "commit",
+        "epoch_unix_ms",
+        "limits",
+        "kv",
+        "machine"
+      ],
+      "title": "Hello",
+      "type": "object"
+    },
+    "KvInfo": {
+      "additionalProperties": false,
+      "description": "KV capacity. Block fields stay null until blocks exist (M3).",
+      "properties": {
+        "block_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "capacity_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "num_blocks": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "block_size",
+        "num_blocks",
+        "capacity_tokens"
+      ],
+      "title": "KvInfo",
+      "type": "object"
+    },
+    "KvSnapshot": {
+      "additionalProperties": false,
+      "description": "The state of every KV block, compactly (from M3).",
+      "properties": {
+        "num_blocks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "owners": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 253,
+          "type": "array"
+        },
+        "states": {
+          "type": "string"
+        },
+        "t": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "type": {
+          "const": "kv.snapshot",
+          "default": "kv.snapshot",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "t",
+        "num_blocks",
+        "owners",
+        "states"
+      ],
+      "title": "KvSnapshot",
+      "type": "object"
+    },
+    "Limits": {
+      "additionalProperties": false,
+      "properties": {
+        "max_model_len": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_num_seqs": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_prefill_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_num_seqs",
+        "max_prefill_tokens",
+        "max_model_len"
+      ],
+      "title": "Limits",
+      "type": "object"
+    },
+    "Machine": {
+      "additionalProperties": false,
+      "properties": {
+        "chip": {
+          "type": "string"
+        },
+        "memory_gb": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "chip",
+        "memory_gb"
+      ],
+      "title": "Machine",
+      "type": "object"
+    },
+    "ReqAborted": {
+      "additionalProperties": false,
+      "properties": {
+        "completion_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reason": {
+          "enum": [
+            "client_disconnect",
+            "shutdown",
+            "error"
+          ],
+          "type": "string"
+        },
+        "rid": {
+          "type": "string"
+        },
+        "t": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "type": {
+          "const": "req.aborted",
+          "default": "req.aborted",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "t",
+        "rid",
+        "reason",
+        "completion_tokens"
+      ],
+      "title": "ReqAborted",
+      "type": "object"
+    },
+    "ReqAdmitted": {
+      "additionalProperties": false,
+      "properties": {
+        "cached_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "queue_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "rid": {
+          "type": "string"
+        },
+        "t": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "type": {
+          "const": "req.admitted",
+          "default": "req.admitted",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "t",
+        "rid",
+        "queue_ms",
+        "cached_tokens"
+      ],
+      "title": "ReqAdmitted",
+      "type": "object"
+    },
+    "ReqArrived": {
+      "additionalProperties": false,
+      "properties": {
+        "max_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "prompt_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rid": {
+          "type": "string"
+        },
+        "t": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "tenant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "req.arrived",
+          "default": "req.arrived",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "t",
+        "rid",
+        "prompt_tokens",
+        "max_tokens",
+        "tenant"
+      ],
+      "title": "ReqArrived",
+      "type": "object"
+    },
+    "ReqFinished": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "enum": [
+            "stop",
+            "length",
+            "tool_calls"
+          ],
+          "type": "string"
+        },
+        "rid": {
+          "type": "string"
+        },
+        "t": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "timings": {
+          "$ref": "#/$defs/Timings"
+        },
+        "type": {
+          "const": "req.finished",
+          "default": "req.finished",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/TokenUsage"
+        }
+      },
+      "required": [
+        "type",
+        "t",
+        "rid",
+        "reason",
+        "usage",
+        "timings"
+      ],
+      "title": "ReqFinished",
+      "type": "object"
+    },
+    "ReqFirstToken": {
+      "additionalProperties": false,
+      "properties": {
+        "rid": {
+          "type": "string"
+        },
+        "t": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "ttft_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "type": {
+          "const": "req.first_token",
+          "default": "req.first_token",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "t",
+        "rid",
+        "ttft_ms"
+      ],
+      "title": "ReqFirstToken",
+      "type": "object"
+    },
+    "ReqPreempted": {
+      "additionalProperties": false,
+      "properties": {
+        "blocks_freed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "completion_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rid": {
+          "type": "string"
+        },
+        "t": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "type": {
+          "const": "req.preempted",
+          "default": "req.preempted",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "t",
+        "rid",
+        "completion_tokens",
+        "blocks_freed"
+      ],
+      "title": "ReqPreempted",
+      "type": "object"
+    },
+    "RouterDecision": {
+      "additionalProperties": false,
+      "description": "Where the router sent a request, and why (from M5).",
+      "properties": {
+        "kind": {
+          "enum": [
+            "prefix",
+            "least_load",
+            "round_robin"
+          ],
+          "type": "string"
+        },
+        "matched_messages": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "replica": {
+          "type": "string"
+        },
+        "retry": {
+          "type": "boolean"
+        },
+        "rid": {
+          "type": "string"
+        },
+        "t": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "type": {
+          "const": "router.decision",
+          "default": "router.decision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "t",
+        "rid",
+        "replica",
+        "kind",
+        "matched_messages",
+        "retry"
+      ],
+      "title": "RouterDecision",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "description": "One engine step. ``t`` is its end, after ``mx.eval``; it started at ``t - ms``.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "prefill",
+            "decode"
+          ],
+          "type": "string"
+        },
+        "kv_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "n": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "running": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "t": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": {
+          "const": "step",
+          "default": "step",
+          "type": "string"
+        },
+        "waiting": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "t",
+        "n",
+        "kind",
+        "rids",
+        "tokens",
+        "ms",
+        "waiting",
+        "running",
+        "kv_tokens"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "Timings": {
+      "additionalProperties": false,
+      "properties": {
+        "e2e_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "queue_ms": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "tpot_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ttft_ms": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "queue_ms",
+        "ttft_ms",
+        "tpot_ms",
+        "e2e_ms"
+      ],
+      "title": "Timings",
+      "type": "object"
+    },
+    "TokenUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "cached_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "completion_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "prompt_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "prompt_tokens",
+        "completion_tokens",
+        "cached_tokens"
+      ],
+      "title": "TokenUsage",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/kabir-fx/uLLM/telemetry.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One flush of the telemetry stream: an SSE ``data:`` line, or one line of a trace file.",
+  "properties": {
+    "dropped": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "events": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "hello": "#/$defs/Hello",
+            "kv.snapshot": "#/$defs/KvSnapshot",
+            "req.aborted": "#/$defs/ReqAborted",
+            "req.admitted": "#/$defs/ReqAdmitted",
+            "req.arrived": "#/$defs/ReqArrived",
+            "req.finished": "#/$defs/ReqFinished",
+            "req.first_token": "#/$defs/ReqFirstToken",
+            "req.preempted": "#/$defs/ReqPreempted",
+            "router.decision": "#/$defs/RouterDecision",
+            "step": "#/$defs/Step"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/Hello"
+          },
+          {
+            "$ref": "#/$defs/ReqArrived"
+          },
+          {
+            "$ref": "#/$defs/ReqAdmitted"
+          },
+          {
+            "$ref": "#/$defs/ReqFirstToken"
+          },
+          {
+            "$ref": "#/$defs/ReqFinished"
+          },
+          {
+            "$ref": "#/$defs/ReqAborted"
+          },
+          {
+            "$ref": "#/$defs/ReqPreempted"
+          },
+          {
+            "$ref": "#/$defs/Step"
+          },
+          {
+            "$ref": "#/$defs/KvSnapshot"
+          },
+          {
+            "$ref": "#/$defs/RouterDecision"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "replica": {
+      "type": "string"
+    },
+    "seq": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "t": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "v": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "v",
+    "replica",
+    "seq",
+    "t",
+    "dropped",
+    "events"
+  ],
+  "title": "Frame",
+  "type": "object"
+}

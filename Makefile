@@ -14,8 +14,8 @@ help: ## List targets
 
 # --- Fast checks: no model, no GPU, runs anywhere ---------------------------
 
-.PHONY: check check-py check-go
-check: check-py check-go ## Lint, types, unit and property tests (no model needed)
+.PHONY: check check-py check-ts check-go
+check: check-py check-ts check-go ## Lint, types, unit and property tests (no model needed)
 	@echo "make check: all passed"
 
 UV := uv run --locked
@@ -26,8 +26,18 @@ check-py: ## Ruff lint and format check, mypy, unit and property tests
 	$(UV) mypy
 	$(UV) pytest -m "not mlx" tests/unit tests/property
 
+check-ts: ## Terminal: generated contract types are fresh and typecheck
+	pnpm -C terminal install --frozen-lockfile --silent
+	pnpm -C terminal check:contracts
+	pnpm -C terminal typecheck
+
 check-go: ## Go vet and tests for the router module
 	cd router && go vet ./... && go test ./...
+
+.PHONY: contracts
+contracts: ## Regenerate the telemetry JSON Schema and TypeScript types (C2)
+	$(UV) python scripts/export_contracts.py
+	pnpm -C terminal gen:contracts
 
 .PHONY: test
 test: ## Every test that runs without the model

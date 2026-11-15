@@ -38,3 +38,6 @@ bench/.scratch/
 .DS_Store
 .idea/
 .vscode/
+
+# The author's private notes: kept on disk for agents, never committed
+docs/private/

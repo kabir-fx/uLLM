@@ -14,16 +14,24 @@ help: ## List targets
 
 # --- Fast checks: no model, no GPU, runs anywhere ---------------------------
 
-.PHONY: check check-go
-check: check-go ## Lint, types, unit and property tests (no model needed)
+.PHONY: check check-py check-go
+check: check-py check-go ## Lint, types, unit and property tests (no model needed)
 	@echo "make check: all passed"
+
+UV := uv run --locked
+
+check-py: ## Ruff lint and format check, mypy, unit and property tests
+	$(UV) ruff check
+	$(UV) ruff format --check
+	$(UV) mypy
+	$(UV) pytest -m "not mlx" tests/unit tests/property
 
 check-go: ## Go vet and tests for the router module
 	cd router && go vet ./... && go test ./...
 
 .PHONY: test
 test: ## Every test that runs without the model
-	$(call todo,M0-T3)
+	$(UV) pytest -m "not mlx"
 
 # --- Model-backed and system targets -----------------------------------------
 

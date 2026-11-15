@@ -12,13 +12,13 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M0 built; gate G0 pending the merge of PRs #1 to #8 |
-| Remote | `https://github.com/kabir-fx/uLLM.git`, public. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | Gate G0, then M1-T1 `[design]` |
-| Lane A (engine) | M0 |
-| Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` once M0 is merged |
-| Blocked on the author | Merging PRs #1 to #8 in order; turning on branch protection (all four CI jobs required on `main`) |
-| Last session | Built all of M0 (T1 to T8): layout, `CLAUDE.md` and commands, pinned tooling (0002), contracts v0 (0003), synthetic fixtures and trace checker (0004), CI with four jobs (0005), pinned models and goldens (0006), docs skeleton with a seeded claims ledger. Key finding: goldens diverge at near-ties on other hardware, so equivalence compares against mlx-lm on the same machine |
+| Phase | M0 done: gate G0 passed (all four CI jobs green on `main`, contracts and fixtures merged) |
+| Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
+| Next task | M1-T1 `[design]`: present the runner design and wait for approval |
+| Lane A (engine) | idle; M1 next |
+| Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
+| Blocked on the author | nothing |
+| Last session | Built and merged all of M0 (PRs #1 to #8), turned on branch protection, passed gate G0. Key finding for M1-T5: goldens diverge at near-ties on other hardware, so equivalence compares against mlx-lm on the same machine (decision 0006) |
 
 ---
 

@@ -185,10 +185,9 @@ Templates. Fill the brackets only from the claims ledger.
 
 ## 8. Start here
 
-M0 (foundations) is built. What is left for you before M1:
+M0 (foundations) is built, merged and protected: the four CI jobs are required on `main`. Before M1:
 
-1. Review the M0 pull requests (#1 to #8), merge them in order, and turn on branch protection so the four CI jobs are required on `main`.
-2. Read the M0 decision records in `docs/decisions/`, especially 0006: greedy output can differ between Macs at near-tied tokens, so equivalence compares against mlx-lm on the same machine.
-3. Read panels 0, 1, 5 and 6 of the architecture walkthrough. That is the material for milestone M1.
-4. Open a session and say: *"/task M1-T1"*. It is a design task, so the agent shows you the design and waits for your approval.
-5. Keep the catch log (`docs/AI_LOG.md`): add an entry each time you catch an agent mistake.
+1. Read the M0 decision records in `docs/decisions/`, especially 0006: greedy output can differ between Macs at near-tied tokens, so equivalence compares against mlx-lm on the same machine.
+2. Read panels 0, 1, 5 and 6 of the architecture walkthrough. That is the material for milestone M1.
+3. Open a session and say: *"/task M1-T1"*. It is a design task, so the agent shows you the design and waits for your approval.
+4. Keep the catch log (`docs/AI_LOG.md`): add an entry each time you catch an agent mistake.

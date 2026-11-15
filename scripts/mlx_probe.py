@@ -53,7 +53,9 @@ def probe() -> dict[str, Any]:
         "cpu_brand": _sh("sysctl", "-n", "machdep.cpu.brand_string"),
         "cpu_count": os.cpu_count(),
         "memory_bytes": int(_sh("sysctl", "-n", "hw.memsize") or 0),
-        "runner_image": os.environ.get("ImageOS"),
+        # GitHub's hosted runners set these mixed-case names.
+        "runner_image": os.environ.get("ImageOS"),  # noqa: SIM112
+        "runner_image_version": os.environ.get("ImageVersion"),  # noqa: SIM112
         "default_device": str(mx.default_device()),
         "gpu_available": gpu_available,
         "metal_available": mx.metal.is_available(),

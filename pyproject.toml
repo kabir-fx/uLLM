@@ -18,6 +18,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx2==2.16.0",
+    "huggingface-hub==2.4.0",
     "hypothesis==6.170.15",
     "jsonschema==4.26.0",
     "mypy==2.4.1",
@@ -94,6 +95,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # so tests can import the reference helpers in scripts/
 addopts = ["--import-mode=importlib", "--strict-markers", "-ra"]
 markers = [
     "mlx: needs MLX and a downloaded model (Apple Silicon only)",

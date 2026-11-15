@@ -1,0 +1,20 @@
+{
+  "about": "Fixed prompts for the correctness anchor (rule 1, Q3). Changing one means regenerating the goldens. Chosen for variety: short answers that stop early, long outputs that hit max_tokens, code, multi-byte text for the detokenizer, a multi-turn chat and a longer prompt.",
+  "cases": [
+    {"id": "arith", "messages": [{"role": "user", "content": "What is 17 * 23? Answer with just the number."}]},
+    {"id": "kv-cache", "messages": [
+      {"role": "system", "content": "You are a terse assistant."},
+      {"role": "user", "content": "Explain what a KV cache is in an LLM, in two sentences."}]},
+    {"id": "palindrome", "messages": [{"role": "user", "content": "Write a Python function that checks whether a string is a palindrome, ignoring case and spaces."}]},
+    {"id": "translate", "messages": [{"role": "user", "content": "Translate 'good morning, how are you?' into Japanese, Hindi and French. One line each."}]},
+    {"id": "emoji", "messages": [{"role": "user", "content": "Reply with three emoji that describe the ocean, then name each one."}]},
+    {"id": "primes", "messages": [{"role": "user", "content": "List five prime numbers greater than 100, one per line, nothing else."}]},
+    {"id": "count", "messages": [{"role": "user", "content": "Count from 1 to 60, separated by commas."}]},
+    {"id": "json", "messages": [{"role": "user", "content": "Give a JSON object describing a fictional person with the keys name, age and city. Output only the JSON."}]},
+    {"id": "multi-turn", "messages": [
+      {"role": "user", "content": "My favourite colour is teal. Remember it."},
+      {"role": "assistant", "content": "Got it: your favourite colour is teal."},
+      {"role": "user", "content": "What is my favourite colour, and what two colours mix to make it?"}]},
+    {"id": "summarise", "messages": [{"role": "user", "content": "Summarise the following in one sentence.\n\nA lighthouse keeper on a small northern island kept a logbook for thirty years. Each morning she wrote down the wind direction, the colour of the sea, the number of ships that passed, and one sentence about anything unusual she had seen. Most entries were ordinary: grey water, a westerly wind, two fishing boats. But scattered through the books were stranger notes: a whale that circled the rocks for an entire afternoon, a night when the sea glowed green, a winter so cold that the harbour froze and children walked across it to the mainland. When the lighthouse was automated, the logbooks were sent to a museum, where researchers now use them to study how the climate and the fishing trade changed over three decades. The keeper herself moved to the mainland and, according to the museum, never once looked back at the island."}]}
+  ]
+}

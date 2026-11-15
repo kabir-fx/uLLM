@@ -49,6 +49,16 @@ test: ## Every test that runs without the model
 
 # --- Model-backed and system targets -----------------------------------------
 
+.PHONY: models goldens goldens-check
+models: ## Download the default model at its pinned revision (others: scripts/fetch_models.py --list)
+	$(UV) python scripts/fetch_models.py
+
+goldens: ## Regenerate the golden token IDs from mlx-lm (after a model, prompt or library change)
+	$(UV) python scripts/make_goldens.py
+
+goldens-check: ## Regenerate the goldens in memory and compare them in full
+	$(UV) python scripts/make_goldens.py --check
+
 .PHONY: test-mlx equivalence bench-smoke sim up verify
 test-mlx: ## Tests marked mlx: need MLX (Apple Silicon); the model from M0-T7 on
 	$(UV) pytest -m mlx

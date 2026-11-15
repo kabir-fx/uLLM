@@ -49,7 +49,10 @@ test: ## Every test that runs without the model
 
 # --- Model-backed and system targets -----------------------------------------
 
-.PHONY: equivalence bench-smoke sim up verify
+.PHONY: test-mlx equivalence bench-smoke sim up verify
+test-mlx: ## Tests marked mlx: need MLX (Apple Silicon); the model from M0-T7 on
+	$(UV) pytest -m mlx
+
 equivalence: ## Token-for-token equivalence against mlx-lm (needs the model)
 	$(call todo,M1-T5)
 

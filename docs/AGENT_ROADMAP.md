@@ -14,11 +14,11 @@ The single source of truth for building uLLM. Every piece that has to be built i
 |---|---|
 | Phase | M0 in progress |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M0-T4 `[design]`: waiting for the author to approve the contract design |
+| Next task | M0-T5 |
 | Lane A (engine) | M0 |
 | Lane B (contract-isolated) | idle |
 | Blocked on the author | nothing |
-| Last session | M0-T1 (repo layout, Makefile, README stub), M0-T2 (`CLAUDE.md`, `/task`, `/gate`, `/quiz`), M0-T3 (uv, pinned MLX on Apple Silicon only, ruff with rule-11 bans, strict mypy, pytest and hypothesis, rule-3 test). `gh` installed (M0-T9) |
+| Last session | M0-T1 to M0-T4: layout and Makefile, `CLAUDE.md` and commands, pinned Python tooling, contracts v0 (C1 OpenAI schemas, C2 telemetry v1 with JSON Schema and generated TypeScript, C3 runner sketch; decision 0003). PRs #1 onward are stacked; the author asked to merge only once CI exists (M0-T6) |
 
 ---
 
@@ -553,7 +553,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [x] **M0-T1** Repo bootstrap (F1). `git init` here, add the remote, bring in its initial commit, lay out 5.2, `Makefile`, `.gitignore`, README stub. Leave the existing files in `docs/` in place.
 - [x] **M0-T2** `CLAUDE.md` and the workflow commands (F3).
 - [x] **M0-T3** Python tooling, pinned (F1).
-- [ ] **M0-T4** Contracts v0 `[design]` (C1, C2, C3): pydantic models, schema export, TypeScript generation with a staleness check.
+- [x] **M0-T4** Contracts v0 `[design]` (C1, C2, C3): pydantic models, schema export, TypeScript generation with a staleness check.
 - [ ] **M0-T5** Telemetry fixtures (O1): a seeded generator and two committed sample traces, so Lane B can start with no engine.
 - [ ] **M0-T6** CI (F2).
 - [ ] **M0-T7** Models and goldens (F4).

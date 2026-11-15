@@ -1,0 +1,21 @@
+{
+  "name": "ullm-terminal",
+  "private": true,
+  "version": "0.0.0",
+  "description": "uLLM's real-time terminal. Until M1-T8 this package only holds the generated telemetry contract.",
+  "type": "module",
+  "packageManager": "pnpm@10.16.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "gen:contracts": "node scripts/gen-contracts.mjs",
+    "check:contracts": "node scripts/gen-contracts.mjs --check",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "json-schema-to-typescript": "16.0.0",
+    "typescript": "7.0.2"
+  }
+}

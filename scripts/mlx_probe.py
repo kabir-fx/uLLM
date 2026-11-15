@@ -13,6 +13,7 @@ import platform
 import subprocess
 import sys
 import time
+from importlib.metadata import version
 from typing import Any
 
 import mlx.core as mx
@@ -25,7 +26,7 @@ def _sh(*cmd: str) -> str | None:
         return None
 
 
-def _matmul(device: mx.Device) -> dict[str, Any]:
+def _matmul(device: mx.Device | mx.DeviceType) -> dict[str, Any]:
     """Time one bf16 1024x1024 matmul on a device, after a warm-up."""
     try:
         with mx.stream(device):
@@ -46,7 +47,7 @@ def _matmul(device: mx.Device) -> dict[str, Any]:
 def probe() -> dict[str, Any]:
     gpu_available = mx.is_available(mx.gpu)
     report: dict[str, Any] = {
-        "mlx": mx.__version__,
+        "mlx": version("mlx"),
         "python": platform.python_version(),
         "macos": platform.mac_ver()[0],
         "machine": platform.machine(),

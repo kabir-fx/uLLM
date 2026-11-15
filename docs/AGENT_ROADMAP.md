@@ -14,11 +14,11 @@ The single source of truth for building uLLM. Every piece that has to be built i
 |---|---|
 | Phase | M0 in progress |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M0-T6 |
+| Next task | M0-T7 |
 | Lane A (engine) | M0 |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` once M0 is merged |
 | Blocked on the author | nothing |
-| Last session | M0-T1 to M0-T5: layout and Makefile, `CLAUDE.md` and commands, pinned Python tooling, contracts v0 (decision 0003), synthetic telemetry fixtures and the trace checker (decision 0004). PRs #1 onward are stacked; the author asked to merge only once CI exists (M0-T6) |
+| Last session | M0-T1 to M0-T6: layout and Makefile, `CLAUDE.md` and commands, pinned Python tooling, contracts v0 (0003), synthetic fixtures and trace checker (0004), CI with four jobs; MLX runs on the hosted runner's paravirtualized GPU (0005). PRs #1 onward are stacked and unmerged; branch protection is not yet on |
 
 ---
 
@@ -150,6 +150,8 @@ Checked on the author's machine against the versions listed. Re-verify after any
 **Machine:** MacBook Air M4, 10 cores, 16 GB, macOS 27.2. Installed: Python 3.12.8 and 3.13.7, uv 0.12, Go 1.25, Node 24, pnpm 10, bun 1.2, Docker 28, git 2.50, `gh` 2.104, Homebrew. Not installed: Ollama.
 
 **Libraries:** `mlx==0.32.4`, `mlx-lm==0.32.2` on Python 3.12.
+
+**GitHub's hosted `macos-26` runner** (decision 0005, from the CI probe): 3 virtual M1 cores, 7.5 GB, and a paravirtualized Metal GPU with about 5 GB working set. MLX runs on that GPU by default. A bf16 matmul gave the same result there as on the author's M4 GPU; whole-model greedy agreement is tested by M0-T7. CI timings are meaningless and no benchmark runs in CI.
 
 **Model:** Qwen3-0.6B has 28 layers, 8 KV heads, head dim 128, vocabulary 151,936. In bf16 its KV costs 2 × 28 × 8 × 128 × 2 bytes ≈ 112 KB per token, so a 16-token block is about 1.8 MB and a 4 GB pool is about 2,300 blocks or 36,000 tokens. Weights are about 1.2 GB in bf16. Real memory budget for weights plus KV on this machine: about 10–11 GB.
 
@@ -555,7 +557,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [x] **M0-T3** Python tooling, pinned (F1).
 - [x] **M0-T4** Contracts v0 `[design]` (C1, C2, C3): pydantic models, schema export, TypeScript generation with a staleness check.
 - [x] **M0-T5** Telemetry fixtures (O1): a seeded generator and two committed sample traces, so Lane B can start with no engine.
-- [ ] **M0-T6** CI (F2).
+- [x] **M0-T6** CI (F2).
 - [ ] **M0-T7** Models and goldens (F4).
 - [ ] **M0-T8** Docs skeleton (F5).
 - [x] **M0-T9** `[user]` Install and log in to `gh`.
@@ -695,7 +697,7 @@ Not doing: a custom Metal kernel, a CUDA port, multi-GPU, fine-tuning, paid clou
 | R-1 | Block-based KV with a per-step gather makes decode several times slower (section 4) | E9 spike before building; three candidates; decision rule; the logical layer is unaffected |
 | R-2 | Batched bf16 arithmetic flips near-tied greedy picks | Log the top-2 margin against a documented threshold. Never loosen the test |
 | R-3 | The mlx-lm baseline already batches, so there is no easy win | DEC-8. The value is a measured, explained gap |
-| R-4 | MLX may not run usefully on hosted macOS CI runners | Core tests run on Linux with `FakeRunner`. Fallback: a local pre-push gate, then a self-hosted runner |
+| R-4 | MLX may not run usefully on hosted macOS CI runners | Measured (decision 0005): MLX runs on the runner's paravirtualized GPU. Core tests still run on Linux with `FakeRunner`. If golden output diverges on the runner, CI compares against mlx-lm run on the same runner. Fallback: a local pre-push gate, then a self-hosted runner |
 | R-5 | A fanless laptop throttles and distorts results | B5 run conditions |
 | R-6 | 16 GB shared by replicas, the KV pool and Docker | The 0.6B model for multi-replica runs; compose stopped during benchmarks; pool sized from a memory budget |
 | R-7 | The terminal grows without limit | Panels are fixed per milestone (6.6); budgets in T7; Lane B only |

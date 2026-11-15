@@ -42,7 +42,14 @@ def golden_path(spec: ModelSpec) -> Path:
 
 
 def load_model(spec: ModelSpec = DEFAULT_MODEL) -> tuple[Any, Any]:
-    return load(spec.repo, revision=spec.revision)  # type: ignore[return-value]
+    # load() may return a third item (the config); index so this types the same
+    # on macOS, where mlx-lm's annotations are visible, and on Linux, where they are not.
+    loaded = load(spec.repo, revision=spec.revision)
+    return loaded[0], loaded[1]
+
+
+def current_chip() -> str | None:
+    return _sysctl("machdep.cpu.brand_string")
 
 
 def render(tokenizer: Any, messages: list[dict[str, str]]) -> tuple[str, list[int]]:
@@ -98,7 +105,7 @@ def build(spec: ModelSpec = DEFAULT_MODEL, max_tokens: int = MAX_TOKENS) -> dict
             "python": platform.python_version(),
         },
         "made_on": {
-            "chip": _sysctl("machdep.cpu.brand_string"),
+            "chip": current_chip(),
             "device": str(mx.default_device()),
         },
         "settings": {

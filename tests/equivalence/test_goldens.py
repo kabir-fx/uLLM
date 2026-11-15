@@ -1,10 +1,16 @@
-"""The goldens are trustworthy on this machine (F4).
+"""The goldens are trustworthy here (F4, decision 0006).
 
-Before uLLM is compared against the goldens (M1-T5 on), these checks establish
-that mlx-lm itself reproduces them here: the installed versions match, every
-prompt renders to the same token IDs, and greedy generation gives the same
-tokens. On CI this is what tells us whether the hosted runner's GPU agrees with
-the machine the goldens were made on (decision 0005).
+These checks establish that mlx-lm itself still produces the goldens: the
+installed versions match, every prompt renders to the same token IDs on any
+machine, and greedy generation gives the same tokens.
+
+Token reproduction is exact on the kind of machine the goldens were made on.
+On other hardware (the CI runner's paravirtualized GPU, another Apple chip),
+bf16 arithmetic can flip a near-tied greedy pick, and everything after it
+differs. There, a divergence is accepted only where the golden machine itself
+saw a near-tie, and it is reported as a warning. A divergence at a confident
+position fails everywhere. This is about mlx-lm against its own goldens; uLLM
+is compared against mlx-lm run on the same machine (M1-T5, rule 1).
 
 Needs the model: ``make models``. Without it these tests skip, unless
 ``ULLM_REQUIRE_MODEL=1`` (set in CI), where a missing model is a failure.
@@ -12,6 +18,7 @@ Needs the model: ``make models``. Without it these tests skip, unless
 
 import json
 import os
+import warnings
 from importlib.metadata import version
 from typing import Any
 
@@ -25,6 +32,7 @@ from scripts.fetch_models import local_path  # noqa: E402
 from scripts.make_goldens import (  # noqa: E402
     PROMPTS,
     TEMPLATE_KWARGS,
+    current_chip,
     golden_path,
     load_model,
     reference,
@@ -36,6 +44,10 @@ from ullm.models import DEFAULT_MODEL  # noqa: E402
 # CI generates this many tokens per prompt (about 32, catalog F2); a full-length
 # comparison is `make goldens-check`.
 TOKENS = int(os.environ.get("ULLM_GOLDEN_TOKENS", "32"))
+
+# Provisional (decision 0006): about two bf16 steps at the magnitude of
+# Qwen3's logits. M1-T5 settles the documented threshold for rule 1.
+NEAR_TIE_MARGIN = 0.25
 
 
 @pytest.fixture(scope="module")
@@ -76,18 +88,29 @@ def test_mlx_lm_reproduces_the_goldens_here(
     golden: dict[str, Any], model_and_tokenizer: tuple[Any, Any]
 ) -> None:
     model, tokenizer = model_and_tokenizer
-    diverged = []
+    same_machine = golden["made_on"]["chip"] == current_chip()
+    near_ties, failures = [], []
     for case in golden["cases"]:
         want = case["tokens"][:TOKENS]
-        got, _, _ = reference(model, tokenizer, case["prompt_ids"], max_tokens=len(want))
-        if got != want:
-            i = next(
-                (n for n, (a, b) in enumerate(zip(got, want, strict=False)) if a != b), len(got)
-            )
-            diverged.append(
-                f"{case['id']}: first difference at token {i}, "
-                f"golden top-2 margin there {case['top2_margins'][i]}"
-            )
-    assert not diverged, "mlx-lm output differs from the goldens on this machine:\n" + "\n".join(
-        diverged
-    )
+        got, margins, _ = reference(model, tokenizer, case["prompt_ids"], max_tokens=len(want))
+        if got == want:
+            continue
+        i = next((n for n, (a, b) in enumerate(zip(got, want, strict=False)) if a != b), len(got))
+        golden_margin = case["top2_margins"][i]
+        note = (
+            f"{case['id']}: first difference at token {i}; top-2 margin there "
+            f"{golden_margin} on the golden machine, {margins[i] if i < len(margins) else '-'} here"
+        )
+        if not same_machine and golden_margin <= NEAR_TIE_MARGIN:
+            near_ties.append(note)
+        else:
+            failures.append(note)
+    if near_ties:
+        origin = golden["made_on"]["chip"]
+        warnings.warn(
+            f"near-tie divergences on {current_chip()} (goldens from {origin}):\n"
+            + "\n".join(near_ties),
+            stacklevel=1,
+        )
+    where = "the golden machine" if same_machine else "a confident position"
+    assert not failures, f"mlx-lm differs from the goldens at {where}:\n" + "\n".join(failures)

@@ -79,7 +79,7 @@ This file says what to build. The other files in `docs/` are background and are 
 
 - `Project Architecture Walkthrough.md` is the text version of the author's hand-drawn architecture diagrams (panels S0–S13). It explains *how each mechanism works* with worked examples. Read the relevant panel when you want the picture. Do not read the `.excalidraw` file; the `.md` has the same content.
 - `Brigade Project Spec from Claude.md` is the original scope.
-- `AI SWE Job Skills 2026.md` is the hiring research behind section 2.
+- `private/AI SWE Job Skills 2026.md` is the hiring research behind section 2. `docs/private/` is gitignored: it exists only on the author's machine and is never committed.
 
 Where any of them differs from this file, this file wins. Known differences are listed in 5.4.
 

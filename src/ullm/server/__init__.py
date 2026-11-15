@@ -1,1 +1,4 @@
-"""OpenAI-compatible HTTP API: chat completions, SSE streaming, /health, /metrics, /telemetry/stream."""
+"""OpenAI-compatible HTTP API.
+
+Chat completions, SSE streaming, /health, /metrics and /telemetry/stream.
+"""

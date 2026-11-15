@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Node / terminal
+node_modules/
+terminal/dist/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# Go / router
+router/bin/
+
+# Model weights never live in the repo (they come from the Hugging Face cache)
+*.safetensors
+*.gguf
+
+# Benchmark scratch output; finished runs under bench/results/ are committed (C5)
+bench/.scratch/
+
+# Secrets and local tool state
+.env
+.env.*
+.claude/settings.local.json
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/

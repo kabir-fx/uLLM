@@ -38,7 +38,7 @@ A missing model skips these tests locally, with a message to run `make models`. 
 
 1. **Exact bf16 ties are common.** Of 495 generated positions, 6 have a top-2 margin of exactly 0, and 11 more are at 0.125 or less. Three of the ten prompts hit an exact tie within their first 32 tokens. The margins are quantized in steps of 0.0625 and 0.125: log-probabilities come from bf16 logits whose magnitude puts their resolution there. Risk R-2 is therefore concrete. Anything that changes the arithmetic, such as batching or a different kernel, can flip these picks.
 2. **Same machine: exact.** On the author's M4, regenerating gives identical tokens for all 128 positions of every prompt, run after run. The M4's CPU path also matches the GPU goldens for the first 32 tokens of all ten prompts.
-3. **Different machine: near-tie divergence.** On the hosted `macos-26` runner's paravirtualized GPU (CI run 43705255930), mlx-lm itself diverges from the M4 goldens in 5 of 10 prompts. Every divergence is at a position where the M4 saw a near-tie: margins 0, 0, 0.0625, 0.125 and 0.125. None is at a confident position.
+3. **Different machine: near-tie divergence.** On the hosted `macos-26` runner's paravirtualized GPU (CI run 43705255930), mlx-lm itself diverges from the M4 goldens in 5 of 10 prompts. Every divergence is at a position where the M4 saw a near-tie: margins 0, 0, 0.0625, 0.125 and 0.125. The runner's own margins at those positions were also near-ties: 0, 0.0625, 0.125, 0.125 and 0.125. None is at a confident position. The tolerant check passed with these as warnings in run 43705619599.
 
 ## Decisions that follow
 

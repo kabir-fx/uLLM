@@ -14,11 +14,11 @@ The single source of truth for building uLLM. Every piece that has to be built i
 |---|---|
 | Phase | M0 in progress |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M0-T5 |
+| Next task | M0-T6 |
 | Lane A (engine) | M0 |
-| Lane B (contract-isolated) | idle |
+| Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` once M0 is merged |
 | Blocked on the author | nothing |
-| Last session | M0-T1 to M0-T4: layout and Makefile, `CLAUDE.md` and commands, pinned Python tooling, contracts v0 (C1 OpenAI schemas, C2 telemetry v1 with JSON Schema and generated TypeScript, C3 runner sketch; decision 0003). PRs #1 onward are stacked; the author asked to merge only once CI exists (M0-T6) |
+| Last session | M0-T1 to M0-T5: layout and Makefile, `CLAUDE.md` and commands, pinned Python tooling, contracts v0 (decision 0003), synthetic telemetry fixtures and the trace checker (decision 0004). PRs #1 onward are stacked; the author asked to merge only once CI exists (M0-T6) |
 
 ---
 
@@ -406,7 +406,7 @@ The spike measures, on the real model, decode step time against batch size and c
 
 ### 6.5 Telemetry and observability
 
-**O1 Telemetry bus, stream and recorder.** Implements C2. The engine thread appends small event objects to a bounded buffer that drops the oldest on overflow and counts drops. The API thread serialises and flushes frames about 15 times a second on `/telemetry/stream`. A KV snapshot is one byte per block and is throttled. A closed tab costs nothing. The recorder writes any run to a trace file. *Proof:* throughput with telemetry on and off, reported as overhead; a schema round-trip test.
+**O1 Telemetry bus, stream and recorder.** Implements C2. The engine thread appends small event objects to a bounded buffer that drops the oldest on overflow and counts drops. The API thread serialises and flushes frames about 15 times a second on `/telemetry/stream`. A KV snapshot is one byte per block and is throttled. A closed tab costs nothing. The recorder writes any run to a trace file. *Proof:* throughput with telemetry on and off, reported as overhead; a schema round-trip test; recordings pass the trace checker `ullm.telemetry.check` (decision 0004).
 
 **O2 Prometheus metrics.** `/metrics` on every engine and on the router.
 
@@ -554,7 +554,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [x] **M0-T2** `CLAUDE.md` and the workflow commands (F3).
 - [x] **M0-T3** Python tooling, pinned (F1).
 - [x] **M0-T4** Contracts v0 `[design]` (C1, C2, C3): pydantic models, schema export, TypeScript generation with a staleness check.
-- [ ] **M0-T5** Telemetry fixtures (O1): a seeded generator and two committed sample traces, so Lane B can start with no engine.
+- [x] **M0-T5** Telemetry fixtures (O1): a seeded generator and two committed sample traces, so Lane B can start with no engine.
 - [ ] **M0-T6** CI (F2).
 - [ ] **M0-T7** Models and goldens (F4).
 - [ ] **M0-T8** Docs skeleton (F5).

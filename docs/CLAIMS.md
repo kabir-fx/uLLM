@@ -14,6 +14,7 @@ Every claim uLLM makes, in the README, the write-up or the author's resume, has 
 | 6 | Synthetic fixtures are labelled as synthetic and are consistent: ordered, gap-free, and every request follows the life cycle, with token counts matching the steps | `tests/unit/test_synthetic_traces.py`; `ullm.telemetry.check` and its tests (decision 0004) | `make check` | M0 |
 | 7 | MLX runs on GitHub's hosted macOS runner, on a paravirtualized GPU | The `mlx-probe` artifact on every CI run; decision 0005 | `uv run python scripts/mlx_probe.py` on any runner | M0 |
 | 8 | mlx-lm's greedy output reproduces the committed goldens exactly on the machine that made them; on the CI runner's GPU it diverges only at near-tied positions | `tests/equivalence/test_goldens.py`; CI run 43705619599; decision 0006 | `make models && make test-mlx`; full length: `make goldens-check` (*verify*) | M0 |
+| 9 | For one request, uLLM's own runner and KV cache give exactly mlx-lm's greedy token IDs, run on the same machine, for every golden prompt | `tests/equivalence/test_runner_equivalence.py`; decision 0008 | `make models && make test-mlx`; full length: `ULLM_GOLDEN_TOKENS=128 uv run pytest -m mlx tests/equivalence/test_runner_equivalence.py` (*verify*) | M1 |
 
 ## How to add a row
 

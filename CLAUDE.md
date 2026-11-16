@@ -12,7 +12,7 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 - `make test`, `make equivalence` (needs the model), `make bench-smoke`, `make sim`, `make up`, `make verify`.
 - Targets not built yet exit 2 and name the task that builds them.
 - Python runs through `uv` (`uv run ...`). The router is a Go module in `router/`. The terminal uses `pnpm` in `terminal/`.
-- Project commands: `/task <ID>` starts a task, `/gate <milestone>` runs a gate, `/quiz <milestone>` quizzes the author.
+- Project commands: `/gate <milestone>` runs a gate, `/quiz <milestone>` quizzes the author.
 
 ## Keel
 

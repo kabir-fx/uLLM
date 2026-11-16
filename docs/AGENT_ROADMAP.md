@@ -224,7 +224,7 @@ uLLM/
 ├── deploy/            docker-compose.yml, dashboards/, helm/
 ├── scripts/           maintenance scripts outside the package: model fetch, contract export, goldens, git-hooks/
 ├── docs/              ROADMAP.md, AGENT_ROADMAP.md, DESIGN.md, CLAIMS.md, AI_LOG.md, decisions/
-├── .claude/commands/  task, gate, quiz
+├── .claude/commands/  gate, quiz
 ├── .github/workflows/
 ├── Makefile · CLAUDE.md · QUALITY.md · README.md · LICENSE
 ```
@@ -278,7 +278,7 @@ Every piece of the system. Each entry says what it does and what proves it. Mile
 
 **F2 CI.** GitHub Actions. Jobs: `core` (Linux: lint, types, tests with `FakeRunner`, no MLX), `mlx` (macOS arm64: equivalence subset on Qwen3-0.6B, about 32 tokens per prompt), `router` (Go vet, test, chaos test against `ullm sim`), `terminal` (typecheck, lint, test, build), later `evals` (Q7). All required on `main`. First task: find out whether MLX runs on the hosted macOS runner, on GPU or CPU, and record the answer.
 
-**F3 Agent workflow.** `CLAUDE.md` under 60 lines: what the project is, a pointer to this file, the commands, the rules in brief. Project commands in `.claude/commands/`: `task` (start a task by ID following 3.4), `gate` (run a milestone's gate checklist and report each item as passed or failed with evidence), `quiz` (ten interview questions on a milestone, then grade the author's answers against the code).
+**F3 Agent workflow.** `CLAUDE.md` under 60 lines: what the project is, a pointer to this file, the commands, the rules in brief. Project commands in `.claude/commands/`: `gate` (run a milestone's gate checklist and report each item as passed or failed with evidence), `quiz` (ten interview questions on a milestone, then grade the author's answers against the code). Tasks run through keel's `/architect`, `/build` and `/ship` (3.4, decision 0007).
 
 **F4 Models and goldens.** Confirm the exact mlx-community repo ids for Qwen3-0.6B in bf16, 8-bit and 4-bit, and Qwen3-1.7B. A fetch script. Golden fixtures: token IDs from mlx-lm greedy generation over a fixed prompt set, stored with the library versions that produced them and regenerated on a version change. Thinking mode is off for all goldens, evals and benchmarks.
 

@@ -189,5 +189,5 @@ M0 (foundations) is built, merged and protected: the four CI jobs are required o
 
 1. Read the M0 decision records in `docs/decisions/`, especially 0006: greedy output can differ between Macs at near-tied tokens, so equivalence compares against mlx-lm on the same machine.
 2. Read panels 0, 1, 5 and 6 of the architecture walkthrough. That is the material for milestone M1.
-3. Open a session and say: *"/task M1-T1"*. It is a design task, so the agent shows you the design and waits for your approval.
+3. Open a session and say: *"/architect M1-T1"*. It is a design task, so the agent shows you the design and waits for your approval.
 4. Keep the catch log (`docs/AI_LOG.md`): add an entry each time you catch an agent mistake.

@@ -221,11 +221,11 @@ uLLM/
 ├── router/            Go module: cmd/ullm-router, internal/{proxy,health,breaker,routing,telemetry,auth,ratelimit,ledger}
 ├── terminal/          Vite + React + TypeScript
 ├── deploy/            docker-compose.yml, dashboards/, helm/
-├── scripts/           maintenance scripts outside the package: model fetch, contract export, goldens
+├── scripts/           maintenance scripts outside the package: model fetch, contract export, goldens, git-hooks/
 ├── docs/              ROADMAP.md, AGENT_ROADMAP.md, DESIGN.md, CLAIMS.md, AI_LOG.md, decisions/
 ├── .claude/commands/  task, gate, quiz
 ├── .github/workflows/
-├── Makefile · CLAUDE.md · README.md · LICENSE
+├── Makefile · CLAUDE.md · QUALITY.md · README.md · LICENSE
 ```
 
 ### 5.3 Request path

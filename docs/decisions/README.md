@@ -10,6 +10,7 @@ One short file per design decision, numbered in order (roadmap 3.3). A decision 
 | [0004](0004-synthetic-telemetry-fixtures.md) | Synthetic telemetry fixtures and the trace checker | M0-T5 |
 | [0005](0005-ci.md) | CI layout, and what MLX can use on GitHub's macOS runners | M0-T6 |
 | [0006](0006-models-and-goldens.md) | Pinned models, golden fixtures, and what crossing machines does to them | M0-T7 |
+| [0007](0007-adopt-keel.md) | Adopt keel: `QUALITY.md`, CI jobs call `make ci-*` targets, a pre-push hook | none |
 
 ## Template
 

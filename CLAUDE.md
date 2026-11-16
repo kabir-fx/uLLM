@@ -14,6 +14,14 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 - Python runs through `uv` (`uv run ...`). The router is a Go module in `router/`. The terminal uses `pnpm` in `terminal/`.
 - Project commands: `/task <ID>` starts a task, `/gate <milestone>` runs a gate, `/quiz <milestone>` quizzes the author.
 
+## Keel
+
+- Fast check: `make check` (after every increment)
+- Full check: `make ci` (before proof and before shipping)
+- Quality bar: `QUALITY.md`. Never weaken it to make a change pass.
+- Specs: `docs/AGENT_ROADMAP.md` section 6 · Decisions: `docs/decisions/` · Glossary: none yet
+- Run recipe: nothing launches yet; `make sim` arrives in M1-T3, `make up` in M5-T4
+
 ## Rules in brief (full text: roadmap 3.2)
 
 1. Greedy output equals mlx-lm's token IDs. Never loosen the equivalence test to make it pass.

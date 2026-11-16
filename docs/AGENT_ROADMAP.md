@@ -17,8 +17,8 @@ The single source of truth for building uLLM. Every piece that has to be built i
 | Next task | M1-T1 `[design]`: present the runner design and wait for approval |
 | Lane A (engine) | idle; M1 next |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | nothing |
-| Last session | Built and merged all of M0 (PRs #1 to #8), turned on branch protection, passed gate G0. Key finding for M1-T5: goldens diverge at near-ties on other hardware, so equivalence compares against mlx-lm on the same machine (decision 0006) |
+| Blocked on the author | review and merge the `chore/adopt-keel` pull request |
+| Last session | Adopted keel (decision 0007): `QUALITY.md`; `make ci` is the full check, and each CI job runs its `make ci-*` target; `scripts/git-hooks/pre-push` runs `make check`. The session before built and merged all of M0 and passed gate G0 |
 
 ---
 

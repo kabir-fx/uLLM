@@ -88,7 +88,7 @@ def test_temperature_one_follows_the_distribution() -> None:
     draws = _draws(_logits(_from_probs(*probs)), params, n=3000)
     for token, p in enumerate(probs):
         share = draws.count(token) / len(draws)
-        # 4 standard errors: a false failure about once in 16,000 runs of a fixed seed.
+        # 4 standard errors: about one seed in 5,000 fails one of the three by chance.
         assert abs(share - p) < 4 * math.sqrt(p * (1 - p) / len(draws))
 
 
@@ -138,3 +138,27 @@ def test_one_row_per_logits_row() -> None:
 
     with pytest.raises(ValueError, match="one sampling row per logits row"):
         sample(_logits([0.0, 1.0], [1.0, 0.0]), [_row(GREEDY)])
+
+
+@pytest.mark.parametrize("temperature", [1e38, 1e300])
+def test_a_huge_temperature_still_respects_the_masks(temperature: float) -> None:
+    logits = _logits([5.0, 4.0, 1.0, 0.0, -1.0])
+    for params in (
+        SamplingParams(temperature=temperature, top_p=1.0, top_k=2, seed=None),
+        SamplingParams(temperature=temperature, top_p=0.5, top_k=0, seed=None),
+    ):
+        allowed = {0, 1} if params.top_k else {0}
+        assert set(_draws(logits, params, n=200)) == allowed
+
+
+@pytest.mark.parametrize("top_p", [1e-50, 1e-38, 5e-324])
+def test_a_tiny_top_p_keeps_the_most_likely_token(top_p: float) -> None:
+    logits = _logits([5.0, 4.0, 1.0, 0.0])
+    params = SamplingParams(temperature=1.0, top_p=top_p, top_k=0, seed=None)
+    assert set(_draws(logits, params, n=100)) == {0}
+
+
+def test_a_tiny_temperature_is_greedy_even_without_a_certain_token() -> None:
+    logits = _logits([1.0, 0.0, 1.0 - 1e-3])
+    params = SamplingParams(temperature=1e-30, top_p=1.0, top_k=0, seed=None)
+    assert set(_draws(logits, params, n=50)) == {0}

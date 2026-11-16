@@ -53,7 +53,7 @@ class SamplingParams:
     temperature: float  # 0 means greedy
     top_p: float  # 1 means off
     top_k: int  # 0 means off
-    seed: int | None  # None: the runner draws one when the sequence is added
+    seed: int | None  # None promises no reproducibility; each runner chooses its own
 
     def __post_init__(self) -> None:
         if not (_is_number(self.temperature) and 0 <= self.temperature < math.inf):

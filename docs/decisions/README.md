@@ -12,6 +12,7 @@ One short file per design decision, numbered in order (roadmap 3.3). A decision 
 | [0006](0006-models-and-goldens.md) | Pinned models, golden fixtures, and what crossing machines does to them | M0-T7 |
 | [0007](0007-adopt-keel.md) | Adopt keel as the session workflow: `/build` and `/ship` replace `/task`; `QUALITY.md`, `make ci`, a pre-push hook; measured figures allowed in documents | none |
 | [0008](0008-runner-protocol.md) | Runner protocol v1: lifecycle and position invariants, the hidden `L-1` then `1` prefill split, `MLXRunner` with a concatenating cache, `FakeRunner` with a latency model, an MLX-free `Tokenizer` | M1-T1 |
+| [0009](0009-sampler-stop-detokenizer.md) | Sampler keyed by seed and position with masks before temperature, a byte-level streaming detokenizer, a stop check where the earliest-ending stop string wins | M1-T2 |
 
 ## Template
 

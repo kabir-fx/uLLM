@@ -1,6 +1,8 @@
 """MLXRunner beyond the shared conformance tests (decision 0008): what it refuses in M1,
 how it samples, what ``load_mlx`` reports, and what its cache and tokenizer accept."""
 
+import dataclasses
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
@@ -16,15 +18,52 @@ GREEDY = SamplingParams(temperature=0.0, top_p=1.0, top_k=0, seed=None)
 QWEN3_VOCAB = 151_936  # the logits width; the tokenizer has 151,669 entries (roadmap section 4)
 
 
-@pytest.mark.parametrize("temperature", [0.7, -1.0, float("nan")])
-def test_anything_but_temperature_zero_is_refused_and_adds_nothing(
-    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", temperature: float
+# "Write a poem." through the chat template, thinking off.
+PROMPT = (
+    151644,
+    872,
+    198,
+    7985,
+    264,
+    32794,
+    13,
+    151645,
+    198,
+    151644,
+    77091,
+    198,
+    151667,
+    271,
+    151668,
+    271,
+)
+
+
+def _generate(runner: "MLXRunner", seq: int, sampling: SamplingParams, n: int = 24) -> list[int]:
+    runner.add(seq, sampling)
+    tokens = list(runner.execute(PrefillPlan(seq=seq, token_ids=PROMPT, start=0)).tokens)
+    while len(tokens) < n:
+        tokens += runner.execute(DecodePlan(seqs=(seq,), token_ids=(tokens[-1],))).tokens
+    runner.release(seq)
+    return tokens
+
+
+def test_a_seed_reproduces_a_sampled_reply_under_any_sequence_id(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
 ) -> None:
     runner, _ = mlx_loaded
-    with pytest.raises(ValueError, match="M1-T2"):
-        runner.add(100, SamplingParams(temperature=temperature, top_p=1.0, top_k=0, seed=1))
-    runner.add(100, GREEDY)
-    runner.release(100)
+    hot = SamplingParams(temperature=1.5, top_p=0.95, top_k=50, seed=1234)
+    first = _generate(runner, 100, hot)
+    assert _generate(runner, 101, hot) == first
+    assert _generate(runner, 100, dataclasses.replace(hot, seed=1235)) != first
+
+
+def test_without_a_seed_each_sequence_draws_its_own(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    runner, _ = mlx_loaded
+    unseeded = SamplingParams(temperature=2.0, top_p=1.0, top_k=0, seed=None)
+    assert _generate(runner, 100, unseeded) != _generate(runner, 101, unseeded)
 
 
 def test_batched_decode_is_refused_without_failing_the_sequences(
@@ -176,3 +215,119 @@ def test_the_cache_asks_for_no_mask_on_one_query_and_causal_otherwise() -> None:
         kv.make_mask(5, window_size=4)
     with pytest.raises(ValueError, match="causal"):
         kv.make_mask(5, return_array=True)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Hello wörld 你好 🎉🎉 ok",
+        " leading space",
+        "a , b . c 's n't  x\n\n y",
+        "<think>\n\n</think>\n\nHi",
+    ],
+    ids=["multi-byte", "leading-space", "spacing", "special"],
+)
+def test_streamed_text_is_the_tokenizers_decoding(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", text: str
+) -> None:
+    _, tokenizer = mlx_loaded
+    ids = tokenizer.wrapped.encode(text, add_special_tokens=False)
+    detokenizer = tokenizer.detokenizer()
+    chunks = [detokenizer.add(i) for i in ids]
+    assert "".join(chunks) + detokenizer.flush() == tokenizer.wrapped.decode(ids) == text
+    assert not any("�" in chunk for chunk in chunks)
+
+
+def test_an_emoji_split_across_tokens_streams_whole(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    _, tokenizer = mlx_loaded
+    ids = tokenizer.wrapped.encode("🫠", add_special_tokens=False)
+    assert len(ids) == 3  # one byte-level token per byte group, in Qwen3's vocabulary
+    detokenizer = tokenizer.detokenizer()
+    assert [detokenizer.add(i) for i in ids] == ["", "", "🫠"]
+
+
+def test_a_stop_string_spanning_qwen3_tokens_is_cut_from_the_stream(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    from ullm.core.stop import StopCheck
+
+    _, tokenizer = mlx_loaded
+    ids = tokenizer.wrapped.encode("The answer is 42.\n\nUser: next? 🫠", add_special_tokens=False)
+    stop = "\n\nUser:"
+    pieces = [tokenizer.wrapped.decode([i]) for i in ids]
+    assert not any(stop in p for p in pieces)  # it spans tokens
+    check = StopCheck(tokenizer.detokenizer(), frozenset({151645}), max_tokens=64, stop=(stop,))
+    chunks = [check.add(i) for i in ids[: pieces.index(":") + 1]]
+    assert "".join(c.text for c in chunks) == "The answer is 42."
+    assert [c.finish_reason for c in chunks][-1] == "stop"
+
+
+def test_streamed_text_is_the_decoding_of_any_token_ids(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    import random
+
+    runner, tokenizer = mlx_loaded
+    rng = random.Random(0)
+    special = sorted(tokenizer.wrapped.added_tokens_decoder)
+    for _ in range(300):
+        # Any id the model can sample, including those past the tokenizer, plus added tokens.
+        ids = [rng.randrange(runner.info().vocab_size) for _ in range(rng.randrange(1, 40))]
+        ids += rng.sample(special, 2)
+        rng.shuffle(ids)
+        detokenizer = tokenizer.detokenizer()
+        streamed = "".join(detokenizer.add(i) for i in ids) + detokenizer.flush()
+        assert streamed == tokenizer.wrapped.decode(ids)
+
+
+def test_a_token_that_ends_one_character_and_starts_the_next_keeps_streaming(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    _, tokenizer = mlx_loaded
+    lead = [tokenizer.wrapped.convert_tokens_to_ids("áŀ")]  # bytes E1 9E, as Qwen3 spells them
+    detokenizer = tokenizer.detokenizer()
+    streamed = "".join(detokenizer.add(i) for i in lead)
+    for _ in range(1000):
+        streamed += detokenizer.add(72496)  # bytes 92 E1 9E: finishes one ធ, starts another
+    assert streamed == "ធ" * 1000
+
+
+def test_only_a_byte_level_tokenizer_is_accepted() -> None:
+    from tokenizers import decoders
+
+    from ullm.runner.mlx_runner import MLXTokenizer
+
+    word_piece = SimpleNamespace(backend_tokenizer=SimpleNamespace(decoder=decoders.WordPiece()))
+    with pytest.raises(ValueError, match="ByteLevel"):
+        MLXTokenizer(word_piece, vocab_size=10)
+
+
+def test_each_sampled_token_is_keyed_by_the_position_it_takes(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    from ullm.runner.mlx_runner import MLXRunner
+    from ullm.runner.sampler import SampleRow, sample
+
+    loaded, _ = mlx_loaded
+    seen: list[Any] = []
+
+    class Recording:
+        layers = loaded.model.layers
+
+        def __call__(self, inputs: Any, cache: Any) -> Any:
+            seen.append(loaded.model(inputs, cache=cache))
+            return seen[-1]
+
+    hot = SamplingParams(temperature=1.5, top_p=1.0, top_k=0, seed=99)
+    runner = MLXRunner(Recording(), loaded.info())
+    runner.add(1, hot)
+    tokens = list(runner.execute(PrefillPlan(seq=1, token_ids=PROMPT, start=0)).tokens)
+    for _ in range(6):
+        tokens += runner.execute(DecodePlan(seqs=(1,), token_ids=(tokens[-1],))).tokens
+    # The prefill runs as two forwards (decision 0008); the last logits of each step sample.
+    step_logits = [seen[1], *seen[2:]]
+    for n, (logits, token) in enumerate(zip(step_logits, tokens, strict=True)):
+        row = SampleRow(hot, seed=99, position=len(PROMPT) + n)
+        assert sample(logits[:, -1, :], [row]).item() == token

@@ -14,9 +14,9 @@ Invariants every runner keeps, and every caller may rely on:
    the runner holds for the sequence; a ``DecodePlan`` row appends one token.
    No sequence grows past ``max_model_len``, and every token ID is in
    ``[0, vocab_size)``. A violation raises ``ValueError`` before any forward
-   pass and changes nothing. Plans, ``add`` and ``release`` refuse sequence
-   ids, positions, token ids, flags and containers of the wrong type.
-   ``SamplingParams`` is not checked yet (M1-T2).
+   pass and changes nothing. Plans, ``SamplingParams``, ``add`` and ``release``
+   refuse sequence ids, positions, token ids, flags, sampling settings and
+   containers of the wrong type or range.
 3. ``StepResult.tokens`` has one entry per sampled row, in plan order.
 4. An ``execute`` that fails after validation, in the forward pass or the
    eval, marks every sequence in the plan as failed. The only legal call for a
@@ -50,9 +50,37 @@ SeqId = int  # engine-internal; the core maps request ids to these
 @dataclass(frozen=True, slots=True)
 class SamplingParams:
     temperature: float  # 0 means greedy
-    top_p: float
+    top_p: float  # 1 means off
     top_k: int  # 0 means off
-    seed: int | None
+    seed: int | None  # None promises no reproducibility; each runner chooses its own
+
+    def __post_init__(self) -> None:
+        # The sampler divides float32 log-probabilities by the temperature, so it must be a
+        # number float32 holds exactly enough: 0 (greedy) or a normal float32 (decision 0009).
+        if not (
+            _is_number(self.temperature)
+            and (self.temperature == 0 or _FLOAT32_TINY <= self.temperature <= _FLOAT32_MAX)
+        ):
+            raise ValueError(
+                f"temperature must be 0 or a normal float32 > 0, got {self.temperature!r}"
+            )
+        if not (_is_number(self.top_p) and 0 < self.top_p <= 1):
+            raise ValueError(f"top_p must be in (0, 1], got {self.top_p!r}")
+        if type(self.top_k) is not int or self.top_k < 0:
+            raise ValueError(f"top_k must be an int >= 0, got {self.top_k!r}")
+        if self.seed is not None and type(self.seed) is not int:
+            raise ValueError(f"seed must be an int or None, got {self.seed!r}")
+        # An int would reach MLX as an int, which it cannot convert past int64.
+        object.__setattr__(self, "temperature", float(self.temperature))
+        object.__setattr__(self, "top_p", float(self.top_p))
+
+
+_FLOAT32_TINY = 1.1754943508222875e-38  # the smallest normal float32
+_FLOAT32_MAX = 3.4028234663852886e38
+
+
+def _is_number(value: object) -> bool:
+    return type(value) in (int, float)
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,9 +162,26 @@ class TemplateMessage(TypedDict):
     content: str
 
 
+class Detokenizer(Protocol):
+    """One sequence's output tokens to text, streamed. Concatenated, its chunks are the
+    tokenizer's decoding of every token added."""
+
+    def add(self, token: int) -> str:
+        """The text this token completes; empty while a character is still incomplete."""
+        ...
+
+    def flush(self) -> str:
+        """The text held back, with any unfinished character as U+FFFD, at the end."""
+        ...
+
+
 class Tokenizer(Protocol):
     def render(
         self, messages: Sequence[TemplateMessage], template_kwargs: Mapping[str, object]
     ) -> tuple[int, ...]:
         """Apply the model's chat template with a generation prompt, then tokenize."""
+        ...
+
+    def detokenizer(self) -> Detokenizer:
+        """A new streaming detokenizer for one sequence."""
         ...

@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 built on `m1/t1-runner`, not yet shipped |
+| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 shipped (#11). M1-T2 built on `m1/t2-sampler`, not yet shipped |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | `/ship` M1-T1 from `m1/t1-runner`, base `main`. Then M1-T2 (sampler, stop check, detokenizer), stacked on it |
-| Lane A (engine) | M1-T1 awaiting `/ship` |
+| Next task | `/ship` M1-T2 from `m1/t2-sampler`, base `main`. Then M1-T3 `[design]` (request state machine, engine loop, thread bridge) |
+| Lane A (engine) | M1-T2 awaiting `/ship` |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | ship M1-T1; close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
+| Blocked on the author | ship M1-T2 (its pull request must justify the new direct pin `tokenizers==0.23.3`, rule 13); close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | Built M1-T1 (decision 0008): the runner protocol v1 with its invariants in `runner/base.py` and one `SeqLedger` for both runners; `MLXRunner` with a concatenating `ContiguousKV`, the hidden `L-1` then `1` prefill split and greedy over log-probabilities; `FakeRunner` with a latency model; an MLX-free `Tokenizer`. Greedy output equals mlx-lm token for token on all golden prompts at 128 tokens (claim 9). Plans, `add` and `release` refuse wrongly typed ids, flags and containers, after review found `sample=1` silently ran the rejected single prefill. Proof VERIFIED at `4076d5e`; three review rounds plus a focused fourth, verdicts in the pull request body. All subagents now run on Opus, never Fable (keel skills edited, not yet committed in the keel repo). Teach-back given in the session |
+| Last session | Built M1-T2 (decision 0009): a per-row sampler in `runner/sampler.py` (greedy unchanged; top-p and top-k masks on the untempered distribution, as mlx-lm; keys from `(seed, position)`); `SamplingParams` checks its fields, refuses temperatures outside float32's normal range and stores floats; a byte-level `ByteDetokenizer` behind `Tokenizer.detokenizer()`, fed by a token-bytes table `MLXTokenizer` builds at load (ByteLevel tokenizers only); `core/stop.py` with `StopCheck` (end tokens, `max_tokens`, stop strings held back, the earliest-ending stop wins). Review replaced a window-decoding detokenizer that stalled on real U+FFFD and on tokens straddling two characters. Proof VERIFIED at `d4e51d2`; review READY after two rounds and confirmations, verdicts go in the pull request body. Hand-off to M1-T4: `SamplingParams` raises `ValueError` for some values the API schema accepts (e.g. temperature `1e-40`), which must become a 400. Teach-back given in the session |
 
 ---
 
@@ -571,7 +571,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 #### M1 One request, end to end
 
 - [x] **M1-T1** `[design]` Runner protocol, `MLXRunner` with our own generation loop and a contiguous cache, `FakeRunner` (E1, C3).
-- [ ] **M1-T2** Sampler, stop check, detokenizer (E2, E3).
+- [x] **M1-T2** Sampler, stop check, detokenizer (E2, E3).
 - [ ] **M1-T3** `[design]` Request state machine, engine loop, thread bridge, scheduler interface at `max_num_seqs = 1`, `ullm sim` (E4, E5, E6).
 - [ ] **M1-T4** API server (A1).
 - [ ] **M1-T5** Tests: unit (Q1), single-request equivalence (Q3), SDK contract and 50 clients (Q4).

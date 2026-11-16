@@ -30,9 +30,11 @@ The repo had no full check that matched CI. `make check` left out five things th
      - the teach-back notes
 2. `/task` is removed. `/gate` and `/quiz` stay as the project commands (F3).
 3. The roadmap stays the spec. Keel reads the task in section 7 and its catalog entries in section 6.
-4. The verdicts are recorded in two places.
-   - The pull request records VERIFIED proof and READY review verdicts with the commit they cover (3.3).
-   - `/build` ticks the task in section 7 with that commit (`· verdicts at <commit>`). A `/ship` in a later session finds it there, and `/gate` checks it.
+4. The pull request body is the one verdict record. It holds VERIFIED proof and READY review verdicts, with the commit they cover (3.3).
+   - `/ship` writes it and updates it when the verdicts are renewed. `/gate` reads it with `gh pr view`.
+   - `/build`'s done marker is the tick in section 7. The roadmap has no `Status:` lines.
+   - A `/ship` started in a new chat cannot see `/build`'s report, so it runs proof and review again.
+   - No history rewrite after the verdicts, so the commit they name stays on the branch.
 5. `/build` keeps choosing the rigor. The repo sets no minimum.
 6. `QUALITY.md` at the root names the command behind each part of the bar. Roadmap 3.2 and 3.3 remain the bar.
 7. Each CI job runs one Makefile target: `ci-core`, `ci-mlx`, `ci-router` or `ci-terminal`.
@@ -49,6 +51,7 @@ The repo had no full check that matched CI. `make check` left out five things th
 - **Regenerate the spec with keel.** The roadmap already is the spec, and M0 was built and gated against it. A second spec would compete with section 0 as the source of truth.
 - **Restart the repo under keel.** It would throw away M0, which passed gate G0, only to change how later tasks run.
 - **A minimum rigor of Standard for roadmap tasks.** It would guarantee an independent verifier on every task. The author left the choice to `/build`, which raises the rigor for concurrency, public interfaces and anything hard to undo.
+- **The verdict commit on the task's tick in section 7.** It would be a second record, and it goes stale. A merge from `main` renews the verdicts only in the pull request body, and tidying history before the push rewrites the hash.
 - **`make ci` repeating CI's commands, with the workflow unchanged.** It gives two lists that drift apart.
 - **The bar guard as a non-required CI job.** It would list each pull request's new suppressions, skipped tests and stubs on the diff. The author declined it for now.
 - **An untracked `.git/hooks/pre-push`.** It is not reviewed, and it is lost with the clone.

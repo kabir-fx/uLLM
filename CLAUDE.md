@@ -19,7 +19,8 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 - Fast check: `make check` (after every increment)
 - Full check: `make ci` (before proof and before shipping)
 - Quality bar: `QUALITY.md`. Never weaken it to make a change pass.
-- Specs: `docs/AGENT_ROADMAP.md` section 6 · Decisions: `docs/decisions/` · Glossary: none yet
+- Specs: `docs/AGENT_ROADMAP.md` (tasks in section 7, catalog in section 6) · Decisions: `docs/decisions/` · Glossary: none yet
+- Done marker: tick the task in section 7; no `Status:` lines. The verdicts live in the pull request body.
 - Run recipe: nothing launches yet; `make sim` arrives in M1-T3, `make up` in M5-T4
 
 ## Rules in brief (full text: roadmap 3.2)
@@ -43,7 +44,7 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 
 - One task per session; stop at the task boundary.
 - `[design]` tasks: `/architect`, then wait for approval before production code. `[spike]` tasks: present the measurement plan and wait for approval before production code.
-- The author types `/build <ID>`, then `/ship`; an agent cannot start them and writes no production code for a task outside `/build`. `/build`: anchoring tests first, small conventional commits, branch `m<N>/t<K>-<slug>`; it ends by ticking the task with its verdict commit (`· verdicts at <commit>`). `/ship`: one pull request per task, recording VERIFIED and READY at that commit, merged only when CI is green.
+- The author types `/build <ID>`, then `/ship`; an agent cannot start them and writes no production code for a task outside `/build`. `/build`: anchoring tests first, small conventional commits, branch `m<N>/t<K>-<slug>`; it ends by ticking the task. `/ship`, in the same chat: one pull request per task, its body recording VERIFIED and READY with the commit they cover, merged only when CI is green. No history rewrite after the verdicts.
 - On a stacked branch, `prove`, `vet` and `/ship` take the previous task's branch as the base.
 - Record design choices in `docs/decisions/NNNN-title.md`. New claims get a row in `docs/CLAIMS.md`.
 - End with teach-back notes for the author: up to seven bullets, three interview questions, open doubts.

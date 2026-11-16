@@ -19,7 +19,7 @@ The single source of truth for building uLLM. Every piece that has to be built i
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
 | Blocked on the author | review and merge the `chore/adopt-keel` pull request; close pipeline gap 1 (`enforce_admins`) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | Adopted keel as the session workflow (decision 0007): tasks run through `/architect`, `/build` and `/ship`, and `/task` is gone. The tick in section 7 carries the verdict commit, and `/gate` checks it. Measured figures are now allowed in documents. It also added `QUALITY.md`; `make ci` as the full check, with each CI job running its `make ci-*` target; and a pre-push hook that runs `make check`. The session before built and merged all of M0 and passed gate G0 |
+| Last session | Adopted keel as the session workflow (decision 0007): tasks run through `/architect`, `/build` and `/ship`, and `/task` is gone. The pull request body records the verdicts, and `/gate` checks them. Measured figures are now allowed in documents. It also added `QUALITY.md`; `make ci` as the full check, with each CI job running its `make ci-*` target; and a pre-push hook that runs `make check`. The session before built and merged all of M0 and passed gate G0 |
 
 ---
 
@@ -123,8 +123,8 @@ Tasks run through keel's skills (decision 0007). The author starts `/build` and 
 1. Read section 0, the task in section 7, the catalog entries it names, and any contract (6.2) it touches. If section 0 says another task is in flight, or the task's prerequisites are not merged, stop and say so.
 2. `[design]` tasks: `/architect`, then the author's approval before any production code. `[spike]` tasks: the measurement plan, then the author's approval before any production code.
 3. `/build` the task, in small conventional commits on a branch named like `m2/t3-scheduler`. Write the anchoring tests first where an anchor exists (equivalence, invariants, contract tests). Engine changes: `make equivalence`. Performance-relevant changes: `make bench-smoke` on the base before the first commit, and again after. Outside `/build`, an agent writes no production code for a task; it asks the author to type `/build <ID>`.
-4. Once the verdicts are in, on the same branch: add the decision records, update section 0, and tick the task with the commit the verdicts cover, as in `- [x] **M1-T1** … · verdicts at abc1234`.
-5. `/ship` it: one pull request per task, merged only when CI is green. On a stacked branch (decision 0001), `prove`, `vet` and `/ship` take the previous task's branch as the base, not `main`.
+4. Once the verdicts are in, on the same branch: add the decision records, update section 0, and tick the task. The tick is the done marker; the roadmap has no `Status:` lines.
+5. `/ship` it, in the same chat as `/build`; in a new chat it runs proof and review again. One pull request per task, its body recording the verdicts, merged only when CI is green. No history rewrite after the verdicts. On a stacked branch (decision 0001), `prove`, `vet` and `/ship` take the previous task's branch as the base, not `main`.
 6. Finish with **teach-back notes** for the author: up to seven bullets on what was built and why it is shaped that way, three questions an interviewer could ask about it, and anything you were unsure of. Do not write `docs/DESIGN.md`; that file is the author's own work. Fact-check it when asked.
 
 ### 3.5 Lanes

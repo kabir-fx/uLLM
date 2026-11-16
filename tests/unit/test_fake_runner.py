@@ -91,3 +91,24 @@ def test_steps_sleep_and_report_the_modelled_time() -> None:
     assert (prefill.forward_ms, prefill.total_ms) == (10.0, 10.0)
     assert (decode.forward_ms, decode.total_ms) == (14.0, 14.0)
     assert sleeps == pytest.approx([0.010, 0.0055, 0.014])
+
+
+def test_a_token_is_keyed_by_its_position_however_it_was_reached() -> None:
+    runner = _runner()
+    runner.add(1, _sampling(None))
+    prefilled = runner.execute(PrefillPlan(seq=1, token_ids=(1,) * 6, start=0)).tokens
+    runner.release(1)
+    runner.add(1, _sampling(None))
+    runner.execute(PrefillPlan(seq=1, token_ids=(1,) * 5, start=0, sample=False))
+    decoded = runner.execute(DecodePlan(seqs=(1,), token_ids=(1,))).tokens
+    assert decoded == prefilled
+
+
+def test_a_vocabulary_of_only_eos_is_refused() -> None:
+    with pytest.raises(ValueError, match="EOS"):
+        FakeRunner(
+            RunnerInfo(
+                model_id="f", vocab_size=2, eos_token_ids=frozenset({0, 1}), max_model_len=8
+            ),
+            LATENCY,
+        )

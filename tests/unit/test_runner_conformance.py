@@ -116,9 +116,9 @@ def test_a_sequence_cannot_grow_past_max_model_len(runner: Runner) -> None:
         runner.execute(DecodePlan(seqs=(1,), token_ids=step.tokens))
 
 
-@pytest.mark.parametrize("bad", [-1, "vocab"])
-def test_token_ids_must_be_in_the_vocabulary(runner: Runner, bad: int | str) -> None:
-    token = _vocab(runner) if bad == "vocab" else int(bad)
+@pytest.mark.parametrize("bad", [-1, "vocab", 6.5])
+def test_token_ids_must_be_in_the_vocabulary(runner: Runner, bad: float | str) -> None:
+    token: Any = _vocab(runner) if bad == "vocab" else bad  # untyped data, as from JSON
     runner.add(1, GREEDY)
     with pytest.raises(ValueError, match="vocab"):
         runner.execute(PrefillPlan(seq=1, token_ids=(5, token), start=0))
@@ -150,6 +150,17 @@ def test_prefill_samples_one_token_unless_told_not_to(runner: Runner) -> None:
     assert 0 <= token < _vocab(runner)
 
 
+def test_a_chunked_prefill_samples_what_one_prefill_does(runner: Runner) -> None:
+    runner.add(1, GREEDY)
+    runner.add(2, GREEDY)
+    runner.execute(PrefillPlan(seq=1, token_ids=(5, 6), start=0, sample=False))
+    chunked = runner.execute(PrefillPlan(seq=1, token_ids=(7,), start=2))
+    runner.release(1)
+    runner.add(1, GREEDY)
+    whole = runner.execute(PrefillPlan(seq=1, token_ids=(5, 6, 7), start=0))
+    assert chunked.tokens == whole.tokens
+
+
 def test_timings_are_reported(runner: Runner) -> None:
     runner.add(1, GREEDY)
     step = runner.execute(PrefillPlan(seq=1, token_ids=(5, 6, 7), start=0))
@@ -175,3 +186,18 @@ def test_after_a_failed_step_only_release_is_legal(built: tuple[Runner, Breakabl
     runner.release(1)
     runner.add(1, GREEDY)
     runner.execute(PrefillPlan(seq=1, token_ids=(5, 6), start=0))
+
+
+def test_a_failed_batch_fails_every_sequence_in_it() -> None:
+    sleep = Breakable(lambda seconds: None)
+    runner = FakeRunner(INFO, NO_LATENCY, sleep=sleep)
+    for seq in (1, 2, 3):
+        runner.add(seq, GREEDY)
+        runner.execute(PrefillPlan(seq=seq, token_ids=(5,), start=0))
+    sleep.armed = True
+    with pytest.raises(RuntimeError, match="injected"):
+        runner.execute(DecodePlan(seqs=(1, 2), token_ids=(5, 5)))
+    for seq in (1, 2):
+        with pytest.raises(ValueError, match="failed"):
+            runner.execute(DecodePlan(seqs=(seq,), token_ids=(5,)))
+    runner.execute(DecodePlan(seqs=(3,), token_ids=(5,)))

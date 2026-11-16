@@ -131,3 +131,9 @@ def test_settings_are_checked(changes: dict[str, Any], match: str) -> None:
     settings: dict[str, Any] = {"max_tokens": 4, "stop": ()} | changes
     with pytest.raises(ValueError, match=match):
         StopCheck(Pieces([]), frozenset({EOS}), **settings)
+
+
+def test_text_released_at_the_end_token_can_complete_a_stop_string() -> None:
+    check, _ = _check(["Hel"], stop=("Hello",), held="lo")
+    assert check.add(0) == Chunk("", None)
+    assert check.add(EOS) == Chunk("", "stop")

@@ -162,3 +162,19 @@ def test_a_tiny_temperature_is_greedy_even_without_a_certain_token() -> None:
     logits = _logits([1.0, 0.0, 1.0 - 1e-3])
     params = SamplingParams(temperature=1e-30, top_p=1.0, top_k=0, seed=None)
     assert set(_draws(logits, params, n=50)) == {0}
+
+
+def test_top_k_at_or_past_the_vocabulary_is_off() -> None:
+    logits = _logits([0.0, 0.0, 0.0])
+    for top_k in (3, 10**9):
+        params = SamplingParams(temperature=1.0, top_p=1.0, top_k=top_k, seed=None)
+        assert set(_draws(logits, params, n=100)) == {0, 1, 2}
+
+
+def test_ties_at_the_edge_of_a_mask_stay() -> None:
+    logits = _logits([2.0, 1.0, 1.0, 0.0])
+    top_k = SamplingParams(temperature=1.0, top_p=1.0, top_k=2, seed=None)
+    assert set(_draws(logits, top_k)) == {0, 1, 2}
+    probs = _logits(_from_probs(0.4, 0.3, 0.3))
+    top_p = SamplingParams(temperature=1.0, top_p=0.6, top_k=0, seed=None)
+    assert set(_draws(probs, top_p)) == {0, 1, 2}

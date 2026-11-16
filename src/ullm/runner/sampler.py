@@ -39,24 +39,29 @@ def _one(logits: mx.array, row: SampleRow) -> mx.array:
     logprobs = logits.astype(mx.float32)
     logprobs = logprobs - mx.logsumexp(logprobs, keepdims=True)
     # The masks see the untempered distribution, as in mlx-lm (decision 0009).
+    keep = mx.ones(logprobs.shape, dtype=mx.bool_)
     if params.top_p < 1:
-        logprobs = _top_p(logprobs, params.top_p)
+        keep = keep & _top_p(logprobs, params.top_p)
     if 0 < params.top_k < logprobs.shape[-1]:
-        logprobs = _top_k(logprobs, params.top_k)
-    return mx.random.categorical(logprobs / params.temperature, key=_key(row))
+        keep = keep & _top_k(logprobs, params.top_k)
+    # Tempering after the max is 0 keeps the most likely token finite at any temperature,
+    # and masking after tempering keeps -inf from meeting an infinite divisor.
+    tempered = (logprobs - logprobs.max()) / params.temperature
+    return mx.random.categorical(mx.where(keep, tempered, -mx.inf), key=_key(row))
 
 
 def _top_p(logprobs: mx.array, top_p: float) -> mx.array:
-    """Keep the most likely tokens until their mass reaches ``top_p``. Ties at the edge stay."""
+    """The most likely tokens until their mass reaches ``top_p``, at least one. Ties at the
+    edge stay."""
     ordered = -mx.sort(-logprobs)
     probs = mx.exp(ordered)
-    kept = ((mx.cumsum(probs) - probs) < top_p).sum()  # the most likely always has 0 before it
-    return mx.where(logprobs < ordered[kept - 1], -mx.inf, logprobs)
+    kept = mx.maximum(((mx.cumsum(probs) - probs) < top_p).sum(), 1)  # top_p may round to 0
+    return logprobs >= ordered[kept - 1]
 
 
 def _top_k(logprobs: mx.array, top_k: int) -> mx.array:
-    """Keep the ``top_k`` most likely tokens. Ties with the last one stay."""
-    return mx.where(logprobs < mx.topk(logprobs, top_k).min(), -mx.inf, logprobs)
+    """The ``top_k`` most likely tokens. Ties with the last one stay."""
+    return logprobs >= mx.topk(logprobs, top_k).min()
 
 
 def _key(row: SampleRow) -> mx.array:

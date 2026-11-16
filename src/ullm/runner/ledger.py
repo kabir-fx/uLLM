@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from ullm.runner.base import DecodePlan, PrefillPlan, RunnerInfo, SeqId, StepPlan
+from ullm.runner.base import DecodePlan, PrefillPlan, RunnerInfo, SeqId, StepPlan, require_ints
 
 
 class SeqLedger:
@@ -14,11 +14,13 @@ class SeqLedger:
         self._held: dict[SeqId, int | None] = {}
 
     def add(self, seq: SeqId) -> None:
+        require_ints("seq", (seq,))
         if seq in self._held:
             raise ValueError(f"sequence {seq} is already added")
         self._held[seq] = 0
 
     def release(self, seq: SeqId) -> None:
+        require_ints("seq", (seq,))
         self._live(seq)
         del self._held[seq]
 

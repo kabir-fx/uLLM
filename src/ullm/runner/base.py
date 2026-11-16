@@ -14,8 +14,9 @@ Invariants every runner keeps, and every caller may rely on:
    the runner holds for the sequence; a ``DecodePlan`` row appends one token.
    No sequence grows past ``max_model_len``, and every token ID is in
    ``[0, vocab_size)``. A violation raises ``ValueError`` before any forward
-   pass and changes nothing. Plans refuse ids, positions and flags of the
-   wrong type when they are built, so untyped data cannot reach a runner.
+   pass and changes nothing. Plans, ``add`` and ``release`` refuse ids,
+   positions, flags and containers of the wrong type, so untyped data cannot
+   reach a runner's state.
 3. ``StepResult.tokens`` has one entry per sampled row, in plan order.
 4. An ``execute`` that fails after validation, in the forward pass or the
    eval, marks every sequence in the plan as failed. The only legal call for a
@@ -30,11 +31,17 @@ from dataclasses import dataclass
 from typing import Literal, Protocol, TypedDict, runtime_checkable
 
 
-def _ints(name: str, values: tuple[object, ...]) -> None:
+def require_ints(name: str, values: tuple[object, ...]) -> None:
     # Annotations are not checked at runtime, and bool is a subclass of int.
     wrong = [v for v in values if type(v) is not int]
     if wrong:
         raise ValueError(f"{name} must be int, got {wrong!r}")
+
+
+def _require_tuple(name: str, value: object) -> None:
+    # A list stays mutable inside a frozen plan; a generator is used up by the check.
+    if type(value) is not tuple:
+        raise ValueError(f"{name} must be a tuple, got {type(value).__name__}")
 
 
 SeqId = int  # engine-internal; the core maps request ids to these
@@ -66,7 +73,8 @@ class PrefillPlan:
     sample: bool = True  # false for a chunk that is not the last (E13)
 
     def __post_init__(self) -> None:
-        _ints("seq, start and token ids", (self.seq, self.start, *self.token_ids))
+        _require_tuple("token_ids", self.token_ids)
+        require_ints("seq, start and token ids", (self.seq, self.start, *self.token_ids))
         if type(self.sample) is not bool:
             raise ValueError(f"sample must be a bool, got {self.sample!r}")
         if not self.token_ids:
@@ -83,7 +91,9 @@ class DecodePlan:
     token_ids: tuple[int, ...]  # each sequence's last token, fed back
 
     def __post_init__(self) -> None:
-        _ints("seqs and token ids", (*self.seqs, *self.token_ids))
+        _require_tuple("seqs", self.seqs)
+        _require_tuple("token_ids", self.token_ids)
+        require_ints("seqs and token ids", (*self.seqs, *self.token_ids))
         if not self.seqs:
             raise ValueError("a decode step needs at least one sequence")
         if len(self.seqs) != len(self.token_ids):

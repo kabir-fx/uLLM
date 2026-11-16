@@ -39,14 +39,15 @@ def load_mlx(spec: ModelSpec) -> tuple["MLXRunner", "MLXTokenizer"]:
     return MLXRunner(model, info), MLXTokenizer(wrapped)
 
 
-# Every apply_chat_template parameter except its template inputs (tools, documents), as of
-# transformers 5.23: each changes the template, control-token escaping (M1-T4 decides),
-# or the type or length of what render returns.
+# Every apply_chat_template parameter except the template inputs tools and documents, as of
+# transformers 5.23: each replaces the messages or the template, changes control-token
+# escaping (M1-T4 decides), or changes the type or length of what render returns.
 FIXED_TEMPLATE_OPTIONS = frozenset(
     {
         "add_generation_prompt",
         "chat_template",
         "continue_final_message",
+        "conversation",
         "max_length",
         "padding",
         "return_assistant_tokens_mask",
@@ -73,6 +74,8 @@ class MLXTokenizer:
         ids = self.wrapped.apply_chat_template(
             list(messages), add_generation_prompt=True, **template_kwargs
         )
+        if not all(type(t) is int for t in ids):
+            raise ValueError("render takes one conversation, not a batch")
         return tuple(ids)
 
 

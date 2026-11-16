@@ -45,7 +45,8 @@ class FakeRunner:
         latency: Latency,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        if info.vocab_size <= len(info.eos_token_ids):
+        self._eos = sorted(e for e in info.eos_token_ids if 0 <= e < info.vocab_size)
+        if info.vocab_size <= len(self._eos):
             raise ValueError("FakeRunner needs a token that is not EOS")
         self._info = info
         self._latency = latency
@@ -57,8 +58,9 @@ class FakeRunner:
         return self._info
 
     def add(self, seq: SeqId, sampling: SamplingParams) -> None:
+        seed = sampling.seed or 0
         self._ledger.add(seq)
-        self._seeds[seq] = sampling.seed or 0
+        self._seeds[seq] = seed
 
     def release(self, seq: SeqId) -> None:
         self._ledger.release(seq)
@@ -80,9 +82,8 @@ class FakeRunner:
         """The token sampled at ``position``, the index it takes in the sequence. Never EOS."""
         key = f"{self._seeds[seq]}:{seq}:{position}".encode()
         digest = hashlib.blake2b(key, digest_size=8).digest()
-        eos = sorted(self._info.eos_token_ids)
-        token = int.from_bytes(digest) % (self._info.vocab_size - len(eos))
-        for skipped in eos:  # maps [0, vocab - |eos|) onto the ids that are not EOS
+        token = int.from_bytes(digest) % (self._info.vocab_size - len(self._eos))
+        for skipped in self._eos:  # maps [0, vocab - |eos|) onto the ids that are not EOS
             if token >= skipped:
                 token += 1
         return token

@@ -82,3 +82,36 @@ def test_a_word_keeps_its_space_when_the_tokenizer_drops_a_leading_one() -> None
     detokenizer = IncrementalDetokenizer(decode)
     chunks = [detokenizer.add(i) for i in range(3)] + [detokenizer.flush()]
     assert "".join(chunks) == decode([0, 1, 2]) == "Hello world!"
+
+
+class Recording(ByteTokens):
+    """Records the longest window of tokens decoded at once."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.widest = 0
+
+    def decode(self, ids: Sequence[int]) -> str:
+        self.widest = max(self.widest, len(ids))
+        return super().decode(ids)
+
+
+@given(st.text(alphabet=st.sampled_from("a😀�é")), st.lists(st.integers(min_value=0)))
+def test_a_real_replacement_character_streams_and_the_window_stays_short(
+    text: str, cuts: list[int]
+) -> None:
+    tokens = Recording()
+    ids = tokens.encode(text.encode(), cuts)
+    chunks, rest = _stream(tokens, ids)
+    assert "".join(chunks) + rest == text
+    assert tokens.widest <= 8
+
+
+def test_a_run_of_real_replacement_characters_lags_at_most_three_tokens() -> None:
+    tokens = ByteTokens()
+    ids = tokens.encode("�".encode() * 1000, list(range(0, 3000, 3)))
+    detokenizer = IncrementalDetokenizer(tokens.decode)
+    streamed = ""
+    for n, token in enumerate(ids, start=1):
+        streamed += detokenizer.add(token)
+        assert len(streamed) >= n - 3

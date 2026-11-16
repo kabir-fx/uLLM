@@ -63,7 +63,9 @@ def test_prefill_refuses_a_sample_flag_that_is_not_a_bool(bad: Any) -> None:
 
 
 @pytest.mark.parametrize(
-    "make", [list, range, lambda ids: (i for i in ids)], ids=["list", "range", "generator"]
+    "make",
+    [list, lambda ids: range(ids[0], ids[0] + len(ids)), lambda ids: (i for i in ids)],
+    ids=["list", "range", "generator"],
 )
 def test_plans_take_ids_and_seqs_only_as_tuples(make: Any) -> None:
     with pytest.raises(ValueError, match="tuple"):

@@ -2,7 +2,9 @@
 
 Each row carries its own settings. A sampled row draws with a key derived from
 its sequence's seed and the position the token takes, so a seed reproduces a
-reply whatever shares the batch, and after preemption rebuilds a sequence's KV.
+reply whatever shares the batch. A sequence rebuilt after preemption draws with
+the same keys, but its tokens match only while its logits do: a prefill computes
+bf16 logits that differ from decode's (decision 0008).
 """
 
 import hashlib

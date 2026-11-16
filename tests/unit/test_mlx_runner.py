@@ -245,3 +245,19 @@ def test_an_emoji_split_across_tokens_streams_whole(
     assert len(ids) == 3  # one byte-level token per byte group, in Qwen3's vocabulary
     detokenizer = tokenizer.detokenizer()
     assert [detokenizer.add(i) for i in ids] == ["", "", "🫠"]
+
+
+def test_a_stop_string_spanning_qwen3_tokens_is_cut_from_the_stream(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    from ullm.core.stop import StopCheck
+
+    _, tokenizer = mlx_loaded
+    ids = tokenizer.wrapped.encode("The answer is 42.\n\nUser: next? 🫠", add_special_tokens=False)
+    stop = "\n\nUser:"
+    pieces = [tokenizer.wrapped.decode([i]) for i in ids]
+    assert not any(stop in p for p in pieces)  # it spans tokens
+    check = StopCheck(tokenizer.detokenizer(), frozenset({151645}), max_tokens=64, stop=(stop,))
+    chunks = [check.add(i) for i in ids[: pieces.index(":") + 1]]
+    assert "".join(c.text for c in chunks) == "The answer is 42."
+    assert [c.finish_reason for c in chunks][-1] == "stop"

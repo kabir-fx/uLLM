@@ -15,6 +15,8 @@ Every claim uLLM makes, in the README, the write-up or the author's resume, has 
 | 7 | MLX runs on GitHub's hosted macOS runner, on a paravirtualized GPU | The `mlx-probe` artifact on every CI run; decision 0005 | `uv run python scripts/mlx_probe.py` on any runner | M0 |
 | 8 | mlx-lm's greedy output reproduces the committed goldens exactly on the machine that made them; on the CI runner's GPU it diverges only at near-tied positions | `tests/equivalence/test_goldens.py`; CI run 43705619599; decision 0006 | `make models && make test-mlx`; full length: `make goldens-check` (*verify*) | M0 |
 | 9 | For one request, uLLM's own runner and KV cache give exactly mlx-lm's greedy token IDs, run on the same machine, for every golden prompt | `tests/equivalence/test_runner_equivalence.py`; decision 0008 | `make models && make test-mlx`; full length: `ULLM_GOLDEN_TOKENS=128 uv run pytest -m mlx tests/equivalence/test_runner_equivalence.py` (*verify*) | M1 |
+| 10 | A streamed reply is exactly the tokenizer's decoding of its tokens, holding back only an unfinished character, and never contains a stop string, wherever tokens split the text | `tests/property/test_detokenizer.py`, `tests/property/test_stop_check.py`, the detokenizer and stop-string tests in `tests/unit/test_mlx_runner.py`; decision 0009 | `make check`; on the real tokenizer `make models && make test-mlx` | M1 |
+| 11 | A sampled reply with a given seed is reproduced token for token, under any sequence id and whatever shares the batch | `tests/unit/test_sampler.py::test_a_row_draws_the_same_token_in_any_batch`, `tests/unit/test_mlx_runner.py::test_a_seed_reproduces_a_sampled_reply_under_any_sequence_id`; decision 0009 | `make models && make test-mlx` | M1 |
 
 ## How to add a row
 

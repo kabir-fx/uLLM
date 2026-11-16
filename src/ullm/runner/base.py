@@ -26,7 +26,6 @@ Invariants every runner keeps, and every caller may rely on:
 This module is MLX-free so ``ullm.core`` can import it.
 """
 
-import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol, TypedDict, runtime_checkable
@@ -56,14 +55,25 @@ class SamplingParams:
     seed: int | None  # None promises no reproducibility; each runner chooses its own
 
     def __post_init__(self) -> None:
-        if not (_is_number(self.temperature) and 0 <= self.temperature < math.inf):
-            raise ValueError(f"temperature must be finite and >= 0, got {self.temperature!r}")
+        # The sampler divides float32 log-probabilities by the temperature; outside float32's
+        # normal range it rounds to 0 or inf and the division makes NaN (decision 0009).
+        if not (
+            _is_number(self.temperature)
+            and (self.temperature == 0 or _FLOAT32_TINY <= self.temperature <= _FLOAT32_MAX)
+        ):
+            raise ValueError(
+                f"temperature must be 0 or a normal float32 > 0, got {self.temperature!r}"
+            )
         if not (_is_number(self.top_p) and 0 < self.top_p <= 1):
             raise ValueError(f"top_p must be in (0, 1], got {self.top_p!r}")
         if type(self.top_k) is not int or self.top_k < 0:
             raise ValueError(f"top_k must be an int >= 0, got {self.top_k!r}")
         if self.seed is not None and type(self.seed) is not int:
             raise ValueError(f"seed must be an int or None, got {self.seed!r}")
+
+
+_FLOAT32_TINY = 1.1754943508222875e-38  # the smallest normal float32
+_FLOAT32_MAX = 3.4028234663852886e38
 
 
 def _is_number(value: object) -> bool:

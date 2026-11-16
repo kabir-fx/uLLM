@@ -44,8 +44,8 @@ def _one(logits: mx.array, row: SampleRow) -> mx.array:
         keep = keep & _top_p(logprobs, params.top_p)
     if 0 < params.top_k < logprobs.shape[-1]:
         keep = keep & _top_k(logprobs, params.top_k)
-    # Tempering after the max is 0 keeps the most likely token finite at any temperature,
-    # and masking after tempering keeps every -inf from meeting an infinite divisor.
+    # With the max at 0, tempering leaves the most likely token at 0 and finite; masking
+    # afterwards keeps excluded tokens at -inf whatever the temperature.
     tempered = (logprobs - logprobs.max()) / params.temperature
     return mx.random.categorical(mx.where(keep, tempered, -mx.inf), key=_key(row))
 

@@ -86,10 +86,10 @@ init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
 
-# mlx-lm ships no types. MLX does, but is absent on Linux, where mypy must
-# still check the scripts and tests that import it.
+# mlx-lm ships no types. MLX and tokenizers do, but are absent on Linux, where
+# mypy must still check the code, scripts and tests that import them.
 [[tool.mypy.overrides]]
-module = ["mlx", "mlx.*", "mlx_lm", "mlx_lm.*"]
+module = ["mlx", "mlx.*", "mlx_lm", "mlx_lm.*", "tokenizers", "tokenizers.*"]
 ignore_missing_imports = true
 
 # --- pytest ------------------------------------------------------------------

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.mlx
 
-goldens = pytest.importorskip("scripts.make_goldens")
+pytest.importorskip("mlx.core")
 
 TOKENS = int(os.environ.get("ULLM_GOLDEN_TOKENS", "32"))  # as test_goldens.py; 128 is the full run
 GREEDY = SamplingParams(temperature=0.0, top_p=1.0, top_k=0, seed=None)
@@ -33,7 +33,9 @@ GREEDY = SamplingParams(temperature=0.0, top_p=1.0, top_k=0, seed=None)
 
 @pytest.fixture(scope="module")
 def golden() -> dict[str, Any]:
-    data: dict[str, Any] = json.loads(goldens.golden_path(DEFAULT_MODEL).read_text())
+    from scripts.make_goldens import golden_path
+
+    data: dict[str, Any] = json.loads(golden_path(DEFAULT_MODEL).read_text())
     return data
 
 
@@ -50,22 +52,24 @@ def _generate(runner: "MLXRunner", seq: int, prompt: tuple[int, ...], max_tokens
 def test_render_gives_the_golden_prompt_ids(
     golden: dict[str, Any], mlx_loaded: "tuple[MLXRunner, MLXTokenizer]"
 ) -> None:
+    from scripts.make_goldens import PROMPTS, TEMPLATE_KWARGS
+
     _, tokenizer = mlx_loaded
-    prompts = {c["id"]: c["messages"] for c in json.loads(goldens.PROMPTS.read_text())["cases"]}
+    prompts = {c["id"]: c["messages"] for c in json.loads(PROMPTS.read_text())["cases"]}
     for case in golden["cases"]:
-        got = tokenizer.render(prompts[case["id"]], goldens.TEMPLATE_KWARGS)
+        got = tokenizer.render(prompts[case["id"]], TEMPLATE_KWARGS)
         assert got == tuple(case["prompt_ids"]), f"{case['id']}: chat template renders differently"
 
 
 def test_greedy_tokens_equal_mlx_lm_on_this_machine(
     golden: dict[str, Any], mlx_loaded: "tuple[MLXRunner, MLXTokenizer]"
 ) -> None:
+    from scripts.make_goldens import reference
+
     runner, tokenizer = mlx_loaded
     failures = []
     for seq, case in enumerate(golden["cases"]):
-        want, margins, _ = goldens.reference(
-            runner.model, tokenizer.wrapped, case["prompt_ids"], TOKENS
-        )
+        want, margins, _ = reference(runner.model, tokenizer.wrapped, case["prompt_ids"], TOKENS)
         got = _generate(runner, seq, tuple(case["prompt_ids"]), TOKENS)
         if got != want:
             i = next(

@@ -14,9 +14,9 @@ Invariants every runner keeps, and every caller may rely on:
    the runner holds for the sequence; a ``DecodePlan`` row appends one token.
    No sequence grows past ``max_model_len``, and every token ID is in
    ``[0, vocab_size)``. A violation raises ``ValueError`` before any forward
-   pass and changes nothing. Plans, ``add`` and ``release`` refuse ids,
-   positions, flags and containers of the wrong type, so untyped data cannot
-   reach a runner's state.
+   pass and changes nothing. Plans, ``add`` and ``release`` refuse sequence
+   ids, positions, token ids, flags and containers of the wrong type.
+   ``SamplingParams`` is not checked yet (M1-T2).
 3. ``StepResult.tokens`` has one entry per sampled row, in plan order.
 4. An ``execute`` that fails after validation, in the forward pass or the
    eval, marks every sequence in the plan as failed. The only legal call for a

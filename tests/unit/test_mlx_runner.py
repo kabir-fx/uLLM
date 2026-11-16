@@ -301,3 +301,32 @@ def test_only_a_byte_level_tokenizer_is_accepted() -> None:
     word_piece = SimpleNamespace(backend_tokenizer=SimpleNamespace(decoder=decoders.WordPiece()))
     with pytest.raises(ValueError, match="ByteLevel"):
         MLXTokenizer(word_piece, vocab_size=10)
+
+
+def test_each_sampled_token_is_keyed_by_the_position_it_takes(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    from ullm.runner.mlx_runner import MLXRunner
+    from ullm.runner.sampler import SampleRow, sample
+
+    loaded, _ = mlx_loaded
+    seen: list[Any] = []
+
+    class Recording:
+        layers = loaded.model.layers
+
+        def __call__(self, inputs: Any, cache: Any) -> Any:
+            seen.append(loaded.model(inputs, cache=cache))
+            return seen[-1]
+
+    hot = SamplingParams(temperature=1.5, top_p=1.0, top_k=0, seed=99)
+    runner = MLXRunner(Recording(), loaded.info())
+    runner.add(1, hot)
+    tokens = list(runner.execute(PrefillPlan(seq=1, token_ids=PROMPT, start=0)).tokens)
+    for _ in range(6):
+        tokens += runner.execute(DecodePlan(seqs=(1,), token_ids=(tokens[-1],))).tokens
+    # The prefill runs as two forwards (decision 0008); the last logits of each step sample.
+    step_logits = [seen[1], *seen[2:]]
+    for n, (logits, token) in enumerate(zip(step_logits, tokens, strict=True)):
+        row = SampleRow(hot, seed=99, position=len(PROMPT) + n)
+        assert sample(logits[:, -1, :], [row]).item() == token

@@ -121,10 +121,10 @@ Follow the same loop every time. The discipline is what makes the result trustwo
 
 **For each task**
 
-1. Open a fresh session and say: *"Read docs/AGENT_ROADMAP.md and do task M1-T3."* One task per session.
-2. If the task is marked `[design]` or `[spike]`, the agent proposes a design first. Read it, push back, approve. Then it builds.
-3. The agent writes the tests that pin down correctness before the code.
-4. Run a code review on the result (`/code-review`) before merging anything in the engine.
+1. Open a fresh session. One task per session.
+2. If the task is marked `[design]`, type *"/architect M1-T3"*; for `[spike]`, ask for the measurement plan. Read it, push back, approve.
+3. Type *"/build M1-T3"*. The agent writes the tests that pin down correctness before the code, then proves the change on the real thing (`prove`) and reviews it against the task (`vet`).
+4. Type *"/ship"*. It asks before pushing, opens the pull request with the proof and review verdicts, and asks before merging.
 5. Merge only when CI is green. No exceptions for small changes.
 6. Read the teach-back notes the agent leaves: what was built, why, and three questions an interviewer could ask.
 
@@ -189,5 +189,5 @@ M0 (foundations) is built, merged and protected: the four CI jobs are required o
 
 1. Read the M0 decision records in `docs/decisions/`, especially 0006: greedy output can differ between Macs at near-tied tokens, so equivalence compares against mlx-lm on the same machine.
 2. Read panels 0, 1, 5 and 6 of the architecture walkthrough. That is the material for milestone M1.
-3. Open a session and say: *"/task M1-T1"*. It is a design task, so the agent shows you the design and waits for your approval.
+3. Open a session and say: *"/architect M1-T1"*. It is a design task, so the agent shows you the design and waits for your approval.
 4. Keep the catch log (`docs/AI_LOG.md`): add an entry each time you catch an agent mistake.

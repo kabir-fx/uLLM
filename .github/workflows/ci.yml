@@ -3,6 +3,8 @@
 #   mlx       macOS arm64: MLX device probe, the model, tests marked `mlx` (goldens)
 #   router    Go vet, gofmt, tests with the race detector
 #   terminal  generated contract types are fresh; strict typecheck
+# Each job runs its `make ci-<job>` target, so `make ci` runs the same commands
+# locally (decision 0007). Add a check to the target, not here.
 # Actions are pinned to commit SHAs; the comment names the release.
 name: ci
 
@@ -21,7 +23,6 @@ concurrency:
 
 env:
   UV_VERSION: "0.12.2"
-  HYPOTHESIS_PROFILE: ci
   FORCE_COLOR: "1"
 
 jobs:
@@ -29,6 +30,8 @@ jobs:
     name: core (Linux, no MLX)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      RUFF_OUTPUT_FORMAT: github
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -38,17 +41,13 @@ jobs:
       - run: uv sync --locked
       - name: MLX is absent, so nothing below can depend on it
         run: uv run --locked python -c "import importlib.util as u, sys; sys.exit(u.find_spec('mlx') is not None)"
-      - run: uv run --locked ruff check --output-format=github
-      - run: uv run --locked ruff format --check
-      - run: uv run --locked mypy
-      - run: uv run --locked pytest -m "not mlx"
+      - run: make ci-core
 
   mlx:
     name: mlx (macOS arm64)
     runs-on: macos-26
     timeout-minutes: 30
     env:
-      ULLM_REQUIRE_MODEL: "1" # a missing model fails the job instead of skipping tests
       HF_HUB_DISABLE_PROGRESS_BARS: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,34 +74,24 @@ jobs:
         with:
           path: ~/.cache/huggingface/hub
           key: hf-models-${{ hashFiles('src/ullm/models.py') }}
-      - run: uv run --locked python scripts/fetch_models.py
-      - run: uv run --locked pytest -m mlx
+      - run: make ci-mlx
 
   router:
     name: router (Go)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: router
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: router/go.mod
           cache: false # no dependencies yet, so no go.sum to key a cache on
-      - name: gofmt
-        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
-      - run: go vet ./...
-      - run: go test -race ./...
+      - run: make ci-router
 
   terminal:
     name: terminal (TypeScript)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: terminal
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -113,6 +102,4 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: terminal/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm check:contracts
-      - run: pnpm typecheck
+      - run: make ci-terminal

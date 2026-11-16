@@ -14,11 +14,12 @@ The single source of truth for building uLLM. Every piece that has to be built i
 |---|---|
 | Phase | M0 done: gate G0 passed (all four CI jobs green on `main`, contracts and fixtures merged) |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M1-T1 `[design]`: present the runner design and wait for approval |
+| Next task | M1-T1 `[design]`: the author types `/architect M1-T1`; the agent presents the runner design and waits for approval; then the author types `/build M1-T1` |
 | Lane A (engine) | idle; M1 next |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | nothing |
-| Last session | Built and merged all of M0 (PRs #1 to #8), turned on branch protection, passed gate G0. Key finding for M1-T5: goldens diverge at near-ties on other hardware, so equivalence compares against mlx-lm on the same machine (decision 0006) |
+| Blocked on the author | review and merge the `chore/adopt-keel` pull request; close pipeline gap 1 (`enforce_admins`) |
+| Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
+| Last session | Adopted keel as the session workflow (decision 0007): tasks run through `/architect`, `/build` and `/ship`, and `/task` is gone. The pull request body records the verdicts, and `/gate` checks them. Measured figures are now allowed in documents. It also added `QUALITY.md`; `make ci` as the full check, with each CI job running its `make ci-*` target; and a pre-push hook that runs `make check`. The session before built and merged all of M0 and passed gate G0 |
 
 ---
 
@@ -40,7 +41,7 @@ What follows from that for agents:
 
 - Prefer depth with proof over more features. Do not add a feature this file does not list without recording why (3.6).
 - Prefer designs the author can explain in an interview over clever ones.
-- **No deadlines.** A milestone is done when its gate passes. Do not write dates, durations or schedules into any document.
+- **No deadlines.** A milestone is done when its gate passes. Do not write deadlines, target dates, schedules or time estimates into any document. Measured figures, such as how long a check or a benchmark takes, are fine.
 - Never write "first", "only" or similar novelty claims anywhere.
 
 ---
@@ -112,18 +113,19 @@ Non-negotiable. If a task seems to require breaking one, stop and raise it.
 - Design choices are recorded as a short decision record in `docs/decisions/NNNN-title.md`.
 - Section 0 and the task checkbox in section 7 are updated.
 - If the task makes a new claim possible, `docs/CLAIMS.md` gains a row (P2).
-- The author gets teach-back notes (3.4, step 7).
+- The pull request records VERIFIED proof and READY review verdicts with the commit they cover.
+- The author gets teach-back notes (3.4).
 
 ### 3.4 A session
 
-1. Read section 0, the task in section 7, and the catalog entries it names.
-2. Tasks tagged `[design]` or `[spike]`: produce the design or measurement plan first and get the author's approval before writing production code.
-3. Write the anchoring tests first where an anchor exists (equivalence, invariants, contract tests).
-4. Implement in small commits on a branch named like `m2/t3-scheduler`. Conventional commit messages.
-5. Run `make check`. Open a pull request. Merge only when CI is green.
-6. Update section 0, tick the task, add decision records.
-7. Finish with **teach-back notes** for the author: up to seven bullets on what was built and why it is shaped that way, three questions an interviewer could ask about it, and anything you were unsure of. Do not write `docs/DESIGN.md`; that file is the author's own work. Fact-check it when asked.
-8. One task per session. Stop at the task boundary.
+Tasks run through keel's skills (decision 0007). The author starts `/build` and `/ship` by typing them; an agent cannot. One task per session; stop at the task boundary.
+
+1. Read section 0, the task in section 7, the catalog entries it names, and any contract (6.2) it touches. If section 0 says another task is in flight, or the task's prerequisites are not merged, stop and say so.
+2. `[design]` tasks: `/architect`, then the author's approval before any production code. `[spike]` tasks: the measurement plan, then the author's approval before any production code.
+3. `/build` the task, in small conventional commits on a branch named like `m2/t3-scheduler`. Write the anchoring tests first where an anchor exists (equivalence, invariants, contract tests). Engine changes: `make equivalence`. Performance-relevant changes: `make bench-smoke` on the base before the first commit, and again after. Outside `/build`, an agent writes no production code for a task; it asks the author to type `/build <ID>`.
+4. Once the verdicts are in, on the same branch: add the decision records, update section 0, and tick the task. The tick is the done marker; the roadmap has no `Status:` lines.
+5. `/ship` it, in the same chat as `/build`; in a new chat it runs proof and review again. One pull request per task, its body recording the verdicts, merged only when CI is green. No history rewrite after the verdicts. On a stacked branch (decision 0001), `prove`, `vet` and `/ship` take the previous task's branch as the base, not `main`.
+6. Finish with **teach-back notes** for the author: up to seven bullets on what was built and why it is shaped that way, three questions an interviewer could ask about it, and anything you were unsure of. Do not write `docs/DESIGN.md`; that file is the author's own work. Fact-check it when asked.
 
 ### 3.5 Lanes
 
@@ -221,11 +223,11 @@ uLLM/
 ├── router/            Go module: cmd/ullm-router, internal/{proxy,health,breaker,routing,telemetry,auth,ratelimit,ledger}
 ├── terminal/          Vite + React + TypeScript
 ├── deploy/            docker-compose.yml, dashboards/, helm/
-├── scripts/           maintenance scripts outside the package: model fetch, contract export, goldens
+├── scripts/           maintenance scripts outside the package: model fetch, contract export, goldens, git-hooks/
 ├── docs/              ROADMAP.md, AGENT_ROADMAP.md, DESIGN.md, CLAIMS.md, AI_LOG.md, decisions/
-├── .claude/commands/  task, gate, quiz
+├── .claude/commands/  gate, quiz
 ├── .github/workflows/
-├── Makefile · CLAUDE.md · README.md · LICENSE
+├── Makefile · CLAUDE.md · QUALITY.md · README.md · LICENSE
 ```
 
 ### 5.3 Request path
@@ -277,7 +279,7 @@ Every piece of the system. Each entry says what it does and what proves it. Mile
 
 **F2 CI.** GitHub Actions. Jobs: `core` (Linux: lint, types, tests with `FakeRunner`, no MLX), `mlx` (macOS arm64: equivalence subset on Qwen3-0.6B, about 32 tokens per prompt), `router` (Go vet, test, chaos test against `ullm sim`), `terminal` (typecheck, lint, test, build), later `evals` (Q7). All required on `main`. First task: find out whether MLX runs on the hosted macOS runner, on GPU or CPU, and record the answer.
 
-**F3 Agent workflow.** `CLAUDE.md` under 60 lines: what the project is, a pointer to this file, the commands, the rules in brief. Project commands in `.claude/commands/`: `task` (start a task by ID following 3.4), `gate` (run a milestone's gate checklist and report each item as passed or failed with evidence), `quiz` (ten interview questions on a milestone, then grade the author's answers against the code).
+**F3 Agent workflow.** `CLAUDE.md` under 60 lines: what the project is, a pointer to this file, the commands, the rules in brief. Project commands in `.claude/commands/`: `gate` (run a milestone's gate checklist and report each item as passed or failed with evidence), `quiz` (ten interview questions on a milestone, then grade the author's answers against the code). Tasks run through keel's `/architect`, `/build` and `/ship` (3.4, decision 0007).
 
 **F4 Models and goldens.** Confirm the exact mlx-community repo ids for Qwen3-0.6B in bf16, 8-bit and 4-bit, and Qwen3-1.7B. A fetch script. Golden fixtures: token IDs from mlx-lm greedy generation over a fixed prompt set, stored with the library versions that produced them and regenerated on a version change. Thinking mode is off for all goldens, evals and benchmarks.
 

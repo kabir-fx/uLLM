@@ -12,7 +12,16 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 - `make test`, `make equivalence` (needs the model), `make bench-smoke`, `make sim`, `make up`, `make verify`.
 - Targets not built yet exit 2 and name the task that builds them.
 - Python runs through `uv` (`uv run ...`). The router is a Go module in `router/`. The terminal uses `pnpm` in `terminal/`.
-- Project commands: `/task <ID>` starts a task, `/gate <milestone>` runs a gate, `/quiz <milestone>` quizzes the author.
+- Project commands: `/gate <milestone>` runs a gate, `/quiz <milestone>` quizzes the author.
+
+## Keel
+
+- Fast check: `make check` (after every increment)
+- Full check: `make ci` (before proof and before shipping)
+- Quality bar: `QUALITY.md`. Never weaken it to make a change pass.
+- Specs: `docs/AGENT_ROADMAP.md` (tasks in section 7, catalog in section 6) · Decisions: `docs/decisions/` · Glossary: none yet
+- Done marker: tick the task in section 7; no `Status:` lines. The verdicts live in the pull request body.
+- Run recipe: nothing launches yet; `make sim` arrives in M1-T3, `make up` in M5-T4
 
 ## Rules in brief (full text: roadmap 3.2)
 
@@ -34,13 +43,14 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 ## How a session runs (roadmap 3.4)
 
 - One task per session; stop at the task boundary.
-- `[design]` and `[spike]` tasks: present the design or measurement plan and wait for approval before production code.
-- Write the anchoring tests first. Branch `m<N>/t<K>-<slug>`, conventional commits, one pull request per task; merge only when CI is green.
+- `[design]` tasks: `/architect`, then wait for approval before production code. `[spike]` tasks: present the measurement plan and wait for approval before production code.
+- The author types `/build <ID>`, then `/ship`; an agent cannot start them and writes no production code for a task outside `/build`. `/build`: anchoring tests first, small conventional commits, branch `m<N>/t<K>-<slug>`; it ends by ticking the task. `/ship`, in the same chat (in a new chat it reruns proof and review): one pull request per task, its body recording VERIFIED and READY with the commit they cover, merged only when CI is green. No history rewrite after the verdicts.
+- On a stacked branch, `prove`, `vet` and `/ship` take the previous task's branch as the base.
 - Record design choices in `docs/decisions/NNNN-title.md`. New claims get a row in `docs/CLAIMS.md`.
 - End with teach-back notes for the author: up to seven bullets, three interview questions, open doubts.
 - Do not write `docs/DESIGN.md`; the author writes it.
 
 ## Writing
 
-- No dates, deadlines or time estimates in any document. A milestone is done when its gate passes.
+- No deadlines, target dates, schedules or time estimates in any document; measured figures are fine. A milestone is done when its gate passes.
 - No novelty claims ("first", "only"). Slower than a baseline is fine when measured and explained.

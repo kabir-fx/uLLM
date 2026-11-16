@@ -149,9 +149,26 @@ class TemplateMessage(TypedDict):
     content: str
 
 
+class Detokenizer(Protocol):
+    """One sequence's output tokens to text, streamed. Concatenated, its chunks are the
+    tokenizer's decoding of every token added."""
+
+    def add(self, token: int) -> str:
+        """The text this token completes; empty while a character is still incomplete."""
+        ...
+
+    def flush(self) -> str:
+        """The text held back, with any unfinished character as U+FFFD, at the end."""
+        ...
+
+
 class Tokenizer(Protocol):
     def render(
         self, messages: Sequence[TemplateMessage], template_kwargs: Mapping[str, object]
     ) -> tuple[int, ...]:
         """Apply the model's chat template with a generation prompt, then tokenize."""
+        ...
+
+    def detokenizer(self) -> Detokenizer:
+        """A new streaming detokenizer for one sequence."""
         ...

@@ -23,6 +23,7 @@ from ullm.runner.base import (
     StepResult,
     TemplateMessage,
 )
+from ullm.runner.detokenizer import IncrementalDetokenizer
 from ullm.runner.kv.contiguous import ContiguousKV
 from ullm.runner.ledger import SeqLedger
 from ullm.runner.sampler import SampleRow, sample
@@ -79,6 +80,9 @@ class MLXTokenizer:
         if not all(type(t) is int for t in ids):
             raise ValueError("render takes one conversation, not a batch")
         return tuple(ids)
+
+    def detokenizer(self) -> IncrementalDetokenizer:
+        return IncrementalDetokenizer(self.wrapped.decode)
 
 
 class MLXRunner:

@@ -214,3 +214,34 @@ def test_the_cache_asks_for_no_mask_on_one_query_and_causal_otherwise() -> None:
         kv.make_mask(5, window_size=4)
     with pytest.raises(ValueError, match="causal"):
         kv.make_mask(5, return_array=True)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Hello wörld 你好 🎉🎉 ok",
+        " leading space",
+        "a , b . c 's n't  x\n\n y",
+        "<think>\n\n</think>\n\nHi",
+    ],
+    ids=["multi-byte", "leading-space", "spacing", "special"],
+)
+def test_streamed_text_is_the_tokenizers_decoding(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", text: str
+) -> None:
+    _, tokenizer = mlx_loaded
+    ids = tokenizer.wrapped.encode(text, add_special_tokens=False)
+    detokenizer = tokenizer.detokenizer()
+    chunks = [detokenizer.add(i) for i in ids]
+    assert "".join(chunks) + detokenizer.flush() == tokenizer.wrapped.decode(ids) == text
+    assert not any("�" in chunk for chunk in chunks)
+
+
+def test_an_emoji_split_across_tokens_streams_whole(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    _, tokenizer = mlx_loaded
+    ids = tokenizer.wrapped.encode("🫠", add_special_tokens=False)
+    assert len(ids) == 3  # one byte-level token per byte group, in Qwen3's vocabulary
+    detokenizer = tokenizer.detokenizer()
+    assert [detokenizer.add(i) for i in ids] == ["", "", "🫠"]

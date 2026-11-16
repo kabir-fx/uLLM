@@ -39,33 +39,36 @@ def test_the_same_seed_and_sequence_give_the_same_tokens() -> None:
     assert _generate(a, 3, (1, 2, 3), 20) == _generate(b, 3, (1, 2, 3), 20)
 
 
-def test_seed_and_sequence_id_both_change_the_tokens() -> None:
+def _alone(seq: int, seed: int | None, n: int = 20) -> list[int]:
     runner = _runner()
-    runner.add(1, _sampling(42))
-    runner.add(2, _sampling(42))
-    runner.add(3, _sampling(43))
-    outs = [_generate(runner, seq, (1, 2, 3), 20) for seq in (1, 2, 3)]
-    assert outs[0] != outs[1]
-    assert outs[0] != outs[2]
+    runner.add(seq, _sampling(seed))
+    return _generate(runner, seq, (1, 2, 3), n)
 
 
-def test_tokens_do_not_depend_on_the_batch() -> None:
-    alone = _runner()
-    alone.add(1, _sampling(None))
-    expected = _generate(alone, 1, (4, 5), 10)
+def test_the_seed_alone_changes_the_tokens() -> None:
+    assert _alone(1, 42) != _alone(1, 43)
+    assert _alone(1, None) == _alone(1, 0)
+
+
+def test_the_sequence_id_alone_changes_the_tokens() -> None:
+    assert _alone(1, 42) != _alone(2, 42)
+
+
+def test_a_batch_returns_each_rows_own_tokens_in_plan_order() -> None:
+    expected = {seq: _alone(seq, None, 10) for seq in (1, 2, 3)}
 
     batched = _runner()
     for seq in (1, 2, 3):
         batched.add(seq, _sampling(None))
-    last = {
-        seq: batched.execute(PrefillPlan(seq=seq, token_ids=(4, 5), start=0)).tokens[0]
+    got = {
+        seq: list(batched.execute(PrefillPlan(seq=seq, token_ids=(1, 2, 3), start=0)).tokens)
         for seq in (1, 2, 3)
     }
-    got = [last[1]]
+    order = (3, 1, 2)
     for _ in range(9):
-        step = batched.execute(DecodePlan(seqs=(3, 1, 2), token_ids=(last[3], last[1], last[2])))
-        last = dict(zip((3, 1, 2), step.tokens, strict=True))
-        got.append(last[1])
+        step = batched.execute(DecodePlan(seqs=order, token_ids=tuple(got[s][-1] for s in order)))
+        for seq, token in zip(order, step.tokens, strict=True):
+            got[seq].append(token)
     assert got == expected
 
 

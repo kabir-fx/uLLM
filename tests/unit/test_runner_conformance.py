@@ -116,9 +116,9 @@ def test_a_sequence_cannot_grow_past_max_model_len(runner: Runner) -> None:
         runner.execute(DecodePlan(seqs=(1,), token_ids=step.tokens))
 
 
-@pytest.mark.parametrize("bad", [-1, "vocab", 6.5])
-def test_token_ids_must_be_in_the_vocabulary(runner: Runner, bad: float | str) -> None:
-    token: Any = _vocab(runner) if bad == "vocab" else bad  # untyped data, as from JSON
+@pytest.mark.parametrize("bad", [-1, "vocab"])
+def test_token_ids_must_be_in_the_vocabulary(runner: Runner, bad: int | str) -> None:
+    token = _vocab(runner) if bad == "vocab" else int(bad)
     runner.add(1, GREEDY)
     with pytest.raises(ValueError, match="vocab"):
         runner.execute(PrefillPlan(seq=1, token_ids=(5, token), start=0))

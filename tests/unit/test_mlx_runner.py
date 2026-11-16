@@ -64,6 +64,38 @@ def test_greedy_picks_the_argmax_of_log_probabilities_not_of_logits() -> None:
     assert runner.execute(PrefillPlan(seq=1, token_ids=(1,), start=0)).tokens == (5,)
 
 
+@pytest.mark.parametrize(
+    ("plan", "forwards"),
+    [
+        (PrefillPlan(seq=1, token_ids=(9707, 11, 1879), start=0, sample=False), 1),
+        (PrefillPlan(seq=1, token_ids=(9707, 11, 1879), start=0), 2),
+        (PrefillPlan(seq=1, token_ids=(9707,), start=0), 1),
+        (DecodePlan(seqs=(1,), token_ids=(9707,)), 1),
+    ],
+    ids=["unsampled", "sampled", "one-token", "decode"],
+)
+def test_only_a_sampled_multi_token_prefill_splits_its_forward(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", plan: PrefillPlan | DecodePlan, forwards: int
+) -> None:
+    from ullm.runner.mlx_runner import MLXRunner
+
+    loaded, _ = mlx_loaded
+    calls: list[int] = []
+
+    class Counting:
+        layers = loaded.model.layers
+
+        def __call__(self, inputs: Any, cache: Any) -> Any:
+            calls.append(inputs.shape[1])
+            return loaded.model(inputs, cache=cache)
+
+    runner = MLXRunner(Counting(), loaded.info())
+    runner.add(1, GREEDY)
+    runner.execute(plan)
+    assert len(calls) == forwards
+    assert sum(calls) == len(plan.token_ids)
+
+
 def test_load_reports_the_models_own_limits(mlx_loaded: "tuple[MLXRunner, MLXTokenizer]") -> None:
     runner, _ = mlx_loaded
     assert runner.info() == RunnerInfo(
@@ -78,6 +110,10 @@ def test_load_reports_the_models_own_limits(mlx_loaded: "tuple[MLXRunner, MLXTok
     "key",
     [
         "tokenize",
+        "truncation",
+        "max_length",
+        "padding",
+        "tokenizer_kwargs",
         "return_tensors",
         "return_dict",
         "add_generation_prompt",

@@ -70,6 +70,9 @@ class SamplingParams:
             raise ValueError(f"top_k must be an int >= 0, got {self.top_k!r}")
         if self.seed is not None and type(self.seed) is not int:
             raise ValueError(f"seed must be an int or None, got {self.seed!r}")
+        # An int would reach MLX as an int, which it cannot convert past int64.
+        object.__setattr__(self, "temperature", float(self.temperature))
+        object.__setattr__(self, "top_p", float(self.top_p))
 
 
 _FLOAT32_TINY = 1.1754943508222875e-38  # the smallest normal float32

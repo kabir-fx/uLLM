@@ -1,4 +1,6 @@
-"""C3 v0: step plans reject shapes the runner must never see."""
+"""C3: step plans reject shapes and types the runner must never see (decision 0008)."""
+
+from typing import Any
 
 import pytest
 
@@ -34,3 +36,41 @@ def test_runner_protocol_is_structural() -> None:
         def info(self) -> None: ...
 
     assert not isinstance(NotARunner(), Runner)
+
+
+@pytest.mark.parametrize("bad", [True, 6.5, "5", None])
+def test_plans_refuse_token_ids_that_are_not_plain_ints(bad: Any) -> None:
+    with pytest.raises(ValueError, match="int"):
+        PrefillPlan(seq=1, token_ids=(5, bad), start=0)
+    with pytest.raises(ValueError, match="int"):
+        DecodePlan(seqs=(1,), token_ids=(bad,))
+
+
+@pytest.mark.parametrize("bad", [True, 0.0, "1"])
+def test_plans_refuse_positions_and_ids_that_are_not_plain_ints(bad: Any) -> None:
+    with pytest.raises(ValueError, match="int"):
+        PrefillPlan(seq=1, token_ids=(5,), start=bad)
+    with pytest.raises(ValueError, match="int"):
+        PrefillPlan(seq=bad, token_ids=(5,), start=0)
+    with pytest.raises(ValueError, match="int"):
+        DecodePlan(seqs=(bad,), token_ids=(5,))
+
+
+@pytest.mark.parametrize("bad", [1, 0, None, "True"])
+def test_prefill_refuses_a_sample_flag_that_is_not_a_bool(bad: Any) -> None:
+    with pytest.raises(ValueError, match="bool"):
+        PrefillPlan(seq=1, token_ids=(5, 6), start=0, sample=bad)
+
+
+@pytest.mark.parametrize(
+    "make",
+    [list, lambda ids: range(ids[0], ids[0] + len(ids)), lambda ids: (i for i in ids)],
+    ids=["list", "range", "generator"],
+)
+def test_plans_take_ids_and_seqs_only_as_tuples(make: Any) -> None:
+    with pytest.raises(ValueError, match="tuple"):
+        PrefillPlan(seq=1, token_ids=make((5, 6)), start=0)
+    with pytest.raises(ValueError, match="tuple"):
+        DecodePlan(seqs=make((1,)), token_ids=(5,))
+    with pytest.raises(ValueError, match="tuple"):
+        DecodePlan(seqs=(1,), token_ids=make((5,)))

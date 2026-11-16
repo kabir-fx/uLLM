@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M0 done: gate G0 passed (all four CI jobs green on `main`, contracts and fixtures merged) |
+| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 built on `m1/t1-runner`, not yet shipped |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M1-T1 `[design]`: the author types `/architect M1-T1`; the agent presents the runner design and waits for approval; then the author types `/build M1-T1` |
-| Lane A (engine) | idle; M1 next |
+| Next task | `/ship` M1-T1 from `m1/t1-runner`, base `main`. Then M1-T2 (sampler, stop check, detokenizer), stacked on it |
+| Lane A (engine) | M1-T1 awaiting `/ship` |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | review and merge the `chore/adopt-keel` pull request; close pipeline gap 1 (`enforce_admins`) |
+| Blocked on the author | ship M1-T1; close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | Adopted keel as the session workflow (decision 0007): tasks run through `/architect`, `/build` and `/ship`, and `/task` is gone. The pull request body records the verdicts, and `/gate` checks them. Measured figures are now allowed in documents. It also added `QUALITY.md`; `make ci` as the full check, with each CI job running its `make ci-*` target; and a pre-push hook that runs `make check`. The session before built and merged all of M0 and passed gate G0 |
+| Last session | Built M1-T1 (decision 0008): the runner protocol v1 with its invariants in `runner/base.py` and one `SeqLedger` for both runners; `MLXRunner` with a concatenating `ContiguousKV`, the hidden `L-1` then `1` prefill split and greedy over log-probabilities; `FakeRunner` with a latency model; an MLX-free `Tokenizer`. Greedy output equals mlx-lm token for token on all golden prompts at 128 tokens (claim 9). Plans, `add` and `release` refuse wrongly typed ids, flags and containers, after review found `sample=1` silently ran the rejected single prefill. Proof VERIFIED at `4076d5e`; three review rounds plus a focused fourth, verdicts in the pull request body. All subagents now run on Opus, never Fable (keel skills edited, not yet committed in the keel repo). Teach-back given in the session |
 
 ---
 
@@ -255,7 +255,7 @@ Each of these differs from, or adds to, the older documents.
 | DEC-4 | No novelty claims. Other engines are baselines | Section 1 |
 | DEC-5 | The scheduler and KV management are written here, not imported (rule 11) | They are the proof of work |
 | DEC-6 | The physical KV layout is chosen by a spike on the real model. The logical block manager is the same under every candidate | Section 4 measurements |
-| DEC-7 | Prefill one request per step (`[1, L]`, no padding). Decode is batched (`[B, 1]`) | Simplest design that keeps equivalence easy. Revisit only with data |
+| DEC-7 | Prefill one request per step (`[1, L]`, no padding). Decode is batched (`[B, 1]`). A sampled prefill runs inside the runner as `[1, L-1]` then `[1, 1]`, to match mlx-lm (decision 0008) | Simplest design that keeps equivalence easy. Revisit only with data |
 | DEC-8 | Headline performance claims are against uLLM's own sequential mode. The gap to mlx-lm's batching is reported and explained | mlx-lm's server already batches |
 | DEC-9 | Cheap hooks from the start: a `PREFILLING` state with progress (for chunked prefill), a salt in the prefix hash chain (tenant isolation), a policy interface (fair share), an optional tenant on every request, trace context on every ticket, a versioned telemetry schema | Minutes now, a refactor later |
 | DEC-10 | Telemetry uses SSE. Controls use ordinary POST requests | One-way data, plain HTTP, passes through the proxy |
@@ -316,7 +316,7 @@ Freeze these early. Lanes depend on them and nothing else.
 
 **E1 Runner.**
 
-- `MLXRunner`: loads once at startup with `mlx_lm.load` (config, safetensors weights, tokenizer and chat template). mlx-lm's model modules are used unchanged, with our own per-layer cache objects on the plug point in section 4. Prefill input is `[1, L]`, decode input is `[B, 1]`. Logits `[B, L, vocab]` are reduced to the last position `[B, vocab]` for the sampler.
+- `MLXRunner`: loads once at startup with `mlx_lm.load` (config, safetensors weights, tokenizer and chat template). mlx-lm's model modules are used unchanged, with our own per-layer cache objects on the plug point in section 4. Prefill input is `[1, L]`, decode input is `[B, 1]`; a sampled prefill runs as `[1, L-1]` then `[1, 1]` (decision 0008). Logits `[B, L, vocab]` are reduced to the last position `[B, vocab]` for the sampler.
 - `FakeRunner`: deterministic tokens from a seed and the request id. Sleeps by a latency model (prefill = base + per token, decode = base + per row). Can inject failures for router tests.
 - Chat template: messages become one string in the model's trained format, then token IDs. A wrong template is a silent quality loss, so the rendered template has a golden test.
 - *Proof:* Q3.
@@ -570,7 +570,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 
 #### M1 One request, end to end
 
-- [ ] **M1-T1** `[design]` Runner protocol, `MLXRunner` with our own generation loop and a contiguous cache, `FakeRunner` (E1, C3).
+- [x] **M1-T1** `[design]` Runner protocol, `MLXRunner` with our own generation loop and a contiguous cache, `FakeRunner` (E1, C3).
 - [ ] **M1-T2** Sampler, stop check, detokenizer (E2, E3).
 - [ ] **M1-T3** `[design]` Request state machine, engine loop, thread bridge, scheduler interface at `max_num_seqs = 1`, `ullm sim` (E4, E5, E6).
 - [ ] **M1-T4** API server (A1).

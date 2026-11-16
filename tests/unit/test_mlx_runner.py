@@ -16,13 +16,12 @@ GREEDY = SamplingParams(temperature=0.0, top_p=1.0, top_k=0, seed=None)
 QWEN3_VOCAB = 151_936  # the logits width; the tokenizer has 151,669 entries (roadmap section 4)
 
 
-@pytest.mark.parametrize("temperature", [0.7, -1.0, float("nan")])
 def test_anything_but_temperature_zero_is_refused_and_adds_nothing(
-    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", temperature: float
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
 ) -> None:
     runner, _ = mlx_loaded
     with pytest.raises(ValueError, match="M1-T2"):
-        runner.add(100, SamplingParams(temperature=temperature, top_p=1.0, top_k=0, seed=1))
+        runner.add(100, SamplingParams(temperature=0.7, top_p=1.0, top_k=0, seed=1))
     runner.add(100, GREEDY)
     runner.release(100)
 

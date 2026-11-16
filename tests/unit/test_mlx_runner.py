@@ -273,8 +273,9 @@ def test_streamed_text_is_the_decoding_of_any_token_ids(
     rng = random.Random(0)
     special = sorted(tokenizer.wrapped.added_tokens_decoder)
     for _ in range(300):
+        # Any id the model can sample, including those past the tokenizer, plus added tokens.
         ids = [rng.randrange(runner.info().vocab_size) for _ in range(rng.randrange(1, 40))]
-        ids += rng.sample(special, 2)  # ids past the tokenizer decode to nothing
+        ids += rng.sample(special, 2)
         rng.shuffle(ids)
         detokenizer = tokenizer.detokenizer()
         streamed = "".join(detokenizer.add(i) for i in ids) + detokenizer.flush()

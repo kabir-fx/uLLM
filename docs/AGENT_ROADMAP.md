@@ -14,11 +14,12 @@ The single source of truth for building uLLM. Every piece that has to be built i
 |---|---|
 | Phase | M0 done: gate G0 passed (all four CI jobs green on `main`, contracts and fixtures merged) |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M1-T1 `[design]`: present the runner design and wait for approval |
+| Next task | M1-T1 `[design]`: `/architect M1-T1`, present the runner design and wait for approval |
 | Lane A (engine) | idle; M1 next |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | review and merge the `chore/adopt-keel` pull request |
-| Last session | Adopted keel (decision 0007): `QUALITY.md`; `make ci` is the full check, and each CI job runs its `make ci-*` target; `scripts/git-hooks/pre-push` runs `make check`. The session before built and merged all of M0 and passed gate G0 |
+| Blocked on the author | review and merge the `chore/adopt-keel` pull request; open pipeline gap 1 |
+| Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
+| Last session | Adopted keel as the session workflow (decision 0007): tasks run through `/architect`, `/build` and `/ship`, and `/task` is gone. It also added `QUALITY.md`; `make ci` as the full check, with each CI job running its `make ci-*` target; and a pre-push hook that runs `make check`. The session before built and merged all of M0 and passed gate G0 |
 
 ---
 

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Turn on once per clone: git config core.hooksPath scripts/git-hooks
+exec make check

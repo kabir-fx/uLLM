@@ -57,5 +57,7 @@ def test_seed_is_an_int_or_none(bad: Any) -> None:
 @pytest.mark.parametrize("temperature", [1, 10**20, 2**63])
 def test_temperature_and_top_p_are_stored_as_floats(temperature: int) -> None:
     params = _params(temperature=temperature, top_p=1)
-    assert type(params.temperature) is float and params.temperature == temperature
-    assert type(params.top_p) is float and params.top_p == 1.0
+    assert type(params.temperature) is float
+    assert params.temperature == temperature
+    assert type(params.top_p) is float
+    assert params.top_p == 1.0

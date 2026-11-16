@@ -34,6 +34,27 @@ check-ts: ## Terminal: generated contract types are fresh and typecheck
 check-go: ## Go vet and tests for the router module
 	cd router && go vet ./... && go test ./...
 
+# --- Full check: one target per CI job; ci.yml calls these -------------------
+
+.PHONY: ci ci-core ci-router ci-terminal ci-mlx
+ci: ci-core ci-router ci-terminal ci-mlx ## Full check: every CI job's commands (needs MLX and the model)
+	@echo "make ci: all passed"
+
+ci-core: ## CI core job: lint, format, types, every test that needs no model
+	$(UV) ruff check
+	$(UV) ruff format --check
+	$(UV) mypy
+	HYPOTHESIS_PROFILE=ci $(UV) pytest -m "not mlx"
+
+ci-router: ## CI router job: gofmt, go vet, tests with the race detector
+	test -z "$$(gofmt -l router)" || { gofmt -l router; exit 1; }
+	cd router && go vet ./... && go test -race ./...
+
+ci-terminal: check-ts ## CI terminal job: same as check-ts
+
+ci-mlx: models ## CI mlx job: the tests marked mlx; a missing model fails instead of skipping
+	ULLM_REQUIRE_MODEL=1 $(UV) pytest -m mlx
+
 .PHONY: contracts
 contracts: ## Regenerate the telemetry JSON Schema and TypeScript types (C2)
 	$(UV) python scripts/export_contracts.py

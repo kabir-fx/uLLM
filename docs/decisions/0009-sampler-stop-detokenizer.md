@@ -28,7 +28,7 @@ while chunk.finish_reason is None:
 runner.release(seq)
 ```
 
-**`SamplingParams`** refuses, when built, a temperature that is neither 0 nor a normal float32 (about `1.18e-38` to `3.4e38`), a `top_p` outside `(0, 1]`, a `top_k` that is not an int `>= 0`, a seed that is not an int or `None`, and bools anywhere. The temperature range is a limit on input: the sampler divides float32 log-probabilities by the temperature, and beyond that range float32 rounds it to 0 or infinity. It stores `temperature` and `top_p` as floats, since an int past int64 cannot reach MLX. `seed=None` promises no reproducibility: `MLXRunner` draws a 64-bit seed with `secrets` at `add`; `FakeRunner` keeps decision 0008's `seed or 0`.
+**`SamplingParams`** refuses, when built, a temperature that is neither 0 nor a normal float32 (about `1.18e-38` to `3.4e38`), a `top_p` outside `(0, 1]`, a `top_k` that is not an int `>= 0`, a seed that is not an int or `None`, and bools anywhere. The temperature range is a limit on input: the sampler divides float32 log-probabilities by the temperature, and beyond that range float32 holds it only as a subnormal, 0 or infinity. It stores `temperature` and `top_p` as floats, since an int past int64 cannot reach MLX. `seed=None` promises no reproducibility: `MLXRunner` draws a 64-bit seed with `secrets` at `add`; `FakeRunner` keeps decision 0008's `seed or 0`.
 
 **Sampler** (`runner/sampler.py`): `sample(logits [B, vocab], rows) -> [B]`, lazy, one `SampleRow(params, seed, position)` per row.
 

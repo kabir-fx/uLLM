@@ -55,8 +55,8 @@ class SamplingParams:
     seed: int | None  # None promises no reproducibility; each runner chooses its own
 
     def __post_init__(self) -> None:
-        # The sampler divides float32 log-probabilities by the temperature; outside float32's
-        # normal range it rounds to 0 or inf and the division makes NaN (decision 0009).
+        # The sampler divides float32 log-probabilities by the temperature, so it must be a
+        # number float32 holds exactly enough: 0 (greedy) or a normal float32 (decision 0009).
         if not (
             _is_number(self.temperature)
             and (self.temperature == 0 or _FLOAT32_TINY <= self.temperature <= _FLOAT32_MAX)

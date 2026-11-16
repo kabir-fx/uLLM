@@ -39,13 +39,13 @@ def _one(logits: mx.array, row: SampleRow) -> mx.array:
     logprobs = logits.astype(mx.float32)
     logprobs = logprobs - mx.logsumexp(logprobs, keepdims=True)
     # The masks see the untempered distribution, as in mlx-lm (decision 0009).
-    keep = logprobs > -mx.inf  # a token with no probability stays out at any temperature
+    keep = mx.ones(logprobs.shape, dtype=mx.bool_)
     if params.top_p < 1:
         keep = keep & _top_p(logprobs, params.top_p)
     if 0 < params.top_k < logprobs.shape[-1]:
         keep = keep & _top_k(logprobs, params.top_k)
-    # With the max at 0, tempering leaves the most likely token at 0 and finite; masking
-    # afterwards keeps excluded tokens at -inf whatever the temperature.
+    # With the max at 0, a tiny temperature leaves the most likely token at 0 instead of
+    # scaling every token past float32 to -inf.
     tempered = (logprobs - logprobs.max()) / params.temperature
     return mx.random.categorical(mx.where(keep, tempered, -mx.inf), key=_key(row))
 

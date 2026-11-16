@@ -11,6 +11,7 @@ from typing import Any, cast
 
 import mlx.core as mx
 from mlx_lm import load
+from tokenizers import decoders
 
 from ullm.models import ModelSpec
 from ullm.runner.base import (
@@ -23,7 +24,7 @@ from ullm.runner.base import (
     StepResult,
     TemplateMessage,
 )
-from ullm.runner.detokenizer import IncrementalDetokenizer
+from ullm.runner.detokenizer import ByteDetokenizer
 from ullm.runner.kv.contiguous import ContiguousKV
 from ullm.runner.ledger import SeqLedger
 from ullm.runner.sampler import SampleRow, sample
@@ -39,7 +40,7 @@ def load_mlx(spec: ModelSpec) -> tuple["MLXRunner", "MLXTokenizer"]:
         eos_token_ids=frozenset(wrapped.eos_token_ids),
         max_model_len=model.args.max_position_embeddings,
     )
-    return MLXRunner(model, info), MLXTokenizer(wrapped)
+    return MLXRunner(model, info), MLXTokenizer(wrapped, info.vocab_size)
 
 
 # Every apply_chat_template parameter except the template inputs tools and documents, as of
@@ -65,8 +66,9 @@ FIXED_TEMPLATE_OPTIONS = frozenset(
 
 
 class MLXTokenizer:
-    def __init__(self, wrapped: Any) -> None:
+    def __init__(self, wrapped: Any, vocab_size: int) -> None:
         self.wrapped = wrapped  # mlx-lm's TokenizerWrapper
+        self._token_bytes = _token_bytes(wrapped, vocab_size)
 
     def render(
         self, messages: Sequence[TemplateMessage], template_kwargs: Mapping[str, object]
@@ -81,8 +83,32 @@ class MLXTokenizer:
             raise ValueError("render takes one conversation, not a batch")
         return tuple(ids)
 
-    def detokenizer(self) -> IncrementalDetokenizer:
-        return IncrementalDetokenizer(self.wrapped.decode)
+    def detokenizer(self) -> ByteDetokenizer:
+        return ByteDetokenizer(self._token_bytes)
+
+
+def _token_bytes(wrapped: Any, vocab_size: int) -> tuple[bytes, ...]:
+    """Each token id's bytes, for every id the model can sample (decision 0009)."""
+    if not isinstance(wrapped.backend_tokenizer.decoder, decoders.ByteLevel):
+        raise ValueError("the streaming detokenizer needs a ByteLevel tokenizer")
+    alphabet = _byte_level_alphabet()
+    added = {i: t.content.encode() for i, t in wrapped.added_tokens_decoder.items()}
+    spelled = wrapped.convert_ids_to_tokens(list(range(len(wrapped))))
+    # Ids past the tokenizer pad the logits to the model's width; they decode to nothing.
+    spelled += [None] * (vocab_size - len(spelled))
+    return tuple(
+        added[i] if i in added else b"" if s is None else bytes(alphabet[c] for c in s)
+        for i, s in enumerate(spelled)
+    )
+
+
+def _byte_level_alphabet() -> dict[str, int]:
+    """GPT-2's byte-level alphabet: the printable character a ByteLevel vocabulary spells
+    each byte with, mapped back to the byte."""
+    printable = [*range(ord("!"), ord("~") + 1), *range(ord("¡"), ord("¬") + 1)]
+    printable += range(ord("®"), ord("ÿ") + 1)
+    unprintable = [b for b in range(256) if b not in printable]
+    return {chr(b): b for b in printable} | {chr(256 + n): b for n, b in enumerate(unprintable)}
 
 
 class MLXRunner:

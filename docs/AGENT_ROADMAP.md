@@ -255,7 +255,7 @@ Each of these differs from, or adds to, the older documents.
 | DEC-4 | No novelty claims. Other engines are baselines | Section 1 |
 | DEC-5 | The scheduler and KV management are written here, not imported (rule 11) | They are the proof of work |
 | DEC-6 | The physical KV layout is chosen by a spike on the real model. The logical block manager is the same under every candidate | Section 4 measurements |
-| DEC-7 | Prefill one request per step (`[1, L]`, no padding). Decode is batched (`[B, 1]`) | Simplest design that keeps equivalence easy. Revisit only with data |
+| DEC-7 | Prefill one request per step (`[1, L]`, no padding). Decode is batched (`[B, 1]`). A sampled prefill runs inside the runner as `[1, L-1]` then `[1, 1]`, to match mlx-lm (decision 0008) | Simplest design that keeps equivalence easy. Revisit only with data |
 | DEC-8 | Headline performance claims are against uLLM's own sequential mode. The gap to mlx-lm's batching is reported and explained | mlx-lm's server already batches |
 | DEC-9 | Cheap hooks from the start: a `PREFILLING` state with progress (for chunked prefill), a salt in the prefix hash chain (tenant isolation), a policy interface (fair share), an optional tenant on every request, trace context on every ticket, a versioned telemetry schema | Minutes now, a refactor later |
 | DEC-10 | Telemetry uses SSE. Controls use ordinary POST requests | One-way data, plain HTTP, passes through the proxy |
@@ -316,7 +316,7 @@ Freeze these early. Lanes depend on them and nothing else.
 
 **E1 Runner.**
 
-- `MLXRunner`: loads once at startup with `mlx_lm.load` (config, safetensors weights, tokenizer and chat template). mlx-lm's model modules are used unchanged, with our own per-layer cache objects on the plug point in section 4. Prefill input is `[1, L]`, decode input is `[B, 1]`. Logits `[B, L, vocab]` are reduced to the last position `[B, vocab]` for the sampler.
+- `MLXRunner`: loads once at startup with `mlx_lm.load` (config, safetensors weights, tokenizer and chat template). mlx-lm's model modules are used unchanged, with our own per-layer cache objects on the plug point in section 4. Prefill input is `[1, L]`, decode input is `[B, 1]`; a sampled prefill runs as `[1, L-1]` then `[1, 1]` (decision 0008). Logits `[B, L, vocab]` are reduced to the last position `[B, vocab]` for the sampler.
 - `FakeRunner`: deterministic tokens from a seed and the request id. Sleeps by a latency model (prefill = base + per token, decode = base + per row). Can inject failures for router tests.
 - Chat template: messages become one string in the model's trained format, then token IDs. A wrong template is a silent quality loss, so the rendered template has a golden test.
 - *Proof:* Q3.

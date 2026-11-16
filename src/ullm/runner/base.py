@@ -48,7 +48,7 @@ class RunnerInfo:
 
 @dataclass(frozen=True, slots=True)
 class PrefillPlan:
-    """Prefill one sequence: input ``[1, L]``, no padding (DEC-7)."""
+    """Prefill tokens of one sequence, no padding (DEC-7); the runner may split the forward (0008)."""
 
     seq: SeqId
     token_ids: tuple[int, ...]  # the tokens to run this step

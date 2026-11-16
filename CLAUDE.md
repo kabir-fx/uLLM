@@ -42,8 +42,9 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 ## How a session runs (roadmap 3.4)
 
 - One task per session; stop at the task boundary.
-- `[design]` tasks: `/architect`, then wait for approval before production code. `[spike]` tasks: present the measurement plan and wait for approval.
-- `/build` the task: anchoring tests first, branch `m<N>/t<K>-<slug>`. Then `/ship` it: one pull request per task, merged only when CI is green. The pull request records the proof and review verdicts with the commit they cover.
+- `[design]` tasks: `/architect`, then wait for approval before production code. `[spike]` tasks: present the measurement plan and wait for approval before production code.
+- The author types `/build <ID>`, then `/ship`; an agent cannot start them and writes no task code outside `/build`. `/build`: anchoring tests first, small conventional commits, branch `m<N>/t<K>-<slug>`; it ends by ticking the task with its verdict commit (`· verdicts at <commit>`). `/ship`: one pull request per task, recording VERIFIED and READY at that commit, merged only when CI is green.
+- On a stacked branch, `prove`, `vet` and `/ship` take the previous task's branch as the base.
 - Record design choices in `docs/decisions/NNNN-title.md`. New claims get a row in `docs/CLAIMS.md`.
 - End with teach-back notes for the author: up to seven bullets, three interview questions, open doubts.
 - Do not write `docs/DESIGN.md`; the author writes it.

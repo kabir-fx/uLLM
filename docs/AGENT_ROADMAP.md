@@ -113,18 +113,18 @@ Non-negotiable. If a task seems to require breaking one, stop and raise it.
 - Design choices are recorded as a short decision record in `docs/decisions/NNNN-title.md`.
 - Section 0 and the task checkbox in section 7 are updated.
 - If the task makes a new claim possible, `docs/CLAIMS.md` gains a row (P2).
-- The pull request records the proof and review verdicts with the commit they cover.
+- The pull request records VERIFIED proof and READY review verdicts with the commit they cover.
 - The author gets teach-back notes (3.4).
 
 ### 3.4 A session
 
-Tasks run through keel's skills (decision 0007). One task per session; stop at the task boundary.
+Tasks run through keel's skills (decision 0007). The author starts `/build` and `/ship` by typing them; an agent cannot. One task per session; stop at the task boundary.
 
-1. Read section 0, the task in section 7, and the catalog entries it names.
-2. `[design]` tasks: `/architect`, then the author's approval before any production code. `[spike]` tasks: the measurement plan, then the author's approval.
-3. `/build` the task, on a branch named like `m2/t3-scheduler`. Write the anchoring tests first where an anchor exists (equivalence, invariants, contract tests).
-4. `/ship` it: one pull request per task, merged only when CI is green.
-5. Update section 0, tick the task, add decision records.
+1. Read section 0, the task in section 7, the catalog entries it names, and any contract (6.2) it touches. If section 0 says another task is in flight, or the task's prerequisites are not merged, stop and say so.
+2. `[design]` tasks: `/architect`, then the author's approval before any production code. `[spike]` tasks: the measurement plan, then the author's approval before any production code.
+3. `/build` the task, in small conventional commits on a branch named like `m2/t3-scheduler`. Write the anchoring tests first where an anchor exists (equivalence, invariants, contract tests). Outside `/build`, an agent writes no production code for a task; it asks the author to type `/build <ID>`.
+4. Once the verdicts are in, on the same branch: add the decision records, update section 0, and tick the task with the commit the verdicts cover, as in `- [x] **M1-T1** … · verdicts at abc1234`.
+5. `/ship` it: one pull request per task, merged only when CI is green. On a stacked branch (decision 0001), `prove`, `vet` and `/ship` take the previous task's branch as the base, not `main`.
 6. Finish with **teach-back notes** for the author: up to seven bullets on what was built and why it is shaped that way, three questions an interviewer could ask about it, and anything you were unsure of. Do not write `docs/DESIGN.md`; that file is the author's own work. Fact-check it when asked.
 
 ### 3.5 Lanes

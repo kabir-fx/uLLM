@@ -50,5 +50,5 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 
 ## Writing
 
-- No dates, deadlines or time estimates in any document. A milestone is done when its gate passes.
+- No deadlines, target dates or time estimates in any document; measured figures are fine. A milestone is done when its gate passes.
 - No novelty claims ("first", "only"). Slower than a baseline is fine when measured and explained.

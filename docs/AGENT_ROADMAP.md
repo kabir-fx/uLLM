@@ -41,7 +41,7 @@ What follows from that for agents:
 
 - Prefer depth with proof over more features. Do not add a feature this file does not list without recording why (3.6).
 - Prefer designs the author can explain in an interview over clever ones.
-- **No deadlines.** A milestone is done when its gate passes. Do not write dates, durations or schedules into any document.
+- **No deadlines.** A milestone is done when its gate passes. Do not write deadlines, target dates or schedules into any document. Measured figures, such as how long a check or a benchmark takes, are fine.
 - Never write "first", "only" or similar novelty claims anywhere.
 
 ---

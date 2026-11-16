@@ -51,12 +51,12 @@ class Tokenizer(Protocol):
     ) -> tuple[int, ...]: ...  # chat template, then token IDs; one call, as the goldens do
 ```
 
-The streaming detokenizer joins this protocol in M1-T2. The server maps `ChatMessage` to `TemplateMessage` with the `template_role` property. `MLXTokenizer.render` refuses every `apply_chat_template` parameter except the template inputs `tools` and `documents` (transformers 5.23: `tokenize`, `return_tensors`, `return_dict`, `return_assistant_tokens_mask`, `add_generation_prompt`, `continue_final_message`, `chat_template`, `truncation`, `max_length`, `padding`, `tokenizer_kwargs`, `sanitize_control_tokens`); which other `chat_template_kwargs` a client may send is the server's decision (M1-T4). Special-token text inside message content renders as control tokens, as in mlx-lm; whether to escape it is also M1-T4's decision.
+The streaming detokenizer joins this protocol in M1-T2. The server maps `ChatMessage` to `TemplateMessage` with the `template_role` property. `MLXTokenizer.render` refuses every `apply_chat_template` parameter except the template inputs `tools` and `documents` (transformers 5.23: `conversation`, `tokenize`, `return_tensors`, `return_dict`, `return_assistant_tokens_mask`, `add_generation_prompt`, `continue_final_message`, `chat_template`, `truncation`, `max_length`, `padding`, `tokenizer_kwargs`, `sanitize_control_tokens`), and refuses a batch of conversations; which other `chat_template_kwargs` a client may send is the server's decision (M1-T4). Special-token text inside message content renders as control tokens, as in mlx-lm; whether to escape it is also M1-T4's decision.
 
 **Invariants the protocol states** (in `base.py` docstrings, checked by every adapter, and covered by one conformance test that runs on both):
 
 1. Lifecycle per `SeqId`: `add` once, then `execute` any number of times, then `release` once. `add` of a live id, or `execute` or `release` of an unknown id, raises `ValueError`.
-2. Positions are contiguous. A `PrefillPlan` must have `start` equal to the tokens the runner holds for that sequence. A `DecodePlan` row appends one token at the next position. `start + len(token_ids)` must not exceed `max_model_len`, and every token ID must be in `[0, vocab_size)`. Sequence ids, positions and token IDs must be `int` (not `bool`), and `sample` a `bool`; plans refuse other types when built. A violation raises `ValueError` before any forward pass and changes nothing.
+2. Positions are contiguous. A `PrefillPlan` must have `start` equal to the tokens the runner holds for that sequence. A `DecodePlan` row appends one token at the next position. `start + len(token_ids)` must not exceed `max_model_len`, and every token ID must be in `[0, vocab_size)`. Sequence ids, positions and token IDs must be `int` (not `bool`), `token_ids` and `seqs` tuples, and `sample` a `bool`; plans refuse other types when built, and `add` and `release` refuse a non-`int` id. A violation raises `ValueError` before any forward pass and changes nothing.
 3. `StepResult.tokens` has one entry per sampled row, in plan order: one for a `PrefillPlan` with `sample=True`, none with `sample=False`, `len(seqs)` for a `DecodePlan`.
 4. An `execute` that fails after validation, in the forward pass or the eval, marks every sequence in the plan as failed. The only legal call for a failed sequence is `release`.
 5. Not thread-safe by contract: only the engine thread calls it (rule 2). No locks.
@@ -68,12 +68,12 @@ The streaming detokenizer joins this protocol in M1-T2. The server maps `ChatMes
 - A `PrefillPlan` with `sample=True` and more than one token runs `token_ids[:-1]`, then `token_ids[-1:]`, and samples from the second. This split is hidden inside one step, because the measurement above shows it is needed for rule 1. With `sample=False` it is one forward pass.
 - Sampling is greedy in M1-T1: `argmax` of the last position's log-probabilities, `logits - logsumexp(logits)`, as mlx-lm's `greedy_sampler` does. In bf16 that subtraction can turn two close logits into a tie that `argmax` breaks by index, so `argmax` of the raw logits could pick differently. `add` with any temperature other than 0, NaN included, raises `ValueError` until M1-T2 adds the sampler in `runner/sampler.py`.
 - `DecodePlan` with more than one sequence raises `ValueError` naming M2-T1. Batched decode needs one batch cache (E7), not a loop over per-sequence caches.
-- One `mx.eval` on the sampled tokens per step, then the timings (rule 4). `forward_ms` covers forward through eval; `total_ms` adds input building and `tolist()`.
+- One `mx.eval` per step, on the sampled tokens, or on every layer's K and V when nothing is sampled; then the timings (rule 4). `forward_ms` covers forward through eval; `total_ms` adds input building and `tolist()`.
 
 **`FakeRunner`** (`runner/fake_runner.py`), MLX-free:
 
 - `FakeRunner(info: RunnerInfo, latency: Latency, sleep: Callable[[float], None] = time.sleep)`. `Latency` has `prefill_base_ms`, `prefill_per_token_ms`, `decode_base_ms`, `decode_per_row_ms`.
-- Token at position `p` of sequence `s` is `blake2b(seed or 0, s, p) mod vocab_size`, skipping EOS ids, so output is deterministic and independent of batching.
+- Token at position `p` of sequence `s` is `blake2b(seed or 0, s, p)` taken modulo the number of non-EOS ids, then mapped onto those ids in order, so it is never EOS, every other id is reachable, and output is deterministic and independent of batching.
 - Sleeps for the modelled time and reports it as `forward_ms` and `total_ms`, so `ullm sim` telemetry shows the latency model, not the host's noise.
 - Enforces invariants 1–4 exactly as `MLXRunner` does, through the same `SeqLedger`. It accepts `DecodePlan`s of any size. E1's failure injection is the `sleep` argument: a `sleep` that raises fails the step mid-flight. It refuses a `RunnerInfo` whose vocabulary is all EOS.
 

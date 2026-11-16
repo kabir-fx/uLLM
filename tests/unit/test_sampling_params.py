@@ -52,3 +52,10 @@ def test_top_k_is_a_non_negative_int(bad: Any) -> None:
 def test_seed_is_an_int_or_none(bad: Any) -> None:
     with pytest.raises(ValueError, match="seed"):
         _params(seed=bad)
+
+
+@pytest.mark.parametrize("temperature", [1, 10**20, 2**63])
+def test_temperature_and_top_p_are_stored_as_floats(temperature: int) -> None:
+    params = _params(temperature=temperature, top_p=1)
+    assert type(params.temperature) is float and params.temperature == temperature
+    assert type(params.top_p) is float and params.top_p == 1.0

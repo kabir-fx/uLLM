@@ -191,3 +191,10 @@ def test_a_token_with_no_probability_is_never_drawn(temperature: float) -> None:
     logits = _logits([5.0, 4.0, -math.inf, 0.0])
     params = SamplingParams(temperature=temperature, top_p=1.0, top_k=0, seed=None)
     assert 2 not in set(_draws(logits, params, n=200))
+
+
+def test_an_int_temperature_samples_like_its_float() -> None:
+    logits = _logits([5.0, 4.0, 1.0, 0.0])
+    as_int = SamplingParams(temperature=10**20, top_p=1.0, top_k=0, seed=None)
+    as_float = SamplingParams(temperature=1e20, top_p=1.0, top_k=0, seed=None)
+    assert _draws(logits, as_int, n=20) == _draws(logits, as_float, n=20)

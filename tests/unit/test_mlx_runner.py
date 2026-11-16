@@ -1,6 +1,7 @@
 """MLXRunner beyond the shared conformance tests (decision 0008): what it refuses in M1,
 how it samples, what ``load_mlx`` reports, and what its cache and tokenizer accept."""
 
+import dataclasses
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
@@ -16,14 +17,52 @@ GREEDY = SamplingParams(temperature=0.0, top_p=1.0, top_k=0, seed=None)
 QWEN3_VOCAB = 151_936  # the logits width; the tokenizer has 151,669 entries (roadmap section 4)
 
 
-def test_anything_but_temperature_zero_is_refused_and_adds_nothing(
+# "Write a poem." through the chat template, thinking off.
+PROMPT = (
+    151644,
+    872,
+    198,
+    7985,
+    264,
+    32794,
+    13,
+    151645,
+    198,
+    151644,
+    77091,
+    198,
+    151667,
+    271,
+    151668,
+    271,
+)
+
+
+def _generate(runner: "MLXRunner", seq: int, sampling: SamplingParams, n: int = 24) -> list[int]:
+    runner.add(seq, sampling)
+    tokens = list(runner.execute(PrefillPlan(seq=seq, token_ids=PROMPT, start=0)).tokens)
+    while len(tokens) < n:
+        tokens += runner.execute(DecodePlan(seqs=(seq,), token_ids=(tokens[-1],))).tokens
+    runner.release(seq)
+    return tokens
+
+
+def test_a_seed_reproduces_a_sampled_reply_under_any_sequence_id(
     mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
 ) -> None:
     runner, _ = mlx_loaded
-    with pytest.raises(ValueError, match="M1-T2"):
-        runner.add(100, SamplingParams(temperature=0.7, top_p=1.0, top_k=0, seed=1))
-    runner.add(100, GREEDY)
-    runner.release(100)
+    hot = SamplingParams(temperature=1.5, top_p=0.95, top_k=50, seed=1234)
+    first = _generate(runner, 100, hot)
+    assert _generate(runner, 101, hot) == first
+    assert _generate(runner, 100, dataclasses.replace(hot, seed=1235)) != first
+
+
+def test_without_a_seed_each_sequence_draws_its_own(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    runner, _ = mlx_loaded
+    unseeded = SamplingParams(temperature=2.0, top_p=1.0, top_k=0, seed=None)
+    assert _generate(runner, 100, unseeded) != _generate(runner, 101, unseeded)
 
 
 def test_batched_decode_is_refused_without_failing_the_sequences(

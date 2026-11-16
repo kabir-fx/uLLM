@@ -4,8 +4,9 @@ Only the engine thread calls ``MLXRunner`` (rule 2). ``MLXTokenizer`` holds no
 MLX arrays, so other threads may call it.
 """
 
+import secrets
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, cast
 
 import mlx.core as mx
@@ -24,6 +25,7 @@ from ullm.runner.base import (
 )
 from ullm.runner.kv.contiguous import ContiguousKV
 from ullm.runner.ledger import SeqLedger
+from ullm.runner.sampler import SampleRow, sample
 
 
 def load_mlx(spec: ModelSpec) -> tuple["MLXRunner", "MLXTokenizer"]:
@@ -85,39 +87,41 @@ class MLXRunner:
         self._info = info
         self._ledger = SeqLedger(info)
         self._caches: dict[SeqId, list[ContiguousKV]] = {}
+        self._sampling: dict[SeqId, tuple[SamplingParams, int]] = {}
 
     def info(self) -> RunnerInfo:
         return self._info
 
     def add(self, seq: SeqId, sampling: SamplingParams) -> None:
-        if sampling.temperature != 0:
-            raise ValueError("only greedy decoding until the sampler lands (M1-T2)")
         self._ledger.add(seq)
         self._caches[seq] = [ContiguousKV() for _ in self.model.layers]
+        seed = secrets.randbits(64) if sampling.seed is None else sampling.seed
+        self._sampling[seq] = (sampling, seed)
 
     def release(self, seq: SeqId) -> None:
         self._ledger.release(seq)
         del self._caches[seq]
+        del self._sampling[seq]
 
     def execute(self, plan: StepPlan) -> StepResult:
         if isinstance(plan, DecodePlan) and len(plan.seqs) > 1:
             raise ValueError("batched decode needs one batch KV cache (E7, M2-T1)")
         with self._ledger.step(plan):
             began = time.perf_counter()
-            seq, chunks, sample = _forwards(plan)
+            seq, chunks, sampled_at = _forwards(plan, self._ledger.held)
             inputs = [mx.array(chunk)[None] for chunk in chunks]
             cache = self._caches[seq]
             forward_began = time.perf_counter()
             for x in inputs:
                 logits = self.model(x, cache=cache)
-            if sample:
-                last = logits[:, -1, :]
-                sampled = mx.argmax(last - mx.logsumexp(last, axis=-1, keepdims=True), axis=-1)
+            if sampled_at is not None:
+                params, seed = self._sampling[seq]
+                sampled = sample(logits[:, -1, :], [SampleRow(params, seed, sampled_at)])
                 mx.eval(sampled)
             else:
                 mx.eval([(kv.keys, kv.values) for kv in cache])
             forward_done = time.perf_counter()
-            tokens = tuple(cast(list[int], sampled.tolist())) if sample else ()
+            tokens = tuple(cast(list[int], sampled.tolist())) if sampled_at is not None else ()
         done = time.perf_counter()
         return StepResult(
             tokens=tokens,
@@ -126,17 +130,20 @@ class MLXRunner:
         )
 
 
-def _forwards(plan: StepPlan) -> tuple[SeqId, list[tuple[int, ...]], bool]:
-    """The sequence, the token chunks to run in order, and whether to sample after the last.
+def _forwards(
+    plan: StepPlan, held: Callable[[SeqId], int]
+) -> tuple[SeqId, list[tuple[int, ...]], int | None]:
+    """The sequence, the token chunks to run in order, and the position of the token
+    sampled after the last chunk, or None when the step samples nothing.
 
     A sampled prefill runs all but its last token, then the last token alone, as
     mlx-lm's ``generate_step`` does: one ``[1, L]`` forward picks different greedy
     tokens at near-ties (decision 0008).
     """
     match plan:
-        case PrefillPlan(seq=seq, token_ids=ids, sample=True) if len(ids) > 1:
-            return seq, [ids[:-1], ids[-1:]], True
-        case PrefillPlan(seq=seq, token_ids=ids, sample=sample):
-            return seq, [ids], sample
+        case PrefillPlan(seq=seq, token_ids=ids, start=start, sample=True) if len(ids) > 1:
+            return seq, [ids[:-1], ids[-1:]], start + len(ids)
+        case PrefillPlan(seq=seq, token_ids=ids, start=start, sample=sample):
+            return seq, [ids], start + len(ids) if sample else None
         case DecodePlan(seqs=seqs, token_ids=ids):
-            return seqs[0], [ids], True
+            return seqs[0], [ids], held(seqs[0]) + 1

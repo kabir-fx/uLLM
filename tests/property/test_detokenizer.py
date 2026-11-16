@@ -10,7 +10,7 @@ from itertools import pairwise
 from hypothesis import given
 from hypothesis import strategies as st
 
-from ullm.runner.detokenizer import IncrementalDetokenizer
+from ullm.runner.detokenizer import ByteDetokenizer
 
 
 class ByteTokens:
@@ -30,7 +30,7 @@ class ByteTokens:
 
 
 def _stream(tokens: ByteTokens, ids: list[int]) -> tuple[list[str], str]:
-    detokenizer = IncrementalDetokenizer(tokens.decode)
+    detokenizer = ByteDetokenizer(tokens.pieces)
     return [detokenizer.add(i) for i in ids], detokenizer.flush()
 
 
@@ -71,47 +71,26 @@ def test_flush_gives_up_on_an_unfinished_character() -> None:
     assert _stream(tokens, ids) == ([""], "\ufffd")
 
 
-def test_a_word_keeps_its_space_when_the_tokenizer_drops_a_leading_one() -> None:
-    # SentencePiece-style: decoding drops the space that starts the text, so a
-    # token decoded alone loses the space that joins it to the word before.
-    pieces = [" Hello", " world", "!"]
-
-    def decode(ids: Sequence[int]) -> str:
-        return "".join(pieces[i] for i in ids).removeprefix(" ")
-
-    detokenizer = IncrementalDetokenizer(decode)
-    chunks = [detokenizer.add(i) for i in range(3)] + [detokenizer.flush()]
-    assert "".join(chunks) == decode([0, 1, 2]) == "Hello world!"
-
-
-class Recording(ByteTokens):
-    """Records the longest window of tokens decoded at once."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.widest = 0
-
-    def decode(self, ids: Sequence[int]) -> str:
-        self.widest = max(self.widest, len(ids))
-        return super().decode(ids)
-
-
-@given(st.text(alphabet=st.sampled_from("a😀�é")), st.lists(st.integers(min_value=0)))
-def test_a_real_replacement_character_streams_and_the_window_stays_short(
-    text: str, cuts: list[int]
-) -> None:
-    tokens = Recording()
-    ids = tokens.encode(text.encode(), cuts)
-    chunks, rest = _stream(tokens, ids)
-    assert "".join(chunks) + rest == text
-    assert tokens.widest <= 8
-
-
-def test_a_run_of_real_replacement_characters_lags_at_most_three_tokens() -> None:
+@given(st.text(alphabet=st.sampled_from("a😀\ufffdé")), st.lists(st.integers(min_value=0)))
+def test_text_streams_as_soon_as_its_characters_are_whole(text: str, cuts: list[int]) -> None:
+    # A real U+FFFD is whole, and a token may end one character and start the next.
     tokens = ByteTokens()
-    ids = tokens.encode("�".encode() * 1000, list(range(0, 3000, 3)))
-    detokenizer = IncrementalDetokenizer(tokens.decode)
+    ids = tokens.encode(text.encode(), cuts)
+    detokenizer = ByteDetokenizer(tokens.pieces)
     streamed = ""
     for n, token in enumerate(ids, start=1):
         streamed += detokenizer.add(token)
-        assert len(streamed) >= n - 3
+        decoded = tokens.decode(ids[:n])
+        assert decoded.startswith(streamed)
+        assert len(decoded) - len(streamed) <= 1  # at most the unfinished character
+    assert streamed + detokenizer.flush() == text
+
+
+def test_each_real_replacement_character_streams_at_once() -> None:
+    tokens = ByteTokens()
+    ids = tokens.encode("�".encode() * 1000, list(range(0, 3000, 3)))
+    detokenizer = ByteDetokenizer(tokens.pieces)
+    streamed = ""
+    for n, token in enumerate(ids, start=1):
+        streamed += detokenizer.add(token)
+        assert len(streamed) == n

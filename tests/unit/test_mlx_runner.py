@@ -2,6 +2,7 @@
 how it samples, what ``load_mlx`` reports, and what its cache and tokenizer accept."""
 
 import dataclasses
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
@@ -261,3 +262,42 @@ def test_a_stop_string_spanning_qwen3_tokens_is_cut_from_the_stream(
     chunks = [check.add(i) for i in ids[: pieces.index(":") + 1]]
     assert "".join(c.text for c in chunks) == "The answer is 42."
     assert [c.finish_reason for c in chunks][-1] == "stop"
+
+
+def test_streamed_text_is_the_decoding_of_any_token_ids(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    import random
+
+    runner, tokenizer = mlx_loaded
+    rng = random.Random(0)
+    special = sorted(tokenizer.wrapped.added_tokens_decoder)
+    for _ in range(300):
+        ids = [rng.randrange(runner.info().vocab_size) for _ in range(rng.randrange(1, 40))]
+        ids += rng.sample(special, 2)  # ids past the tokenizer decode to nothing
+        rng.shuffle(ids)
+        detokenizer = tokenizer.detokenizer()
+        streamed = "".join(detokenizer.add(i) for i in ids) + detokenizer.flush()
+        assert streamed == tokenizer.wrapped.decode(ids)
+
+
+def test_a_token_that_ends_one_character_and_starts_the_next_keeps_streaming(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    _, tokenizer = mlx_loaded
+    lead = [tokenizer.wrapped.convert_tokens_to_ids("áŀ")]  # bytes E1 9E, as Qwen3 spells them
+    detokenizer = tokenizer.detokenizer()
+    streamed = "".join(detokenizer.add(i) for i in lead)
+    for _ in range(1000):
+        streamed += detokenizer.add(72496)  # bytes 92 E1 9E: finishes one ធ, starts another
+    assert streamed == "ធ" * 1000
+
+
+def test_only_a_byte_level_tokenizer_is_accepted() -> None:
+    from tokenizers import decoders
+
+    from ullm.runner.mlx_runner import MLXTokenizer
+
+    word_piece = SimpleNamespace(backend_tokenizer=SimpleNamespace(decoder=decoders.WordPiece()))
+    with pytest.raises(ValueError, match="ByteLevel"):
+        MLXTokenizer(word_piece, vocab_size=10)

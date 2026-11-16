@@ -140,7 +140,7 @@ def test_one_row_per_logits_row() -> None:
         sample(_logits([0.0, 1.0], [1.0, 0.0]), [_row(GREEDY)])
 
 
-@pytest.mark.parametrize("temperature", [1e38, 1e300])
+@pytest.mark.parametrize("temperature", [1e38, 3.4e38])
 def test_a_huge_temperature_still_respects_the_masks(temperature: float) -> None:
     logits = _logits([5.0, 4.0, 1.0, 0.0, -1.0])
     for params in (
@@ -158,9 +158,10 @@ def test_a_tiny_top_p_keeps_the_most_likely_token(top_p: float) -> None:
     assert set(_draws(logits, params, n=100)) == {0}
 
 
-def test_a_tiny_temperature_is_greedy_even_without_a_certain_token() -> None:
+@pytest.mark.parametrize("temperature", [1e-30, 1.2e-38])
+def test_a_tiny_temperature_is_greedy_even_without_a_certain_token(temperature: float) -> None:
     logits = _logits([1.0, 0.0, 1.0 - 1e-3])
-    params = SamplingParams(temperature=1e-30, top_p=1.0, top_k=0, seed=None)
+    params = SamplingParams(temperature=temperature, top_p=1.0, top_k=0, seed=None)
     assert set(_draws(logits, params, n=50)) == {0}
 
 
@@ -180,7 +181,7 @@ def test_ties_at_the_edge_of_a_mask_stay() -> None:
     assert set(_draws(probs, top_p)) == {0, 1, 2}
 
 
-@pytest.mark.parametrize("temperature", [1.0, 1e300])
+@pytest.mark.parametrize("temperature", [1.0, 3.4e38])
 def test_a_token_with_no_probability_is_never_drawn(temperature: float) -> None:
     logits = _logits([5.0, 4.0, -math.inf, 0.0])
     params = SamplingParams(temperature=temperature, top_p=1.0, top_k=0, seed=None)

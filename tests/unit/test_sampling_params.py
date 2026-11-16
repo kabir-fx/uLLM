@@ -17,6 +17,8 @@ def _params(**changes: Any) -> SamplingParams:
     [
         {"temperature": 0.0, "top_p": 1.0, "top_k": 0, "seed": None},
         {"temperature": 2, "top_p": 1e-6, "top_k": 1, "seed": -3},
+        {"temperature": 1.2e-38, "top_p": 1.0, "top_k": 0, "seed": None},
+        {"temperature": 3.4e38, "top_p": 1.0, "top_k": 0, "seed": None},
         {"temperature": 0.7, "top_p": 0.9, "top_k": 10**9, "seed": 2**80},
     ],
 )
@@ -24,8 +26,12 @@ def test_valid_settings_are_accepted(fields: dict[str, Any]) -> None:
     SamplingParams(**fields)
 
 
-@pytest.mark.parametrize("bad", [-0.1, float("nan"), float("inf"), True, "0.7", None], ids=repr)
-def test_temperature_is_a_finite_non_negative_number(bad: Any) -> None:
+@pytest.mark.parametrize(
+    "bad",
+    [-0.1, float("nan"), float("inf"), 1e300, 3.5e38, 1e-38, 5e-324, True, "0.7", None],
+    ids=repr,
+)
+def test_temperature_is_zero_or_a_normal_float32(bad: Any) -> None:
     with pytest.raises(ValueError, match="temperature"):
         _params(temperature=bad)
 

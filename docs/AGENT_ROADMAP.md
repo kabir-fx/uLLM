@@ -112,18 +112,19 @@ Non-negotiable. If a task seems to require breaking one, stop and raise it.
 - Design choices are recorded as a short decision record in `docs/decisions/NNNN-title.md`.
 - Section 0 and the task checkbox in section 7 are updated.
 - If the task makes a new claim possible, `docs/CLAIMS.md` gains a row (P2).
-- The author gets teach-back notes (3.4, step 7).
+- The pull request records the proof and review verdicts with the commit they cover.
+- The author gets teach-back notes (3.4).
 
 ### 3.4 A session
 
+Tasks run through keel's skills (decision 0007). One task per session; stop at the task boundary.
+
 1. Read section 0, the task in section 7, and the catalog entries it names.
-2. Tasks tagged `[design]` or `[spike]`: produce the design or measurement plan first and get the author's approval before writing production code.
-3. Write the anchoring tests first where an anchor exists (equivalence, invariants, contract tests).
-4. Implement in small commits on a branch named like `m2/t3-scheduler`. Conventional commit messages.
-5. Run `make check`. Open a pull request. Merge only when CI is green.
-6. Update section 0, tick the task, add decision records.
-7. Finish with **teach-back notes** for the author: up to seven bullets on what was built and why it is shaped that way, three questions an interviewer could ask about it, and anything you were unsure of. Do not write `docs/DESIGN.md`; that file is the author's own work. Fact-check it when asked.
-8. One task per session. Stop at the task boundary.
+2. `[design]` tasks: `/architect`, then the author's approval before any production code. `[spike]` tasks: the measurement plan, then the author's approval.
+3. `/build` the task, on a branch named like `m2/t3-scheduler`. Write the anchoring tests first where an anchor exists (equivalence, invariants, contract tests).
+4. `/ship` it: one pull request per task, merged only when CI is green.
+5. Update section 0, tick the task, add decision records.
+6. Finish with **teach-back notes** for the author: up to seven bullets on what was built and why it is shaped that way, three questions an interviewer could ask about it, and anything you were unsure of. Do not write `docs/DESIGN.md`; that file is the author's own work. Fact-check it when asked.
 
 ### 3.5 Lanes
 

@@ -178,3 +178,10 @@ def test_ties_at_the_edge_of_a_mask_stay() -> None:
     probs = _logits(_from_probs(0.4, 0.3, 0.3))
     top_p = SamplingParams(temperature=1.0, top_p=0.6, top_k=0, seed=None)
     assert set(_draws(probs, top_p)) == {0, 1, 2}
+
+
+@pytest.mark.parametrize("temperature", [1.0, 1e300])
+def test_a_token_with_no_probability_is_never_drawn(temperature: float) -> None:
+    logits = _logits([5.0, 4.0, -math.inf, 0.0])
+    params = SamplingParams(temperature=temperature, top_p=1.0, top_k=0, seed=None)
+    assert 2 not in set(_draws(logits, params, n=200))

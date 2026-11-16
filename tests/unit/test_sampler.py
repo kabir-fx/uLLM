@@ -159,10 +159,15 @@ def test_a_tiny_top_p_keeps_the_most_likely_token(top_p: float) -> None:
 
 
 @pytest.mark.parametrize("temperature", [1e-30, 1.2e-38])
-def test_a_tiny_temperature_is_greedy_even_without_a_certain_token(temperature: float) -> None:
-    logits = _logits([1.0, 0.0, 1.0 - 1e-3])
+def test_a_tiny_temperature_is_greedy_even_when_every_token_is_unlikely(
+    temperature: float,
+) -> None:
+    # 1,000 near-equal tokens: every log-probability is about -6.9, which a tiny
+    # temperature would scale past float32 for every token, the most likely included.
+    flat = [0.0] * 1000
+    flat[500] = 1e-3
     params = SamplingParams(temperature=temperature, top_p=1.0, top_k=0, seed=None)
-    assert set(_draws(logits, params, n=50)) == {0}
+    assert set(_draws(_logits(flat), params, n=50)) == {500}
 
 
 def test_top_k_at_or_past_the_vocabulary_is_off() -> None:

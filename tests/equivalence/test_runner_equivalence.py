@@ -13,19 +13,19 @@ prompt token IDs.
 
 import json
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from ullm.models import DEFAULT_MODEL
+from ullm.runner.base import DecodePlan, PrefillPlan, SamplingParams
+
+if TYPE_CHECKING:
+    from ullm.runner.mlx_runner import MLXRunner, MLXTokenizer
+
 pytestmark = pytest.mark.mlx
 
-pytest.importorskip("mlx.core")
-
-from scripts.make_goldens import PROMPTS, TEMPLATE_KWARGS, golden_path, reference  # noqa: E402
-
-from ullm.models import DEFAULT_MODEL  # noqa: E402
-from ullm.runner.base import DecodePlan, PrefillPlan, SamplingParams  # noqa: E402
-from ullm.runner.mlx_runner import MLXRunner, MLXTokenizer  # noqa: E402
+goldens = pytest.importorskip("scripts.make_goldens")
 
 TOKENS = int(os.environ.get("ULLM_GOLDEN_TOKENS", "32"))  # as test_goldens.py; 128 is the full run
 GREEDY = SamplingParams(temperature=0.0, top_p=1.0, top_k=0, seed=None)
@@ -33,11 +33,11 @@ GREEDY = SamplingParams(temperature=0.0, top_p=1.0, top_k=0, seed=None)
 
 @pytest.fixture(scope="module")
 def golden() -> dict[str, Any]:
-    data: dict[str, Any] = json.loads(golden_path(DEFAULT_MODEL).read_text())
+    data: dict[str, Any] = json.loads(goldens.golden_path(DEFAULT_MODEL).read_text())
     return data
 
 
-def _generate(runner: MLXRunner, seq: int, prompt: tuple[int, ...], max_tokens: int) -> list[int]:
+def _generate(runner: "MLXRunner", seq: int, prompt: tuple[int, ...], max_tokens: int) -> list[int]:
     eos = runner.info().eos_token_ids
     runner.add(seq, GREEDY)
     tokens = list(runner.execute(PrefillPlan(seq=seq, token_ids=prompt, start=0)).tokens)
@@ -48,22 +48,24 @@ def _generate(runner: MLXRunner, seq: int, prompt: tuple[int, ...], max_tokens: 
 
 
 def test_render_gives_the_golden_prompt_ids(
-    golden: dict[str, Any], mlx_loaded: tuple[MLXRunner, MLXTokenizer]
+    golden: dict[str, Any], mlx_loaded: "tuple[MLXRunner, MLXTokenizer]"
 ) -> None:
     _, tokenizer = mlx_loaded
-    prompts = {c["id"]: c["messages"] for c in json.loads(PROMPTS.read_text())["cases"]}
+    prompts = {c["id"]: c["messages"] for c in json.loads(goldens.PROMPTS.read_text())["cases"]}
     for case in golden["cases"]:
-        got = tokenizer.render(prompts[case["id"]], TEMPLATE_KWARGS)
+        got = tokenizer.render(prompts[case["id"]], goldens.TEMPLATE_KWARGS)
         assert got == tuple(case["prompt_ids"]), f"{case['id']}: chat template renders differently"
 
 
 def test_greedy_tokens_equal_mlx_lm_on_this_machine(
-    golden: dict[str, Any], mlx_loaded: tuple[MLXRunner, MLXTokenizer]
+    golden: dict[str, Any], mlx_loaded: "tuple[MLXRunner, MLXTokenizer]"
 ) -> None:
     runner, tokenizer = mlx_loaded
     failures = []
     for seq, case in enumerate(golden["cases"]):
-        want, margins, _ = reference(runner.model, tokenizer.wrapped, case["prompt_ids"], TOKENS)
+        want, margins, _ = goldens.reference(
+            runner.model, tokenizer.wrapped, case["prompt_ids"], TOKENS
+        )
         got = _generate(runner, seq, tuple(case["prompt_ids"]), TOKENS)
         if got != want:
             i = next(

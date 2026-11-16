@@ -141,8 +141,9 @@ def test_render_refuses_a_batch_of_conversations(
         tokenizer.render(batch, {})
 
 
+@pytest.mark.parametrize("sample", [True, False], ids=["sampled", "unsampled"])
 def test_a_failure_inside_the_eval_fails_the_sequence(
-    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", monkeypatch: pytest.MonkeyPatch
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", monkeypatch: pytest.MonkeyPatch, sample: bool
 ) -> None:
     import mlx.core as mx
 
@@ -159,7 +160,7 @@ def test_a_failure_inside_the_eval_fails_the_sequence(
 
     monkeypatch.setattr(mx, "eval", fail_once)
     with pytest.raises(RuntimeError, match="injected"):
-        runner.execute(PrefillPlan(seq=1, token_ids=(9707, 11), start=0))
+        runner.execute(PrefillPlan(seq=1, token_ids=(9707, 11), start=0, sample=sample))
     with pytest.raises(ValueError, match="failed"):
         runner.execute(PrefillPlan(seq=1, token_ids=(9707,), start=0))
     runner.release(1)

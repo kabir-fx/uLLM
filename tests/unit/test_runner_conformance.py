@@ -72,6 +72,16 @@ def test_a_sequence_is_added_once(runner: Runner) -> None:
         runner.add(1, GREEDY)
 
 
+@pytest.mark.parametrize("bad", [True, 1.0, "1", None])
+def test_sequence_ids_must_be_plain_ints(runner: Runner, bad: Any) -> None:
+    runner.add(1, GREEDY)
+    with pytest.raises(ValueError, match="int"):
+        runner.add(bad, GREEDY)
+    with pytest.raises(ValueError, match="int"):
+        runner.release(bad)
+    runner.execute(PrefillPlan(seq=1, token_ids=(5,), start=0))
+
+
 def test_an_unknown_sequence_cannot_run_or_be_released(runner: Runner) -> None:
     with pytest.raises(ValueError, match="unknown"):
         runner.execute(PrefillPlan(seq=7, token_ids=(1, 2), start=0))
@@ -152,7 +162,6 @@ def test_prefill_samples_one_token_unless_told_not_to(runner: Runner) -> None:
 
 def test_a_chunked_prefill_samples_what_one_prefill_does(runner: Runner) -> None:
     runner.add(1, GREEDY)
-    runner.add(2, GREEDY)
     runner.execute(PrefillPlan(seq=1, token_ids=(5, 6), start=0, sample=False))
     chunked = runner.execute(PrefillPlan(seq=1, token_ids=(7,), start=2))
     runner.release(1)

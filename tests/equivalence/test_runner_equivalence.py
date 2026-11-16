@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from ullm.models import DEFAULT_MODEL
-from ullm.runner.base import DecodePlan, PrefillPlan, SamplingParams
+from ullm.runner.base import DecodePlan, PrefillPlan, SamplingParams, Tokenizer
 
 if TYPE_CHECKING:
     from ullm.runner.mlx_runner import MLXRunner, MLXTokenizer
@@ -54,7 +54,8 @@ def test_render_gives_the_golden_prompt_ids(
 ) -> None:
     from scripts.make_goldens import PROMPTS, TEMPLATE_KWARGS
 
-    _, tokenizer = mlx_loaded
+    _, mlx_tokenizer = mlx_loaded
+    tokenizer: Tokenizer = mlx_tokenizer  # MLXTokenizer must satisfy the MLX-free protocol
     prompts = {c["id"]: c["messages"] for c in json.loads(PROMPTS.read_text())["cases"]}
     for case in golden["cases"]:
         got = tokenizer.render(prompts[case["id"]], TEMPLATE_KWARGS)

@@ -60,3 +60,15 @@ def test_plans_refuse_positions_and_ids_that_are_not_plain_ints(bad: Any) -> Non
 def test_prefill_refuses_a_sample_flag_that_is_not_a_bool(bad: Any) -> None:
     with pytest.raises(ValueError, match="bool"):
         PrefillPlan(seq=1, token_ids=(5, 6), start=0, sample=bad)
+
+
+@pytest.mark.parametrize(
+    "make", [list, range, lambda ids: (i for i in ids)], ids=["list", "range", "generator"]
+)
+def test_plans_take_ids_and_seqs_only_as_tuples(make: Any) -> None:
+    with pytest.raises(ValueError, match="tuple"):
+        PrefillPlan(seq=1, token_ids=make((5, 6)), start=0)
+    with pytest.raises(ValueError, match="tuple"):
+        DecodePlan(seqs=make((1,)), token_ids=(5,))
+    with pytest.raises(ValueError, match="tuple"):
+        DecodePlan(seqs=(1,), token_ids=make((5,)))

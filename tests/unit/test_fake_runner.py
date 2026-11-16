@@ -1,5 +1,7 @@
 """FakeRunner: deterministic, batch-independent tokens and a latency model (E1, decision 0008)."""
 
+from typing import Any
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
@@ -70,6 +72,30 @@ def test_a_batch_returns_each_rows_own_tokens_in_plan_order() -> None:
         for seq, token in zip(order, step.tokens, strict=True):
             got[seq].append(token)
     assert got == expected
+
+
+@pytest.mark.parametrize(
+    "eos",
+    [frozenset({3, 9}), frozenset({9, 3, 0}), frozenset({5, 70})],
+    ids=["two", "unsorted", "partly-outside"],
+)
+def test_every_non_eos_id_is_reachable_and_eos_never_is(eos: frozenset[int]) -> None:
+    info = RunnerInfo(model_id="f", vocab_size=12, eos_token_ids=eos, max_model_len=4096)
+    runner = FakeRunner(info, LATENCY, sleep=lambda s: None)
+    seen: set[int] = set()
+    for seq in range(200):
+        runner.add(seq, _sampling(None))
+        seen |= set(_generate(runner, seq, (1,), 8))
+    assert seen == set(range(12)) - eos
+
+
+def test_a_refused_add_leaves_nothing_behind() -> None:
+    runner = _runner()
+    not_sampling: Any = None
+    with pytest.raises(AttributeError):
+        runner.add(1, not_sampling)
+    runner.add(1, _sampling(None))
+    runner.execute(PrefillPlan(seq=1, token_ids=(1,), start=0))
 
 
 @given(

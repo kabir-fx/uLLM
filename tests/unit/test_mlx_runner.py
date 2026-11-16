@@ -110,6 +110,7 @@ def test_load_reports_the_models_own_limits(mlx_loaded: "tuple[MLXRunner, MLXTok
     "key",
     [
         "tokenize",
+        "conversation",
         "truncation",
         "max_length",
         "padding",
@@ -129,6 +130,39 @@ def test_render_refuses_options_that_change_what_it_returns(
     _, tokenizer = mlx_loaded
     with pytest.raises(ValueError, match=key):
         tokenizer.render([{"role": "user", "content": "hi"}], {key: False})
+
+
+def test_render_refuses_a_batch_of_conversations(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    _, tokenizer = mlx_loaded
+    batch: Any = [[{"role": "user", "content": "hi"}], [{"role": "user", "content": "yo"}]]
+    with pytest.raises(ValueError, match="one conversation"):
+        tokenizer.render(batch, {})
+
+
+def test_a_failure_inside_the_eval_fails_the_sequence(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mlx.core as mx
+
+    from ullm.runner.mlx_runner import MLXRunner
+
+    loaded, _ = mlx_loaded
+    runner = MLXRunner(loaded.model, loaded.info())
+    runner.add(1, GREEDY)
+    real_eval = mx.eval
+
+    def fail_once(*args: Any) -> None:
+        monkeypatch.setattr(mx, "eval", real_eval)
+        raise RuntimeError("injected eval failure")
+
+    monkeypatch.setattr(mx, "eval", fail_once)
+    with pytest.raises(RuntimeError, match="injected"):
+        runner.execute(PrefillPlan(seq=1, token_ids=(9707, 11), start=0))
+    with pytest.raises(ValueError, match="failed"):
+        runner.execute(PrefillPlan(seq=1, token_ids=(9707,), start=0))
+    runner.release(1)
 
 
 def test_the_cache_asks_for_no_mask_on_one_query_and_causal_otherwise() -> None:

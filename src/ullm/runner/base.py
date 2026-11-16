@@ -1,16 +1,31 @@
-"""C3: the runner protocol, v0 (decision 0003).
+"""C3: the runner protocol, v1 (decisions 0003 and 0008).
 
 The boundary between the core, which makes every decision, and the runner,
 which owns every tensor. The core says which sequences run and which tokens
 they process; the runner runs exactly that, samples, calls ``mx.eval`` and
 reports timings taken after it.
 
-This module is MLX-free so ``ullm.core`` can import it. It is a sketch: the
-exact signatures are settled in M1-T1 and recorded in a decision then.
+Invariants every runner keeps, and every caller may rely on:
+
+1. Lifecycle per ``SeqId``: ``add`` once, then ``execute`` any number of times,
+   then ``release`` once. ``add`` of a live id, or ``execute`` or ``release`` of
+   an unknown id, raises ``ValueError``.
+2. Positions are contiguous. A ``PrefillPlan`` starts at the number of tokens
+   the runner holds for the sequence; a ``DecodePlan`` row appends one token.
+   No sequence grows past ``max_model_len``, and every token ID is in
+   ``[0, vocab_size)``. A violation raises ``ValueError`` before any forward
+   pass and changes nothing.
+3. ``StepResult.tokens`` has one entry per sampled row, in plan order.
+4. A failed ``execute`` marks every sequence in the plan as failed. The only
+   legal call for a failed sequence is ``release``.
+5. Not thread-safe: only the engine thread calls a runner (rule 2).
+
+This module is MLX-free so ``ullm.core`` can import it.
 """
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, TypedDict, runtime_checkable
 
 SeqId = int  # engine-internal; the core maps request ids to these
 
@@ -81,8 +96,23 @@ class Runner(Protocol):
         """Create the sequence's state: its KV and its own random state."""
         ...
 
-    def execute(self, plan: StepPlan) -> StepResult: ...
+    def execute(self, plan: StepPlan) -> StepResult:
+        """Run one step. With ``sample`` set, a multi-token prefill samples once, at its end."""
+        ...
 
     def release(self, seq: SeqId) -> None:
         """Free everything the runner holds for the sequence."""
+        ...
+
+
+class TemplateMessage(TypedDict):
+    role: Literal["system", "user", "assistant"]
+    content: str
+
+
+class Tokenizer(Protocol):
+    def render(
+        self, messages: Sequence[TemplateMessage], template_kwargs: Mapping[str, object]
+    ) -> tuple[int, ...]:
+        """Apply the model's chat template with a generation prompt, then tokenize."""
         ...

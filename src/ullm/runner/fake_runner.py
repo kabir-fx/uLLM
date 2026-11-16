@@ -45,6 +45,8 @@ class FakeRunner:
         latency: Latency,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
+        if info.vocab_size <= len(info.eos_token_ids):
+            raise ValueError("FakeRunner needs a token that is not EOS")
         self._info = info
         self._latency = latency
         self._sleep = sleep

@@ -56,7 +56,7 @@ class SeqLedger:
                     f"sequence {seq} would hold {held} tokens, over max_model_len "
                     f"{self._info.max_model_len}"
                 )
-        bad = [t for t in token_ids if not 0 <= t < self._info.vocab_size]
+        bad = [t for t in token_ids if not (isinstance(t, int) and 0 <= t < self._info.vocab_size)]
         if bad:
             raise ValueError(
                 f"token ids {bad} are outside the vocabulary [0, {self._info.vocab_size})"

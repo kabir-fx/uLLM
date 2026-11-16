@@ -39,6 +39,19 @@ def load_mlx(spec: ModelSpec) -> tuple["MLXRunner", "MLXTokenizer"]:
     return MLXRunner(model, info), MLXTokenizer(wrapped)
 
 
+# Options of apply_chat_template that would change the template or what render returns.
+FIXED_TEMPLATE_OPTIONS = frozenset(
+    {
+        "add_generation_prompt",
+        "chat_template",
+        "continue_final_message",
+        "return_dict",
+        "return_tensors",
+        "tokenize",
+    }
+)
+
+
 class MLXTokenizer:
     def __init__(self, wrapped: Any) -> None:
         self.wrapped = wrapped  # mlx-lm's TokenizerWrapper
@@ -46,6 +59,9 @@ class MLXTokenizer:
     def render(
         self, messages: Sequence[TemplateMessage], template_kwargs: Mapping[str, object]
     ) -> tuple[int, ...]:
+        fixed = FIXED_TEMPLATE_OPTIONS & template_kwargs.keys()
+        if fixed:
+            raise ValueError(f"render fixes these chat template options: {sorted(fixed)}")
         ids = self.wrapped.apply_chat_template(
             list(messages), add_generation_prompt=True, **template_kwargs
         )
@@ -63,7 +79,7 @@ class MLXRunner:
         return self._info
 
     def add(self, seq: SeqId, sampling: SamplingParams) -> None:
-        if sampling.temperature > 0:
+        if sampling.temperature != 0:
             raise ValueError("only greedy decoding until the sampler lands (M1-T2)")
         self._ledger.add(seq)
         self._caches[seq] = [ContiguousKV() for _ in self.model.layers]

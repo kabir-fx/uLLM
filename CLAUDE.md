@@ -44,7 +44,7 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 
 - One task per session; stop at the task boundary.
 - `[design]` tasks: `/architect`, then wait for approval before production code. `[spike]` tasks: present the measurement plan and wait for approval before production code.
-- The author types `/build <ID>`, then `/ship`; an agent cannot start them and writes no production code for a task outside `/build`. `/build`: anchoring tests first, small conventional commits, branch `m<N>/t<K>-<slug>`; it ends by ticking the task. `/ship`, in the same chat: one pull request per task, its body recording VERIFIED and READY with the commit they cover, merged only when CI is green. No history rewrite after the verdicts.
+- The author types `/build <ID>`, then `/ship`; an agent cannot start them and writes no production code for a task outside `/build`. `/build`: anchoring tests first, small conventional commits, branch `m<N>/t<K>-<slug>`; it ends by ticking the task. `/ship`, in the same chat (in a new chat it reruns proof and review): one pull request per task, its body recording VERIFIED and READY with the commit they cover, merged only when CI is green. No history rewrite after the verdicts.
 - On a stacked branch, `prove`, `vet` and `/ship` take the previous task's branch as the base.
 - Record design choices in `docs/decisions/NNNN-title.md`. New claims get a row in `docs/CLAIMS.md`.
 - End with teach-back notes for the author: up to seven bullets, three interview questions, open doubts.
@@ -52,5 +52,5 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 
 ## Writing
 
-- No deadlines, target dates or schedules in any document; measured figures are fine. A milestone is done when its gate passes.
+- No deadlines, target dates, schedules or time estimates in any document; measured figures are fine. A milestone is done when its gate passes.
 - No novelty claims ("first", "only"). Slower than a baseline is fine when measured and explained.

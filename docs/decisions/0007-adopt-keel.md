@@ -16,8 +16,8 @@ The repo had no full check that matched CI. `make check` left out five things th
 
 ## Decision
 
-1. Every roadmap task runs through keel: `/architect` for a `[design]` task, then `/build`, then `/ship`.
-   - `/build` and `/ship` are user-only skills: the author types them, and an agent outside `/build` writes no task code.
+1. Every roadmap task except `[user]` tasks runs through keel: `/architect` for a `[design]` task, then `/build`, then `/ship`.
+   - `/build` and `/ship` are user-only skills: the author types them, and an agent outside `/build` writes no production code for a task.
    - Roadmap 3.4 points at the skills and keeps what belongs to this repo:
      - one task per session
      - the in-flight and prerequisite check
@@ -58,6 +58,7 @@ The repo had no full check that matched CI. `make check` left out five things th
 
 ## Consequences
 
+- The repo overrides two keel steps through the Keel block in `CLAUDE.md`: `/build` writes no `Status: done` line (its step 4.7), and `/ship` does not tidy history after the verdicts (its step 2).
 - At Light rigor, the building agent proves its own change, so the proof is not independent for those tasks. The review still is.
 - A commit after the verdicts that touches code, tests or check configuration needs fresh verdicts. `/ship` checks for one with `git diff --stat <verdict commit>..HEAD`.
 - `/build` stops before pushing, and `/ship` asks before every push and merge, as roadmap rule 15 (3.2) requires.

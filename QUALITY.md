@@ -9,7 +9,7 @@ The bar is the engineering rules and the definition of done in `docs/AGENT_ROADM
 | Check | Command | When | Typical time |
 |---|---|---|---|
 | Fast | `make check` | after every increment; the pre-push hook runs it | 7 s |
-| Full | `make ci` | before proof, before a pull request | 13 s on an M4 with the model downloaded |
+| Full | `make ci` | before proof, before a pull request | 23 s on an M4 with the model downloaded |
 
 `make ci` runs the `ci-core`, `ci-router`, `ci-terminal` and `ci-mlx` targets, and each CI job runs its own target (decision 0007). It needs MLX and the model (`make models`).
 
@@ -40,7 +40,7 @@ Each may only move in the direction shown. Record the new value when a change im
 ## Review standards
 
 - Each rule in roadmap 3.2 that no check above covers holds for the change: one owner thread (2), `mx.eval` before any timing (4), the engine thread never blocks (5), low-cardinality labels (6), fair benchmarks (7), no invented numbers (8), tests ship with behaviour (9), local binding and no secrets (14).
-- `core` plus `runner` stays near 2,500 lines (rule 10). Today: 449. Count: `find src/ullm/core src/ullm/runner -name '*.py' | xargs wc -l`.
+- `core` plus `runner` stays near 2,500 lines (rule 10). Today: 471. Count: `find src/ullm/core src/ullm/runner -name '*.py' | xargs wc -l`.
 - A Makefile target that is not built yet exits 2 and names the task that builds it (decision 0001).
 - Every GitHub Action is pinned to a commit SHA, with its release named in a comment (decision 0005).
 - A new CI check goes into its job's `make ci-*` target, not into `ci.yml` (decision 0007).

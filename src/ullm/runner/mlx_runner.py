@@ -39,15 +39,23 @@ def load_mlx(spec: ModelSpec) -> tuple["MLXRunner", "MLXTokenizer"]:
     return MLXRunner(model, info), MLXTokenizer(wrapped)
 
 
-# Options of apply_chat_template that would change the template or what render returns.
+# Every apply_chat_template parameter except its template inputs (tools, documents), as of
+# transformers 5.23: each changes the template, control-token escaping (M1-T4 decides),
+# or the type or length of what render returns.
 FIXED_TEMPLATE_OPTIONS = frozenset(
     {
         "add_generation_prompt",
         "chat_template",
         "continue_final_message",
+        "max_length",
+        "padding",
+        "return_assistant_tokens_mask",
         "return_dict",
         "return_tensors",
+        "sanitize_control_tokens",
         "tokenize",
+        "tokenizer_kwargs",
+        "truncation",
     }
 )
 

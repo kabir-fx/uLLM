@@ -114,6 +114,8 @@ def test_load_reports_the_models_own_limits(mlx_loaded: "tuple[MLXRunner, MLXTok
         "max_length",
         "padding",
         "tokenizer_kwargs",
+        "sanitize_control_tokens",
+        "return_assistant_tokens_mask",
         "return_tensors",
         "return_dict",
         "add_generation_prompt",

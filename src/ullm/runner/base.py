@@ -14,10 +14,12 @@ Invariants every runner keeps, and every caller may rely on:
    the runner holds for the sequence; a ``DecodePlan`` row appends one token.
    No sequence grows past ``max_model_len``, and every token ID is in
    ``[0, vocab_size)``. A violation raises ``ValueError`` before any forward
-   pass and changes nothing.
+   pass and changes nothing. Plans refuse ids, positions and flags of the
+   wrong type when they are built, so untyped data cannot reach a runner.
 3. ``StepResult.tokens`` has one entry per sampled row, in plan order.
-4. A failed ``execute`` marks every sequence in the plan as failed. The only
-   legal call for a failed sequence is ``release``.
+4. An ``execute`` that fails after validation, in the forward pass or the
+   eval, marks every sequence in the plan as failed. The only legal call for a
+   failed sequence is ``release``.
 5. Not thread-safe: only the engine thread calls a runner (rule 2).
 
 This module is MLX-free so ``ullm.core`` can import it.
@@ -26,6 +28,14 @@ This module is MLX-free so ``ullm.core`` can import it.
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol, TypedDict, runtime_checkable
+
+
+def _ints(name: str, values: tuple[object, ...]) -> None:
+    # Annotations are not checked at runtime, and bool is a subclass of int.
+    wrong = [v for v in values if type(v) is not int]
+    if wrong:
+        raise ValueError(f"{name} must be int, got {wrong!r}")
+
 
 SeqId = int  # engine-internal; the core maps request ids to these
 
@@ -56,6 +66,9 @@ class PrefillPlan:
     sample: bool = True  # false for a chunk that is not the last (E13)
 
     def __post_init__(self) -> None:
+        _ints("seq, start and token ids", (self.seq, self.start, *self.token_ids))
+        if type(self.sample) is not bool:
+            raise ValueError(f"sample must be a bool, got {self.sample!r}")
         if not self.token_ids:
             raise ValueError("a prefill step needs at least one token")
         if self.start < 0:
@@ -70,6 +83,7 @@ class DecodePlan:
     token_ids: tuple[int, ...]  # each sequence's last token, fed back
 
     def __post_init__(self) -> None:
+        _ints("seqs and token ids", (*self.seqs, *self.token_ids))
         if not self.seqs:
             raise ValueError("a decode step needs at least one sequence")
         if len(self.seqs) != len(self.token_ids):

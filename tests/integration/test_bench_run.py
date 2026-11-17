@@ -191,3 +191,37 @@ def test_a_full_run_without_a_powermetrics_log_fails(
     assert code == 1
     assert json.loads((out / schema.ENV).read_text())["powermetrics"] is False
     assert "powermetrics" in capsys.readouterr().err
+
+
+def test_a_run_with_a_prompt_mismatch_exits_1(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workload = Workload.model_validate_json(_workload(tmp_path / "w.json", 2).read_text())
+    first, second = workload.requests
+    wrong = first.model_copy(update={"prompt_tokens": first.prompt_tokens + 1})
+    path = tmp_path / "wrong.json"
+    path.write_text(workload.model_copy(update={"requests": (wrong, second)}).model_dump_json())
+    port = _free_port()
+    code = main(
+        [
+            "--target",
+            "fake",
+            "--launch",
+            f"{sys.executable} -m ullm.cli serve --fake --port {port}",
+            "--base-url",
+            f"http://127.0.0.1:{port}",
+            "--workload",
+            str(path),
+            "--warmup",
+            "1",
+            "--repeats",
+            "1",
+            "--ready-timeout",
+            "30",
+            "--smoke",
+            "--out",
+            str(tmp_path / "run"),
+        ]
+    )
+    assert code == 1
+    assert "1 measured requests failed or rendered another prompt" in capsys.readouterr().err

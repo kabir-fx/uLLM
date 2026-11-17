@@ -1,7 +1,7 @@
 """B1 and B3: the metrics bench.analysis computes from raw.jsonl (decision 0013)."""
 
 import pytest
-from bench.analysis import Percentiles, nearest_rank, repeat_stats
+from bench.analysis import FIGURES, Percentiles, headline, nearest_rank, repeat_stats
 from bench.schema import RequestRecord, Usage
 from hypothesis import given
 from hypothesis import strategies as st
@@ -93,3 +93,16 @@ def test_a_reply_with_no_text_is_not_a_failure() -> None:
     assert stats.failed == 0
     assert stats.ttft_ms is None
     assert stats.e2e_ms == Percentiles(12.0, 12.0)
+
+
+def test_the_headline_is_the_median_over_repeats() -> None:
+    # TTFT 10, 30 and 20 ms in repeats 0, 1 and 2: the headline is 20, not the first, last,
+    # best or worst repeat.
+    records = [
+        _record(f"r{repeat}", 0.0, (ttft, ttft + 10.0), 100.0, 2, repeat=repeat)
+        for repeat, ttft in enumerate((10.0, 30.0, 20.0))
+    ]
+    stats = repeat_stats(records, {f"r{repeat}": 10 for repeat in range(3)})
+    figures = dict(zip(FIGURES, headline(stats), strict=True))
+    assert figures["TTFT p50"] == 20.0
+    assert figures["E2E p50"] == 100.0

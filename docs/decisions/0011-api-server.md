@@ -38,13 +38,19 @@ with TestClient(app) as http:  # the lifespan starts the engine thread and close
 **Module.** `src/ullm/server/app.py`, one public function:
 
 ```python
+DEFAULT_MAX_TOKENS = 512  # mlx_lm.server's default, so baselines match
+
+
 @dataclass(frozen=True, slots=True)
 class ServeConfig:
-    served_model: str                       # the id a client sends as `model`
-    default_max_tokens: int = 512           # mlx_lm.server's default, so baselines match
-    engine: EngineConfig = EngineConfig()
+    served_model: str  # the id a client sends as `model`
+    default_max_tokens: int = DEFAULT_MAX_TOKENS
+    engine: EngineConfig = field(default_factory=EngineConfig)
 
-def create_app(runner: Runner, tokenizer: Tokenizer, config: ServeConfig, emit: Emit = ...) -> FastAPI
+
+def create_app(
+    runner: Runner, tokenizer: Tokenizer, config: ServeConfig, emit: Emit = _drop
+) -> FastAPI: ...
 ```
 
 The lifespan calls `EngineClient.start` on uvicorn's loop and `await close()` at shutdown. `emit` drops events until O1 (M2-T4) gives them a reader.
@@ -66,11 +72,17 @@ The lifespan calls `EngineClient.start` on uvicorn's loop and `await close()` at
 **Replies.** `_Reply` is a Starlette `Response` that owns the `RequestStream`:
 
 ```python
-async def __call__(self, scope, receive, send):
-    async with self._stream, anyio.create_task_group() as tg:
-        tg.start_soon(watch_for_disconnect, receive, tg.cancel_scope)
-        await self._write(send)   # SSE events, or one JSON reply
-        tg.cancel_scope.cancel()
+async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+    async with self._stream, anyio.create_task_group() as tasks:
+
+        async def watch() -> None:
+            while (await receive())["type"] != "http.disconnect":
+                pass
+            tasks.cancel_scope.cancel()
+
+        tasks.start_soon(watch)
+        await self._write(scope, receive, send)  # SSE events, or one JSON reply
+        tasks.cancel_scope.cancel()
 ```
 
 Leaving the `async with` for any reason before the end, a disconnect included, sends the abort ticket (decision 0010). Both reply modes watch for a disconnect, on any ASGI spec version. No route accepts a rid, so a client can abort only its own request, by leaving.

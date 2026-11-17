@@ -38,14 +38,13 @@ class Reply:
                     prompt_tokens=usage["prompt_tokens"],
                     completion_tokens=usage["completion_tokens"],
                 )
+            for choice in event.get("choices", []):
+                if choice.get("delta", {}).get("content"):
+                    self.chunk_ms.append(at_ms)
+                if choice.get("finish_reason"):
+                    self.finish_reason = choice["finish_reason"]
         except (ValueError, KeyError, TypeError, AttributeError) as e:
             self.error = f"unreadable payload {data[:200]!r}: {type(e).__name__}: {e}"
-            return
-        for choice in event.get("choices", []):
-            if choice.get("delta", {}).get("content"):
-                self.chunk_ms.append(at_ms)
-            if choice.get("finish_reason"):
-                self.finish_reason = choice["finish_reason"]
 
     def outcome_error(self) -> str | None:
         if self.error is not None:

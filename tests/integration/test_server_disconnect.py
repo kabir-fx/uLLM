@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 import httpx2
+import pytest
 import uvicorn
 from tests.recording import RecordingRunner
 
@@ -82,12 +83,8 @@ def test_leaving_a_plain_request_during_its_prefill_aborts_it() -> None:
 
     async def main() -> None:
         async with serving(runner, events) as client:
-            try:
+            with pytest.raises(httpx2.ReadTimeout):  # the client leaves during the prefill
                 await client.post("/v1/chat/completions", json=BODY, timeout=0.1)
-            except httpx2.ReadTimeout:
-                pass
-            else:
-                raise AssertionError("the reply came before the prefill could end")
             await _until_idle(client)
 
     _run(main)

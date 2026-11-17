@@ -313,3 +313,45 @@ def test_the_config_refuses_a_bound_below_one() -> None:
 
 def _seeded(seed: int) -> SamplingParams:
     return SamplingParams(temperature=0.0, top_p=1.0, top_k=0, seed=seed)
+
+
+def test_a_failed_prefill_releases_its_sequence_and_fails_only_that_request() -> None:
+    calls = 0
+
+    def fail_first_step(seconds: float) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("the GPU fell over")
+
+    runner = FakeRunner(INFO, FAST, sleep=fail_first_step)
+    ran = _run([_submit(rid="r1-0"), _submit(rid="r1-1")], runner=runner)
+    assert ran.outputs["r1-0"] == [Failed("error")]
+    assert isinstance(_ends_once(ran.outputs["r1-1"]), Finished)
+    assert ran.runner.adds == ran.runner.releases == 2
+    assert ran.report().problems == []
+
+
+class _ReleaseFails(RecordingRunner):
+    def release(self, seq: int) -> None:
+        raise RuntimeError("a bug in release")
+
+
+def test_a_bug_after_a_reply_finishes_still_raises_the_bug_and_ends_the_others() -> None:
+    events: list[ev.Event] = []
+    inbound: SimpleQueue[Ticket] = SimpleQueue()
+    inbound.put(_submit(rid="r1-0", max_tokens=1))
+    inbound.put(_submit(rid="r1-1"))
+    engine = Engine(
+        _ReleaseFails(FakeRunner(INFO, FAST, sleep=lambda s: None)),
+        FakeDetokenizer,
+        EngineConfig(),
+        inbound,
+        lambda batch, load: None,
+        events.append,
+    )
+    with pytest.raises(RuntimeError, match="a bug in release"):
+        engine.run()
+    aborted = [(e.rid, e.reason) for e in events if isinstance(e, ev.ReqAborted)]
+    assert aborted == [("r1-1", "error")]
+    assert check_trace(frames_from(events, "r1")).problems == []

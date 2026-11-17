@@ -186,6 +186,8 @@ class Engine:
                     return False
 
     def _arrive(self, ticket: Submit) -> None:
+        if ticket.rid in self._live:
+            raise ValueError(f"{ticket.rid} is already live; the client names requests uniquely")
         stop = StopCheck(
             self._new_detokenizer(), self._info.eos_token_ids, ticket.max_tokens, ticket.stop
         )

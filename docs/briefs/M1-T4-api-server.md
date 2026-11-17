@@ -1,6 +1,6 @@
 # M1-T4: The API server
 
-**State:** in build. You approved the two template choices, and the agent builds the server now.
+**State:** DONE at `d125bc0`. You can now type `/ship`.
 **Decision record:** [0011](../decisions/0011-api-server.md) (the full design, for agents) · **Spec:** roadmap M1-T4 (A1, C1, C4)
 
 ## The goal
@@ -118,3 +118,33 @@ You approved the first two choices. The other choices are open for review.
 `_Reply` waits for the next message from uvicorn in a second task. uvicorn returns `http.disconnect`. The task cancels the reply, the `async with` block ends, and the stream sends an `Abort` ticket. The engine frees the sequence at its next turn.
 
 </details>
+
+## Result
+
+**State.** DONE. The proof is VERIFIED at `1c55ab8`. The review is READY and covers the fix commits to `d125bc0`. `make ci` passed at `03f4ae3`, and the last commit changes only comments and the decision record.
+
+**Changes against the plan.**
+
+- The server renders the prompt on a worker thread, not on the event loop. A full context of 40,960 tokens takes about 115 ms to render.
+- The server refuses a `Host` other than `127.0.0.1` or `localhost`. Tests must use a local base URL, and the router must send a local `Host`.
+- The server refuses a body that is not JSON. A page on any web site can send `text/plain` with no CORS check.
+- The server refuses a body over a limit before it reads the JSON. The limit comes from the costliest token in the vocabulary. On Qwen3 it is 5.96 MB.
+- The server logs at most 32 unknown field names.
+- The `Tokenizer` protocol has a new method, `token_bytes`.
+
+**Bugs that proof and review found.** The agent fixed each one with a test first.
+
+1. A page on any web site could start a generation with a `text/plain` POST.
+2. A page that used DNS rebinding could read the replies.
+3. A very large body stopped the event loop for 737 ms.
+4. A flood of unknown fields wrote one log line for each field.
+5. A flat limit of 32 bytes for each token refused some legal prompts.
+
+**Limits you accepted.** The body limit is not exact. It can refuse a legal request with many empty content parts. It can also refuse text that the template drops, such as old `<think>` text.
+
+**Not proven.** No real browser was used. The agent sent the browser headers with a script.
+
+**For later slices.**
+
+- A prompt of 29,928 tokens took 46.9 s to prefill on the real model. Look at this in M1-T6 or M2.
+- FastAPI turns on its own request telemetry. O4 must use it or turn it off.

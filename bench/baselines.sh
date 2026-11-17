@@ -25,7 +25,8 @@ sequential=(--model "$model" --extra-body '{"seed": 0}')
 run() { # target concurrency launch [bench.run arguments...]
   local target=$1 concurrency=$2 launch=$3
   shift 3
-  $uv python -m bench.run "${args[@]}" --target "$target" --concurrency "$concurrency" \
+  # macOS bash 3.2 under set -u calls an empty "${args[@]}" unbound.
+  $uv python -m bench.run ${args[@]+"${args[@]}"} --target "$target" --concurrency "$concurrency" \
     --launch "$launch" --out "$OUT/$target-c$concurrency" "$@"
 }
 

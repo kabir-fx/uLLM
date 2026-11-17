@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11), M1-T2 (#12), M1-T3 (#13) and M1-T4 (#14) shipped. M1-T5 built on `m1/t5-tests`, not yet shipped |
+| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11) to M1-T6 (#17) shipped |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | `/ship` M1-T5 from `m1/t5-tests`, base `main`. Then M1-T6 (benchmark harness, workload A, run conditions) |
-| Lane A (engine) | M1-T5 awaiting `/ship` |
+| Next task | M1-T7 (first baselines), once #17 is merged |
+| Lane A (engine) | idle. M1-T7 next |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | ship M1-T5; close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
+| Blocked on the author | merge #17 once its CI is green; close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | Built M1-T5 (decision 0012, brief `docs/briefs/M1-T5-tests.md`). Most of Q1, Q3 and Q4 shipped with M1-T1 to M1-T4; this task closed the gaps: `tests/integration/test_server_load.py` (50 `AsyncOpenAI` clients at once over real uvicorn on `FakeRunner`, each client marked by its prompt length; peak 48 to 50 open), the raw SSE framing test in `test_server.py`, `tests/equivalence/divergence.py` (first difference and mlx-lm margin, used by the runner and engine equivalence tests), `tests/serving.py` (shared real-uvicorn helper), `make equivalence`. Decision 0012 sets rule 1's near-tie threshold: none for uLLM against mlx-lm on one machine at batch size 1; 0.25 only for the goldens across chips; batched variants measure their own in M2-T3. Claim 16. Proof VERIFIED and review READY at `9d9fb41`, fixes to `a6e0ad5` (a whole swapped reply went undetected, `serving` leaked its server on a failing body, two false doc sentences). Noticed, not fixed: `docs/decisions/README.md` has no row for 0011. Verdicts go in the pull request body |
+| Last session | Built M1-T6 (decision 0013, brief `docs/briefs/M1-T6-bench-harness.md`). `bench/`: `loadgen.py` (closed loop, raw SSE over `httpx2`, a timestamp per content chunk), `conditions.py` (B5 refusal, `powermetrics` as root via `sudo -n`), `run.py` (one C5 directory per run: warm-up, 3 repeats, cooldowns), `analysis.py` (`summary.md`, `latency.svg`, `--compare`), `make_workload_a.py` and `workloads/a.json` (256 UltraChat prefixes, prompts 155 to 793 tokens). `make bench-smoke` works (81 s); `make ci-mlx` now runs `make equivalence`. Claims 17 and 18. Proof VERIFIED and review READY at `2ccec75`, fixes to `ad3478e` (an unreadable SSE payload ended the run, `sudo -n -l` passed on any NOPASSWD rule, `--compare` crashed, zero concurrency measured nothing, untested median and exit code). The author's full B5 run logged 136 `powermetrics` samples. For M1-T7: repeats 2 and 3 ran 3.5 times slower per token than repeat 1 on one request with thermal pressure Nominal, cause unknown; `mlx_lm.server` returned fewer tokens on 3 of 8 requests inside a run than alone, prompt cache suspected; the author chose to run `mlx_lm.server` with its prompt cache on and off. Noticed, not fixed: `README.md` says nothing serves a model yet; requests have no timeout. Shipped as #17; its body holds the verdicts |
 
 ---
 
@@ -575,7 +575,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [x] **M1-T3** `[design]` Request state machine, engine loop, thread bridge, scheduler interface at `max_num_seqs = 1`, `ullm sim` (E4, E5, E6).
 - [x] **M1-T4** API server (A1).
 - [x] **M1-T5** Tests: unit (Q1), single-request equivalence (Q3), SDK contract and 50 clients (Q4).
-- [ ] **M1-T6** Benchmark harness, workload A, run conditions (B1, B2, B5).
+- [x] **M1-T6** Benchmark harness, workload A, run conditions (B1, B2, B5).
 - [ ] **M1-T7** First baselines (B4): uLLM sequential, `mlx_lm.server` sequential and batched.
 - [ ] **M1-T8** `[B]` Terminal shell, ticker and feed on fixture telemetry (T1, part of T2).
 

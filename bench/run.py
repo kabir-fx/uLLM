@@ -195,14 +195,21 @@ def run(args: argparse.Namespace) -> int:
     return 1 if failed or (not args.smoke and not logged) else 0
 
 
+def _positive(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"{value} is not at least 1")
+    return value
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="bench.run")
     parser.add_argument("--target", required=True, help="a short name for the server under test")
     parser.add_argument("--launch", help="the command that starts the target; omit if it runs")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--workload", type=Path, default=WORKLOAD)
-    parser.add_argument("--requests", type=int, help="the first N requests; default all")
-    parser.add_argument("--concurrency", type=int, default=1)
+    parser.add_argument("--requests", type=_positive, help="the first N requests; default all")
+    parser.add_argument("--concurrency", type=_positive, default=1)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--warmup", type=int, default=4, help="requests sent first, not counted")
     parser.add_argument("--cooldown", type=float, default=120.0, help="seconds between repeats")

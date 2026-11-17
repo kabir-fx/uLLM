@@ -19,6 +19,7 @@ from ullm.telemetry.check import check_trace
 SIM_INFO = RunnerInfo(
     model_id="fake", vocab_size=1000, eos_token_ids=frozenset({0}), max_model_len=4096
 )
+SIM_CONFIG = EngineConfig(source="sim")
 # A latency model for watching the engine, not a measurement of any machine.
 SIM_LATENCY = Latency(
     prefill_base_ms=2.0, prefill_per_token_ms=0.01, decode_base_ms=1.0, decode_per_row_ms=0.2
@@ -56,7 +57,7 @@ async def _sim(clients: int, seed: int, disconnect: float) -> tuple[list[ev.Even
     engine = EngineClient.start(
         FakeRunner(SIM_INFO, SIM_LATENCY),
         FakeDetokenizer,
-        EngineConfig(source="sim"),
+        SIM_CONFIG,
         events.append,
     )
     outcomes = await asyncio.gather(
@@ -68,7 +69,7 @@ async def _sim(clients: int, seed: int, disconnect: float) -> tuple[list[ev.Even
 
 def _run_sim(args: argparse.Namespace) -> int:
     events, outcomes = asyncio.run(_sim(args.clients, args.seed, args.disconnect))
-    frames = trace.frames_from(events, EngineConfig().replica)
+    frames = trace.frames_from(events, SIM_CONFIG.replica)
     if args.trace:
         trace.write(args.trace, frames)
     report = check_trace(frames)

@@ -14,7 +14,7 @@ from ullm.core.client import EngineClient, RequestStream
 from ullm.core.engine import EngineConfig
 from ullm.runner.base import RunnerInfo, SamplingParams
 from ullm.runner.fake_runner import FakeRunner, FakeTokenizer, Latency
-from ullm.server.app import MAX_BODY_BYTES_PER_TOKEN, MAX_LOGGED_FIELDS, ServeConfig, create_app
+from ullm.server.app import MAX_LOGGED_FIELDS, ServeConfig, create_app
 from ullm.server.schemas import ChatCompletion, ChatCompletionChunk, ErrorResponse
 from ullm.telemetry import events as ev
 
@@ -303,7 +303,7 @@ def test_a_foreign_host_is_refused(server: Server, http: TestClient) -> None:
 def test_a_body_too_large_for_the_context_is_refused_before_parsing(
     server: Server, http: TestClient
 ) -> None:
-    huge = "x" * (MAX_BODY_BYTES_PER_TOKEN * INFO.max_model_len)
+    huge = "x" * 2_000_000  # FakeTokenizer: one token per byte, against a 64-token context
     response = http.post(
         "/v1/chat/completions", json=body(messages=[{"role": "user", "content": huge}])
     )

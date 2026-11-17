@@ -68,3 +68,22 @@ def test_greedy_replies_over_http_are_mlx_lms_text(
             if _streamed_text(http, request) != (want_text, True):
                 failures.append(f"{case['id']} streamed differs")
     assert not failures, "the server differs from mlx-lm:\n" + "\n".join(failures)
+
+
+def test_a_legal_prompt_of_the_longest_tokens_reaches_the_context_check(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    runner, tokenizer = mlx_loaded
+    # Qwen3 spells 128 spaces as one token: the most JSON bytes a token can take here.
+    spaces = " " * 128
+    n = runner.info().max_model_len - 100
+    request = {
+        "model": DEFAULT_MODEL.repo,
+        "messages": [{"role": "user", "content": spaces * n}],
+        "max_tokens": 1000,
+    }
+    app = create_app(runner, tokenizer, ServeConfig(served_model=DEFAULT_MODEL.repo))
+    with TestClient(app, base_url="http://127.0.0.1") as http:
+        response = http.post("/v1/chat/completions", json=request)
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "context_length_exceeded"

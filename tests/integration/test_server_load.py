@@ -92,13 +92,14 @@ def test_fifty_concurrent_sdk_clients_each_get_their_own_reply() -> None:
     events: list[ev.Event] = []
 
     async def main() -> list[Reply]:
-        async with serving(runner, events) as http:
-            sdk = openai.AsyncOpenAI(
+        async with (
+            serving(runner, events) as http,
+            openai.AsyncOpenAI(
                 base_url=f"{http.base_url}/v1", api_key="unused", max_retries=0
-            )
+            ) as sdk,
+        ):
             replies = await asyncio.gather(*(_ask(sdk, i) for i in range(CLIENTS)))
             assert (await http.get("/health")).json()["in_flight"] == 0
-            await sdk.close()
             return replies
 
     replies = asyncio.run(asyncio.wait_for(main(), timeout=30))

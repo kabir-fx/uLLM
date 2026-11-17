@@ -46,6 +46,7 @@ The repeat slowdown was contention, not the engine. In the M1-T6 probe, `env.jso
 **Harness changes.**
 
 - `bench.run --model <id>` sends that id and refuses a target whose `GET /v1/models` does not list it. The `mlx_lm.server` runs pass the pinned snapshot path, which is the model it loaded. Without it the first listed repo would be sent, and another cached model or revision could load.
+- `bench.run` replaces the `powermetrics` log with `powermetrics.plist.gz` after a run, which changes that row of decision 0013's C5 table. A sample is about 32 KB raw and 2.2 KB gzipped (the M1-T6 probe: 4.4 MB raw, 293 KB gzipped, 136 samples), so a 35-minute run commits about 4.5 MB instead of about 68 MB. The author chose this over a compact JSONL of selected fields, which would lose the raw evidence.
 - `bench.run --extra-body <json>` adds request fields for one target. It may not replace a field every target gets (`COMMON_FIELDS` in `bench/loadgen.py`). `config.json` records it as `extra_body`, and `summary.md` names it.
 
 **Checks on the results** before they are reported:

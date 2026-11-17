@@ -11,6 +11,7 @@ config.json and summary.md.
 
 import argparse
 import asyncio
+import gzip
 import hashlib
 import json
 import os
@@ -136,6 +137,19 @@ def _out_dir(args: argparse.Namespace, started: datetime) -> Path:
     return (SCRATCH if args.smoke else RESULTS) / f"{stamp}-{args.target}-c{args.concurrency}"
 
 
+def _gzip_powermetrics(out: Path) -> bool:
+    """Replace the powermetrics log with its gzip: about 32 KB a sample raw, 2 KB gzipped
+    (decision 0014). True when the log held anything."""
+    plist = out / schema.POWERMETRICS
+    if not plist.exists():
+        return False
+    data = plist.read_bytes()
+    if data:
+        (out / schema.POWERMETRICS_GZ).write_bytes(gzip.compress(data, mtime=0))
+    plist.unlink()
+    return bool(data)
+
+
 def run(args: argparse.Namespace) -> int:
     workload = schema.load_workload(args.workload)
     requests = workload.requests[: args.requests] if args.requests else workload.requests
@@ -190,8 +204,7 @@ def run(args: argparse.Namespace) -> int:
         extra_body=args.extra_body,
         smoke=args.smoke,
     )
-    plist = out / schema.POWERMETRICS
-    logged = plist.exists() and plist.stat().st_size > 0
+    logged = _gzip_powermetrics(out)
     env = conditions.environment(used_powermetrics=logged, started=started)
     (out / schema.CONFIG).write_text(config.model_dump_json(indent=2) + "\n")
     (out / schema.ENV).write_text(env.model_dump_json(indent=2) + "\n")

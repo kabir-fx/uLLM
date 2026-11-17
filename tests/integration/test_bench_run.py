@@ -1,6 +1,7 @@
 """B1 and B5: a whole benchmark run against ``ullm serve --fake`` writes a C5 directory, and a
 run that breaks B5 never starts (decision 0013)."""
 
+import gzip
 import json
 import socket
 import sys
@@ -82,6 +83,7 @@ def test_a_smoke_run_writes_every_c5_file(
     assert "Uvicorn running" in (out / schema.TARGET_LOG).read_text()
     assert not (out / schema.METRICS).exists()  # ullm serve has no /metrics until M2-T5
     assert not (out / schema.POWERMETRICS).exists()
+    assert not (out / schema.POWERMETRICS_GZ).exists()
 
     config = json.loads((out / schema.CONFIG).read_text())
     assert (config["served_model"], config["requests"], config["smoke"]) == ("fake", 5, True)
@@ -160,15 +162,25 @@ class _SilentPowerMetrics:
         return
 
 
-def test_a_full_run_without_a_powermetrics_log_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
+class _LoggingPowerMetrics(_SilentPowerMetrics):
+    """powermetrics that flushed one sample on stop."""
+
+    def stop(self) -> None:
+        self.path.write_bytes(SAMPLE)
+
+
+SAMPLE = b'<?xml version="1.0"?><plist><dict></dict></plist>\0'
+
+
+def _full_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, powermetrics: type[_SilentPowerMetrics]
+) -> tuple[int, Path]:
     monkeypatch.setattr(
         conditions, "power", lambda: Power(on_ac=True, battery_percent=100, low_power_mode=False)
     )
     monkeypatch.setattr(conditions, "can_sudo", lambda: True)
     monkeypatch.setattr(conditions, "containers", lambda: 0)
-    monkeypatch.setattr(conditions, "PowerMetrics", _SilentPowerMetrics)
+    monkeypatch.setattr(conditions, "PowerMetrics", powermetrics)
     port = _free_port()
     out = tmp_path / "run"
     code = main(
@@ -193,10 +205,28 @@ def test_a_full_run_without_a_powermetrics_log_fails(
             str(out),
         ]
     )
+    return code, out
+
+
+def test_a_full_run_without_a_powermetrics_log_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out = _full_run(tmp_path, monkeypatch, _SilentPowerMetrics)
     assert code == 1
     assert json.loads((out / schema.ENV).read_text())["powermetrics"] is False
     assert "powermetrics" in capsys.readouterr().err
     assert "| fake (not B5: no powermetrics log) |" in analysis.compare([analysis.load_run(out)])
+
+
+def test_a_full_run_keeps_its_powermetrics_log_gzipped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    code, out = _full_run(tmp_path, monkeypatch, _LoggingPowerMetrics)
+    assert code == 0
+    assert gzip.decompress((out / schema.POWERMETRICS_GZ).read_bytes()) == SAMPLE
+    assert not (out / schema.POWERMETRICS).exists()
+    assert json.loads((out / schema.ENV).read_text())["powermetrics"] is True
+    assert "| fake |" in analysis.compare([analysis.load_run(out)])
 
 
 @pytest.mark.parametrize(

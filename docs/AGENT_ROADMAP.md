@@ -330,7 +330,7 @@ Freeze these early. Lanes depend on them and nothing else.
 **E5 Engine loop and thread bridge.**
 
 - Two threads: the asyncio API thread and one engine thread. A decode step blocks for milliseconds and a prefill for much longer, so the model cannot run on the asyncio thread.
-- Inbound queue: thread-safe and bounded. Tickets are a new request (id, prompt IDs, settings, output queue, trace context) or an abort. A full queue makes the API reply 503.
+- Inbound queue: thread-safe and unbounded, because the engine drains it into the waiting queue every step (decision 0010). Tickets are a new request (id, prompt IDs, settings, trace context), an abort or a shutdown. The API side bounds open requests (submitted and not yet ended) at `max_in_flight`; beyond it the API replies 503.
 - Waiting queue: the scheduler's own list, touched only by the engine thread. Two queues exist so no scheduler state is shared between threads.
 - Output: one queue per request. The engine pushes chunks to the API thread's event loop thread-safely; the handler sleeps on its queue in between.
 - Loop: as in 5.3. Idle means blocking on the inbound queue, never spinning.
@@ -347,7 +347,7 @@ Freeze these early. Lanes depend on them and nothing else.
 4. Choose the step type: if a request was admitted, this is a prefill step for it and running requests wait one step; otherwise it is a decode step for every running request.
 5. Hand the plan to the runner (C3).
 
-- Admission limits, checked per waiting request: `max_num_seqs` (start at 16), a prefill token budget per step (start at 2,048), and from M3 enough free blocks for the prompt after prefix hits plus a small safety watermark. These are starting values to tune from the concurrency sweep.
+- Admission limits, checked per waiting request: `max_num_seqs` (start at 16), a prefill token budget per step (start at 2,048; it takes effect with chunked prefill, E13: while a step prefills one whole prompt, the budget is `max_model_len`, decision 0010), and from M3 enough free blocks for the prompt after prefix hits plus a small safety watermark. These are starting values to tune from the concurrency sweep.
 - The ordering policy is an interface: FCFS now, fair share later (E16).
 - Known trade-off: a long prefill stalls every decoder for that step (visible on workload C). E13 fixes it.
 - *Metrics:* waiting queue length, batch size per step, step time by kind, tokens per step.

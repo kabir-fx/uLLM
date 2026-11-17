@@ -269,6 +269,14 @@ class RequestStream(AsyncIterator[Output]):
 - An `mlx`-marked test drives the golden prompts through `EngineClient` and `MLXRunner` and compares the sampled token IDs with `reference()`. This is rule 1 through the loop, not only the runner.
 - `ullm sim` in a short configuration exits 0.
 
+**Settled while building.**
+
+- `Finished.text` is the reply's last piece, possibly empty: the `Delta` texts plus it are the whole reply, so a streaming server sends the last text and the finish reason in one chunk.
+- `Engine.run` emits `hello` first. The engine's telemetry epoch is its construction time; `t` in every event is milliseconds since then.
+- A stream left early stays open, and counts toward `max_in_flight`, until the engine ends it with `Failed("client_disconnect")`. So the bound counts what the engine still holds.
+- The `step` event's `kv_tokens` is computed before the rows append: each live request's `kv_tokens` (the last sampled token is fed by the next decode, so it is not yet in the KV) plus the tokens the step wrote.
+- `telemetry.trace.frames_from` groups events into frames, about 15 a second, for the trace checker; O1's recorder can reuse it.
+
 ## Alternatives considered
 
 - **E5 as written: a bounded inbound `queue.Queue`, with each ticket carrying its own output queue and loop.** The bound does not bound what it is meant to: the engine drains the inbound queue every turn into the scheduler's waiting list, which then grows without limit, so a 503 fires only when many requests arrive within one step. An `Abort` can hit a full queue, so the API must drop it or block the loop. And no lock-free way exists to fail requests that were put on the queue just as the engine died. Bounding open requests on the API side bounds waiting, running and in transit together, needs no shared counter, and turns the death race into two callbacks on one thread.

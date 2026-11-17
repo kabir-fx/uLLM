@@ -1,6 +1,6 @@
 # M1-T6: The benchmark harness
 
-**State:** in build. You can change the choices below before `/ship`.
+**State:** built. You can change the choices below before `/ship`.
 **Decision record:** [0013](../decisions/0013-bench-harness.md) (the full design, for agents) · **Spec:** roadmap M1-T6 (B1, B2, B5)
 
 ## The goal
@@ -89,3 +89,38 @@ TPOT divides by the token count from `usage`, not by the chunk count. A server c
 <details><summary>Answer</summary>A mismatch shows that the target rendered a different prompt. Then the comparison breaks rule 7, and the numbers are not fair.</details>
 
 ## Result
+
+**DONE.** The proof is VERIFIED and the review is READY at `2ccec75`. The fix commits up to `ad3478e` are covered. Three agent runs did the work: one verifier, one reviewer, and one scoped re-check. `make ci` passed at `ad3478e`: 374 core tests, 8 equivalence tests and 86 `mlx` tests.
+
+Changes against the plan:
+
+- The B5 check runs `powermetrics` once with `sudo -n`. The plan used `sudo -n -l`, but any unrelated NOPASSWD rule lets that pass.
+- A full run whose `powermetrics` wrote no log exits 1. The comparison table marks it "not B5".
+- `--compare` is a flag. It prints the table to the terminal.
+- `bench.analysis` refuses a run when the workload file changed after the run.
+- You chose to run `mlx_lm.server` with its prompt cache on and off in M1-T7. Decision 0013 records the plan.
+
+Proof and review found these bugs, and the agent fixed each one:
+
+- One unreadable SSE payload stopped the whole run. The run then lost all of its repeats. Now that request fails, and the run continues.
+- A full run with a dead `powermetrics` exited 0 as a B5 run.
+- `--compare <run> <run>` stopped with `IsADirectoryError`.
+- `--concurrency 0` sent no requests and exited 0.
+- No test checked the request body, the median over repeats, or the exit code after a failed request. Now a mutant of each makes a test fail.
+- Claims 17 and 18 and decision 0013 did not match the code in four places.
+
+Proven on the real machine: you ran a full B5 run on AC power. It wrote 136 `powermetrics` samples, and the last sample is complete. In your terminal, `can_sudo()` returned `True` after `sudo -v`.
+
+Not proven: a run that has a `/metrics` file. Neither target serves `/metrics` before M2-T5.
+
+For later slices:
+
+- In your B5 run, repeats 2 and 3 were 3.5 times slower than repeat 1 for the same request. Thermal pressure stayed "Nominal". M1-T7 must find the cause before it reports a baseline.
+- In a harness run, `mlx_lm.server` gave fewer tokens on 3 of 8 requests than it gave for each request alone. Its prompt cache is a possible cause. M1-T7 must check this.
+- A stream that hangs stops the run, because requests have no timeout.
+
+Read these yourself:
+
+- `bench/conditions.py:54`: does the probe test the same command that `PowerMetrics` starts?
+- `bench/loadgen.py:27`: does each bad payload become a failed request, and not a crash?
+- `docs/decisions/0013-bench-harness.md:87`: do you agree with the plan for prompt caches in M1-T7?

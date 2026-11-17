@@ -98,6 +98,10 @@ def test_a_smoke_run_writes_every_c5_file(
     rows = [line for line in capsys.readouterr().out.splitlines() if line.startswith("| fake")]
     assert len(rows) == 2
 
+    _workload(tmp_path / "w.json", 6)
+    with pytest.raises(SystemExit, match="SHA-256"):
+        analysis.load_run(out)
+
 
 def test_a_full_run_that_breaks_b5_never_starts(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]

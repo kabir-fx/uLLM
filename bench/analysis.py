@@ -5,6 +5,7 @@ uv run python -m bench.analysis <run> <run> --compare              # and print o
 """
 
 import argparse
+import hashlib
 import math
 import statistics
 import sys
@@ -101,7 +102,10 @@ def load_run(path: Path) -> Run:
     env = RunEnv.model_validate_json((path / schema.ENV).read_text())
     lines = (path / schema.RAW).read_text().splitlines()
     records = [RequestRecord.model_validate_json(line) for line in lines if line]
-    workload = schema.load_workload(Path(config.workload))
+    workload_path = Path(config.workload)
+    if hashlib.sha256(workload_path.read_bytes()).hexdigest() != config.workload_sha256:
+        raise SystemExit(f"{workload_path} is not the workload this run used: its SHA-256 differs")
+    workload = schema.load_workload(workload_path)
     prompt_tokens = {r.id: r.prompt_tokens for r in workload.requests}
     return Run(path, config, env, records, repeat_stats(records, prompt_tokens))
 

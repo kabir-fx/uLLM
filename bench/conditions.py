@@ -52,9 +52,10 @@ def power() -> Power:
 
 
 def can_sudo() -> bool:
-    """True when powermetrics can start without a password prompt: a fresh ``sudo -v``, or a
-    sudoers rule that lets this user run it with NOPASSWD, for unattended matrices."""
-    done = _run("sudo", "-n", "-l", POWERMETRICS)
+    """True when powermetrics runs as root without a password prompt: after a fresh ``sudo -v``,
+    or under a NOPASSWD sudoers rule for unattended matrices. ``sudo -n -l`` is not enough: any
+    unrelated NOPASSWD rule lets it pass (man sudoers)."""
+    done = _run("sudo", "-n", POWERMETRICS, "--samplers", "thermal", "-n", "1", "-i", "1")
     return done is not None and done.returncode == 0
 
 

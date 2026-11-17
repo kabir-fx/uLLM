@@ -185,3 +185,7 @@ class Tokenizer(Protocol):
     def detokenizer(self) -> Detokenizer:
         """A new streaming detokenizer for one sequence."""
         ...
+
+    def token_bytes(self) -> Sequence[bytes]:
+        """Each token id's bytes, indexed by id: what a token can cost a client to send."""
+        ...

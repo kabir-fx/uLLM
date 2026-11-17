@@ -12,6 +12,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StrictBool,
     ValidationError,
     field_validator,
     model_validator,
@@ -121,6 +122,10 @@ def _reject(
 # --- request -------------------------------------------------------------------
 
 MAX_STOP_STRINGS: Final = 4
+# StopCheck holds back up to the longest stop string's length minus one, so this bounds it.
+MAX_STOP_CHARS: Final = 256
+# Other template variables, such as tools or documents, would bypass the field checks below.
+TEMPLATE_KWARGS: Final = frozenset({"enable_thinking"})
 
 # OpenAI fields that change the output. uLLM does not implement them yet, so a
 # value other than the listed no-op values is rejected rather than ignored.
@@ -212,7 +217,7 @@ class ChatCompletionRequest(BaseModel):
     seed: int | None = None
     # Extensions beyond OpenAI's API.
     top_k: int = Field(default=0, ge=0)  # 0 means off
-    chat_template_kwargs: dict[str, Any] | None = None
+    chat_template_kwargs: dict[str, StrictBool] | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -239,7 +244,27 @@ class ChatCompletionRequest(BaseModel):
             raise _reject("invalid_value", "at most {n} stop strings", "stop", n=MAX_STOP_STRINGS)
         if any(s == "" for s in stops):
             raise _reject("invalid_value", "stop strings must not be empty", "stop")
+        if any(isinstance(s, str) and len(s) > MAX_STOP_CHARS for s in stops):
+            raise _reject(
+                "invalid_value",
+                "stop strings have at most {n} characters",
+                "stop",
+                n=MAX_STOP_CHARS,
+            )
         return tuple(stops)
+
+    @field_validator("chat_template_kwargs", mode="before")
+    @classmethod
+    def _known_template_kwargs(cls, kwargs: object) -> object:
+        if isinstance(kwargs, dict):
+            for key in kwargs.keys() - TEMPLATE_KWARGS:
+                raise _reject(
+                    "unsupported_parameter",
+                    "chat template option {key} is not supported",
+                    "chat_template_kwargs",
+                    key=repr(key),
+                )
+        return kwargs
 
     @model_validator(mode="after")
     def _consistent(self) -> Self:

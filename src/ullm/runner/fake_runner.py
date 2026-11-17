@@ -8,7 +8,7 @@ the host's noise.
 
 import hashlib
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from ullm.runner.base import (
@@ -19,6 +19,7 @@ from ullm.runner.base import (
     SeqId,
     StepPlan,
     StepResult,
+    TemplateMessage,
 )
 from ullm.runner.ledger import SeqLedger
 
@@ -97,3 +98,20 @@ class FakeDetokenizer:
 
     def flush(self) -> str:
         return ""
+
+
+class FakeTokenizer:
+    """Spells each message as ``"<role>\\n<content>\\n"`` and each UTF-8 byte ``b`` as token
+    ``b + 1``, so token 0, the fake EOS, never appears in a prompt. Ignores template options."""
+
+    def render(
+        self, messages: Sequence[TemplateMessage], template_kwargs: Mapping[str, object]
+    ) -> tuple[int, ...]:
+        text = "".join(f"{m['role']}\n{m['content']}\n" for m in messages)
+        return tuple(b + 1 for b in text.encode())
+
+    def detokenizer(self) -> FakeDetokenizer:
+        return FakeDetokenizer()
+
+    def token_bytes(self) -> tuple[bytes, ...]:
+        return (b"", *(bytes([b]) for b in range(256)))

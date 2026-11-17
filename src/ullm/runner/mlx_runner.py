@@ -76,8 +76,13 @@ class MLXTokenizer:
         fixed = FIXED_TEMPLATE_OPTIONS & template_kwargs.keys()
         if fixed:
             raise ValueError(f"render fixes these chat template options: {sorted(fixed)}")
+        # Control-token text inside a message is encoded as text, so a message cannot close
+        # its own turn or open another (decision 0011).
         ids = self.wrapped.apply_chat_template(
-            list(messages), add_generation_prompt=True, **template_kwargs
+            list(messages),
+            add_generation_prompt=True,
+            sanitize_control_tokens=True,
+            **template_kwargs,
         )
         if not all(type(t) is int for t in ids):
             raise ValueError("render takes one conversation, not a batch")
@@ -85,6 +90,9 @@ class MLXTokenizer:
 
     def detokenizer(self) -> ByteDetokenizer:
         return ByteDetokenizer(self._token_bytes)
+
+    def token_bytes(self) -> tuple[bytes, ...]:
+        return self._token_bytes
 
 
 def _token_bytes(wrapped: Any, vocab_size: int) -> tuple[bytes, ...]:

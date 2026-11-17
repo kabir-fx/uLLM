@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11) and M1-T2 (#12) shipped. M1-T3 built on `m1/t3-engine-loop`, not yet shipped |
+| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11), M1-T2 (#12) and M1-T3 (#13) shipped. M1-T4 built on `m1/t4-api-server`, not yet shipped |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | `/ship` M1-T3 from `m1/t3-engine-loop`, base `main`. Then M1-T4 (API server) on top of it |
-| Lane A (engine) | M1-T3 awaiting `/ship` |
+| Next task | `/ship` M1-T4 from `m1/t4-api-server`, base `main`. Then M1-T5 (tests: unit, single-request equivalence, SDK contract and 50 clients over HTTP) |
+| Lane A (engine) | M1-T4 awaiting `/ship` |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | ship M1-T3; close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
+| Blocked on the author | ship M1-T4; close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | Built M1-T3 (decision 0010, brief `docs/briefs/M1-T3-engine-loop.md`): `core/request.py` (state machine, one `TRANSITIONS` list, every move emits its C2 event), `core/scheduler.py` (FCFS, one prefill per step, `max_num_seqs = 1`), `core/engine.py` (the engine thread's loop and the bridge types; waits on the queue only when idle; one `deliver` per turn; a runner failure fails only its rows; a core bug aborts every live request in the trace and re-raises), `core/client.py` (`EngineClient`: bounds open requests at `max_in_flight`, one queue per request, the exit callback fails every open stream), `ullm sim` and `make sim`, `telemetry.trace.frames_from`. Roadmap E5 now bounds open requests, not the queue. Claims 12 and 13. Proof VERIFIED at `126622e`; review READY with five fixes to `1d2d9e8` (bug handler after a finish, duplicate rid, sim refusals, `health` alive, a prefill-failure test); verdicts go in the pull request body. Hand-off to M1-T4: cap each stop string's length (the schema caps only their number), never accept an abort by rid from a client, do not echo `Submit` errors (they repeat the prompt) in a 400. Teach-back given in the session |
+| Last session | Built M1-T4 (decision 0011, brief `docs/briefs/M1-T4-api-server.md`): `server/app.py` (`create_app`, `ServeConfig`; `/v1/chat/completions` streamed and plain, `/v1/models`, `/health` 503 when the engine is dead; `_Reply` owns the stream and watches for a disconnect, so a client that leaves aborts its request in both modes; refuses a foreign `Host`, a non-JSON `content-type` and a body over a vocabulary-derived limit before parsing; renders on a worker thread; echoes `X-Request-Id`, carries `traceparent`), `ullm serve [--fake]` on 127.0.0.1, `FakeTokenizer`, `Tokenizer.token_bytes()`, `MLXTokenizer.render` escapes control tokens, `chat_template_kwargs` takes only `enable_thinking`, stop strings at most 256 characters. New deps `fastapi==0.163.1`, `uvicorn==0.54.0`. Claims 14 and 15. Proof VERIFIED at `1c55ab8`; review READY with fixes to `d125bc0` (browser paths, body limit, render off the loop, bounded field logging, the limit's wording). Departs from decision 0003: `X-Request-Id` is never the rid. Noticed, not fixed: a 29,928-token prefill took 46.9 s on the real model. Verdicts go in the pull request body. Teach-back given in the session |
 
 ---
 
@@ -573,7 +573,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [x] **M1-T1** `[design]` Runner protocol, `MLXRunner` with our own generation loop and a contiguous cache, `FakeRunner` (E1, C3).
 - [x] **M1-T2** Sampler, stop check, detokenizer (E2, E3).
 - [x] **M1-T3** `[design]` Request state machine, engine loop, thread bridge, scheduler interface at `max_num_seqs = 1`, `ullm sim` (E4, E5, E6).
-- [ ] **M1-T4** API server (A1).
+- [x] **M1-T4** API server (A1).
 - [ ] **M1-T5** Tests: unit (Q1), single-request equivalence (Q3), SDK contract and 50 clients (Q4).
 - [ ] **M1-T6** Benchmark harness, workload A, run conditions (B1, B2, B5).
 - [ ] **M1-T7** First baselines (B4): uLLM sequential, `mlx_lm.server` sequential and batched.

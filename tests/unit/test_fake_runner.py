@@ -7,7 +7,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from ullm.runner.base import DecodePlan, PrefillPlan, RunnerInfo, SamplingParams
-from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, Latency
+from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, FakeTokenizer, Latency
 
 INFO = RunnerInfo(
     model_id="fake", vocab_size=50, eos_token_ids=frozenset({0, 7, 49}), max_model_len=4096
@@ -147,3 +147,15 @@ def test_the_fake_detokenizer_spells_each_token_and_holds_nothing_back() -> None
     detokenizer = FakeDetokenizer()
     assert [detokenizer.add(t) for t in (3, 0, 41)] == [" t3", " t0", " t41"]
     assert detokenizer.flush() == ""
+
+
+def test_fake_tokenizer_spells_each_byte_as_one_token_and_never_eos() -> None:
+    tokenizer = FakeTokenizer()
+    ids = tokenizer.render(
+        [{"role": "system", "content": "be"}, {"role": "user", "content": "é"}], {}
+    )
+    assert ids == tuple(b + 1 for b in "system\nbe\nuser\né\n".encode())
+    assert tokenizer.render([{"role": "user", "content": ""}], {"enable_thinking": True}) == tuple(
+        b + 1 for b in b"user\n\n"
+    )
+    assert isinstance(tokenizer.detokenizer(), FakeDetokenizer)

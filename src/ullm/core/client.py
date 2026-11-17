@@ -121,7 +121,9 @@ class EngineClient:
     def health(self) -> Health:
         """Reads only loop-thread state, so it never waits on the engine."""
         return Health(
-            alive=self._thread is not None and self._thread.is_alive(),
+            alive=not self._exited.is_set()
+            and self._thread is not None
+            and self._thread.is_alive(),
             in_flight=len(self._open),
             waiting=self._load.waiting,
             running=self._load.running,
@@ -164,9 +166,10 @@ class EngineClient:
                 del self._open[rid]
 
     def _engine_exited(self, error: BaseException | None) -> None:
-        failed = Failed("shutdown" if self._closing and error is None else "error")
+        # After a Shutdown the engine has ended every request it was sent, so any left open
+        # here were cut off by a dying engine.
         for queue in self._open.values():
-            queue.put_nowait(failed)
+            queue.put_nowait(Failed("error"))
         self._open.clear()
         self._load = Load(waiting=0, running=0)
         self._exited.set()

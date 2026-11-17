@@ -8,6 +8,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from tests.equivalence.divergence import divergence
 from tests.recording import RecordingRunner, tokens_by_rid
 
 from ullm.core.client import EngineClient, RequestStream
@@ -58,9 +59,9 @@ def test_greedy_tokens_through_the_engine_equal_mlx_lm(
     sampled = tokens_by_rid(events, recording.steps)
     failures = []
     for (rid, _), case in zip(replies, cases, strict=True):
-        want, _, _ = reference(runner.model, tokenizer.wrapped, case["prompt_ids"], TOKENS)
+        want, margins, _ = reference(runner.model, tokenizer.wrapped, case["prompt_ids"], TOKENS)
         if sampled[rid] != want:
-            failures.append(f"{case['id']} ({rid}): {sampled[rid]} != {want}")
+            failures.append(divergence(f"{case['id']} ({rid})", sampled[rid], want, margins))
     assert not failures, "the engine differs from mlx-lm:\n" + "\n".join(failures)
     assert check_trace(frames_from(events, "r1")).problems == []
     assert recording.adds == recording.releases == len(cases)

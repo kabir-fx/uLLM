@@ -2,20 +2,17 @@
 
 import asyncio
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
-from contextlib import asynccontextmanager
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 
 import httpx2
 import pytest
-import uvicorn
 from tests.recording import RecordingRunner
+from tests.serving import SERVED, serving
 
-from ullm.runner.base import RunnerInfo, TemplateMessage, Tokenizer
+from ullm.runner.base import RunnerInfo, TemplateMessage
 from ullm.runner.fake_runner import FakeRunner, FakeTokenizer, Latency
-from ullm.server.app import ServeConfig, create_app
 from ullm.telemetry import events as ev
 
-SERVED = "fake-model"
 INFO = RunnerInfo(model_id="fake", vocab_size=300, eos_token_ids=frozenset({0}), max_model_len=4096)
 SLOW_DECODE = Latency(
     prefill_base_ms=0.2, prefill_per_token_ms=0.0, decode_base_ms=20.0, decode_per_row_ms=0.0
@@ -31,23 +28,6 @@ def _run(main: Callable[[], Awaitable[None]]) -> None:
         await asyncio.wait_for(main(), timeout=20)
 
     asyncio.run(bounded())
-
-
-@asynccontextmanager
-async def serving(
-    runner: RecordingRunner, events: list[ev.Event], tokenizer: Tokenizer | None = None
-) -> AsyncIterator[httpx2.AsyncClient]:
-    config = ServeConfig(served_model=SERVED)
-    app = create_app(runner, tokenizer or FakeTokenizer(), config, events.append)
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning"))
-    task = asyncio.create_task(server.serve())
-    while not server.started:
-        await asyncio.sleep(0.01)
-    port = server.servers[0].sockets[0].getsockname()[1]
-    async with httpx2.AsyncClient(base_url=f"http://127.0.0.1:{port}") as client:
-        yield client
-    server.should_exit = True
-    await task
 
 
 async def _until_idle(client: httpx2.AsyncClient) -> None:

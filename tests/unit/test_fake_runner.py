@@ -7,7 +7,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from ullm.runner.base import DecodePlan, PrefillPlan, RunnerInfo, SamplingParams
-from ullm.runner.fake_runner import FakeRunner, Latency
+from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, Latency
 
 INFO = RunnerInfo(
     model_id="fake", vocab_size=50, eos_token_ids=frozenset({0, 7, 49}), max_model_len=4096
@@ -141,3 +141,9 @@ def test_a_vocabulary_of_only_eos_is_refused() -> None:
             ),
             LATENCY,
         )
+
+
+def test_the_fake_detokenizer_spells_each_token_and_holds_nothing_back() -> None:
+    detokenizer = FakeDetokenizer()
+    assert [detokenizer.add(t) for t in (3, 0, 41)] == [" t3", " t0", " t41"]
+    assert detokenizer.flush() == ""

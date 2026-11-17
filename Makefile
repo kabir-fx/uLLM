@@ -84,8 +84,8 @@ goldens-check: ## Regenerate the goldens in memory and compare them in full
 test-mlx: ## Tests marked mlx: need MLX (Apple Silicon); the model from M0-T7 on
 	$(UV) pytest -m mlx
 
-equivalence: ## Token-for-token equivalence against mlx-lm (needs the model)
-	$(call todo,M1-T5)
+equivalence: models ## Token-for-token equivalence against mlx-lm (needs the model); a missing model fails
+	ULLM_REQUIRE_MODEL=1 $(UV) pytest -m mlx tests/equivalence
 
 bench-smoke: ## Short benchmark run, for before/after numbers in a pull request
 	$(call todo,M1-T6)

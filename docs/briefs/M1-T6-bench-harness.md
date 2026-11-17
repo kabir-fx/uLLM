@@ -38,7 +38,7 @@ bench/run.py ── conditions.py (B5 check, powermetrics)
 
 - `make bench-smoke` measures the real model on 16 requests. It took 81 s on the M4.
 - `uv run python -m bench.run --target ullm --launch "uv run ullm serve"` makes a full B5 run.
-- `uv run python -m bench.analysis <run>...` writes the summaries and a comparison table.
+- `uv run python -m bench.analysis <run>... --compare` writes each summary and prints a table that compares the runs.
 - Tests prove the SSE timing, the metric formulas, the B5 refusal, and a full run against `ullm serve --fake`.
 
 What you do not get yet: the baseline runs (M1-T7), Poisson arrivals (M2-T6), and KV data in summaries (M2-T5).

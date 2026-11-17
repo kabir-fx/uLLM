@@ -1,7 +1,7 @@
 """Turn C5 run directories into summaries, charts and a comparison table (B1, decision 0013).
 
 uv run python -m bench.analysis bench/results/<run> [...]          # summary.md, latency.svg
-uv run python -m bench.analysis <run> <run> --compare table.md     # and one table across runs
+uv run python -m bench.analysis <run> <run> --compare              # and print one table across runs
 """
 
 import argparse
@@ -235,15 +235,14 @@ def write(run: Run) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="bench.analysis")
     parser.add_argument("runs", nargs="+", type=Path, help="C5 run directories")
-    parser.add_argument("--compare", type=Path, help="also write a table across the runs here")
+    parser.add_argument("--compare", action="store_true", help="also print a table across runs")
     args = parser.parse_args(argv)
     runs = [load_run(p) for p in args.runs]
     for run in runs:
         write(run)
         print(f"wrote {run.path / schema.SUMMARY}")
     if args.compare:
-        args.compare.write_text(compare(runs))
-        print(f"wrote {args.compare}")
+        print(compare(runs), end="")
     return 0
 
 

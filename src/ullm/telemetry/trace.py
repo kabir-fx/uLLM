@@ -8,10 +8,12 @@ their decompressed text, never by file bytes.
 """
 
 import gzip
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 
-from ullm.telemetry.events import Frame
+from ullm.telemetry.events import Event, Frame
+
+FRAME_MS = 1000 / 15  # frames are flushed about 15 times a second (O1)
 
 
 def dumps(frames: Iterable[Frame]) -> str:
@@ -34,3 +36,15 @@ def iter_frames(path: Path) -> Iterator[Frame]:
         for line in f:
             if line.strip():
                 yield Frame.model_validate_json(line)
+
+
+def frames_from(events: Sequence[Event], replica: str) -> list[Frame]:
+    """Events in time order, grouped into one frame per window they fall in."""
+    frames: list[Frame] = []
+    for event in events:
+        end = (event.t // FRAME_MS + 1) * FRAME_MS
+        if frames and frames[-1].t == end:
+            frames[-1].events.append(event)
+        else:
+            frames.append(Frame(replica=replica, seq=len(frames), t=end, events=[event]))
+    return frames

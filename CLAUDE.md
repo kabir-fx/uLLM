@@ -19,9 +19,9 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 - Fast check: `make check` (after every increment)
 - Full check: `make ci` (before proof and before shipping)
 - Quality bar: `QUALITY.md`. Never weaken it to make a change pass.
-- Specs: `docs/AGENT_ROADMAP.md` (tasks in section 7, catalog in section 6) · Decisions: `docs/decisions/` · Glossary: none yet
+- Specs: `docs/AGENT_ROADMAP.md` (tasks in section 7, catalog in section 6) · Decisions: `docs/decisions/` · Glossary: none yet · Briefs: `docs/briefs/`
 - Done marker: tick the task in section 7; no `Status:` lines. The verdicts live in the pull request body.
-- Run recipe: nothing launches yet; `make sim` arrives in M1-T3, `make up` in M5-T4
+- Run recipe: `make sim` runs the real engine on `FakeRunner` with fake clients and checks the trace; `make up` arrives in M5-T4
 
 ## Rules in brief (full text: roadmap 3.2)
 

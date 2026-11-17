@@ -87,3 +87,13 @@ class FakeRunner:
             if token >= skipped:
                 token += 1
         return token
+
+
+class FakeDetokenizer:
+    """Spells token ``i`` as ``" t{i}"``, so a reply shows which tokens made it."""
+
+    def add(self, token: int) -> str:
+        return f" t{token}"
+
+    def flush(self) -> str:
+        return ""

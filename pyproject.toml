@@ -16,6 +16,9 @@ dependencies = [
     "pydantic==2.14.3",
 ]
 
+[project.scripts]
+ullm = "ullm.cli:main"
+
 [dependency-groups]
 dev = [
     "httpx2==2.16.0",

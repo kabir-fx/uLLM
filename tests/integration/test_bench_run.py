@@ -7,9 +7,9 @@ import sys
 from pathlib import Path
 
 import pytest
-from bench import schema
+from bench import conditions, schema
 from bench.run import main
-from bench.schema import Message, Source, Workload, WorkloadRequest
+from bench.schema import Message, Power, Source, Workload, WorkloadRequest
 
 from ullm.runner.fake_runner import FakeTokenizer
 
@@ -136,3 +136,51 @@ def test_a_launch_onto_a_busy_port_never_starts(tmp_path: Path) -> None:
         )
     assert code == 2
     assert not out.exists()
+
+
+class _SilentPowerMetrics:
+    """powermetrics that started and logged nothing, as when root was refused."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+
+    def stop(self) -> None:
+        return
+
+
+def test_a_full_run_without_a_powermetrics_log_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        conditions, "power", lambda: Power(on_ac=True, battery_percent=100, low_power_mode=False)
+    )
+    monkeypatch.setattr(conditions, "can_sudo", lambda: True)
+    monkeypatch.setattr(conditions, "containers", lambda: 0)
+    monkeypatch.setattr(conditions, "PowerMetrics", _SilentPowerMetrics)
+    port = _free_port()
+    out = tmp_path / "run"
+    code = main(
+        [
+            "--target",
+            "fake",
+            "--launch",
+            f"{sys.executable} -m ullm.cli serve --fake --port {port}",
+            "--base-url",
+            f"http://127.0.0.1:{port}",
+            "--workload",
+            str(_workload(tmp_path / "w.json", 2)),
+            "--repeats",
+            "3",
+            "--warmup",
+            "1",
+            "--cooldown",
+            "0.1",
+            "--ready-timeout",
+            "30",
+            "--out",
+            str(out),
+        ]
+    )
+    assert code == 1
+    assert json.loads((out / schema.ENV).read_text())["powermetrics"] is False
+    assert "powermetrics" in capsys.readouterr().err

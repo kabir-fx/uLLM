@@ -16,7 +16,7 @@ from ullm.core.engine import Delta, EngineConfig, Failed, Finished
 from ullm.models import DEFAULT_MODEL, MODELS
 from ullm.runner.base import Runner, RunnerInfo, SamplingParams, Tokenizer
 from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, FakeTokenizer, Latency
-from ullm.server.app import ServeConfig, create_app
+from ullm.server.app import DEFAULT_MAX_TOKENS, ServeConfig, create_app
 from ullm.telemetry import events as ev
 from ullm.telemetry import trace
 from ullm.telemetry.check import check_trace
@@ -122,7 +122,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     serve.add_argument("--model", choices=sorted(MODELS), default=DEFAULT_MODEL.key)
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--served-model-name", help="the model id clients send; default the repo")
-    serve.add_argument("--default-max-tokens", type=int, default=512)
+    serve.add_argument("--default-max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
     serve.add_argument("--max-in-flight", type=int, default=EngineConfig().max_in_flight)
     serve.add_argument("--fake", action="store_true", help="FakeRunner and FakeTokenizer: no model")
     sim = commands.add_parser("sim", help="run the real engine on FakeRunner with fake clients")

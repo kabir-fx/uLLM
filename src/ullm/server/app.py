@@ -37,13 +37,14 @@ from ullm.telemetry import events as ev
 _log = logging.getLogger(__name__)
 
 RETRY_AFTER_S = 1
+DEFAULT_MAX_TOKENS = 512  # mlx_lm.server's default, so baselines match
 TERMINAL_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
 
 
 @dataclass(frozen=True, slots=True)
 class ServeConfig:
     served_model: str  # the id a client sends as `model`
-    default_max_tokens: int = 512  # mlx_lm.server's default, so baselines match
+    default_max_tokens: int = DEFAULT_MAX_TOKENS
     engine: EngineConfig = field(default_factory=EngineConfig)
 
 
@@ -123,7 +124,7 @@ def create_app(
             sampling = SamplingParams(
                 temperature=req.temperature, top_p=req.top_p, top_k=req.top_k, seed=req.seed
             )
-        except ValueError as e:
+        except ValueError as e:  # the schema checks every other field's range
             raise ApiError(400, "invalid_value", str(e), param="temperature") from None
         try:
             stream = running().submit(
@@ -136,8 +137,7 @@ def create_app(
         except Unavailable as e:
             raise _unavailable(e.why) from None
 
-        reply = _Reply(stream, req.model, req.include_usage)
-        return reply.streamed() if req.stream else reply.plain()
+        return _Reply(stream, req.model, streamed=req.stream, include_usage=req.include_usage)
 
     return app
 
@@ -161,22 +161,34 @@ def _error_response(exc: ApiError) -> JSONResponse:
     return JSONResponse(exc.body().model_dump(), status_code=exc.status, headers=headers)
 
 
-class _Reply:
-    """One request's reply. It owns the stream: a reply that ends early, the client leaving
-    included, aborts the request."""
+class _Reply(Response):
+    """One request's reply, SSE or one JSON. It owns the stream, so a reply that ends early,
+    the client leaving included, aborts the request. It watches for the client leaving itself:
+    uvicorn reports a disconnect only to a ``receive`` call, and Starlette's replies do not all
+    make one (decision 0011)."""
 
-    def __init__(self, stream: RequestStream, model: str, include_usage: bool) -> None:
+    def __init__(
+        self, stream: RequestStream, model: str, *, streamed: bool, include_usage: bool
+    ) -> None:
+        super().__init__()
         self._stream = stream
+        self._write = self._write_events if streamed else self._write_json
         self._id = f"chatcmpl-{stream.rid}"
         self._created = int(time.time())
         self._model = model
         self._include_usage = include_usage
 
-    def streamed(self) -> Response:
-        return _Watched(self._stream, self._write_events)
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        async with self._stream, anyio.create_task_group() as tasks:
 
-    def plain(self) -> Response:
-        return _Watched(self._stream, self._write_json)
+            async def watch() -> None:
+                while (await receive())["type"] != "http.disconnect":
+                    pass
+                tasks.cancel_scope.cancel()
+
+            tasks.start_soon(watch)
+            await self._write(scope, receive, send)
+            tasks.cancel_scope.cancel()
 
     async def _write_json(self, scope: Scope, receive: Receive, send: Send) -> None:
         text: list[str] = []
@@ -254,28 +266,6 @@ class _Reply:
 
 def _usage(done: Finished) -> Usage:
     return Usage.of(prompt_tokens=done.prompt_tokens, completion_tokens=done.completion_tokens)
-
-
-class _Watched(Response):
-    """Writes a reply while watching for the client to leave. Uvicorn reports a disconnect
-    only to a ``receive`` call, and Starlette's replies do not all make one (decision 0011)."""
-
-    def __init__(self, stream: RequestStream, write: ASGIApp) -> None:
-        super().__init__()
-        self._stream = stream
-        self._write = write
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        async with self._stream, anyio.create_task_group() as tasks:
-
-            async def watch() -> None:
-                while (await receive())["type"] != "http.disconnect":
-                    pass
-                tasks.cancel_scope.cancel()
-
-            tasks.start_soon(watch)
-            await self._write(scope, receive, send)
-            tasks.cancel_scope.cancel()
 
 
 class _EchoRequestId:

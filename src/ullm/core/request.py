@@ -94,6 +94,11 @@ class Request:
         return self._state
 
     @property
+    def generated(self) -> int:
+        """Tokens sampled for this request, the end token included."""
+        return len(self._output)
+
+    @property
     def kv_tokens(self) -> int:
         """Tokens in the runner's KV: the last sampled token is fed by the next decode."""
         return self.prefilled + max(len(self._output) - 1, 0)

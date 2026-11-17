@@ -2,6 +2,7 @@
 
 from ullm.telemetry import events as ev
 from ullm.telemetry.check import check_trace
+from ullm.telemetry.trace import frames_from
 
 HELLO = ev.Hello(
     t=0,
@@ -147,3 +148,11 @@ def test_wrong_ttft() -> None:
     bad_first = ev.ReqFirstToken(t=2, rid="a", ttft_ms=1.5)
     out = problems(arrived(1), admitted(1), step(2, "prefill", "a"), bad_first, complete=False)
     assert any("ttft_ms" in p for p in out)
+
+
+def test_frames_from_groups_events_by_window_in_order() -> None:
+    a, b, c = arrived(10.0, "a"), arrived(60.0, "b"), arrived(70.0, "c")
+    grouped = frames_from([HELLO, a, b, c], "r1")
+    assert [f.seq for f in grouped] == [0, 1]
+    assert [f.events for f in grouped] == [[HELLO, a, b], [c]]
+    assert all(e.t <= f.t for f in grouped for e in f.events)

@@ -216,7 +216,7 @@ class Engine:
                 if chunk.text:
                     out.append((req.rid, Delta(chunk.text)))
                 continue
-            self._forget(req)
+            self._forget(req, held=True)
             out.append(
                 (
                     req.rid,
@@ -225,15 +225,17 @@ class Engine:
             )
 
     def _end(self, req: Request, reason: AbortReason, out: list[tuple[str, Output]]) -> None:
-        self._forget(req)
+        held = req.state is not RequestState.WAITING
         req.abort(reason, self._now())
+        self._forget(req, held)
         out.append((req.rid, Failed(reason)))
 
-    def _forget(self, req: Request) -> None:
-        if req.state is not RequestState.WAITING:
-            self._runner.release(req.seq)
-        self._scheduler.remove(req)
+    def _forget(self, req: Request, held: bool) -> None:
+        """An ended request leaves ``_live`` first, so the bug handler never aborts it."""
         del self._live[req.rid]
+        self._scheduler.remove(req)
+        if held:
+            self._runner.release(req.seq)
 
     def _step_event(self, scheduled: Scheduled, ms: float, t: float) -> ev.Step:
         match scheduled.plan:

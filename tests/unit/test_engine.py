@@ -355,3 +355,21 @@ def test_a_bug_after_a_reply_finishes_still_raises_the_bug_and_ends_the_others()
     aborted = [(e.rid, e.reason) for e in events if isinstance(e, ev.ReqAborted)]
     assert aborted == [("r1-1", "error")]
     assert check_trace(frames_from(events, "r1")).problems == []
+
+
+def test_a_duplicate_rid_is_a_bug_that_stops_the_engine_instead_of_hanging_it() -> None:
+    ran_events: list[ev.Event] = []
+    inbound: SimpleQueue[Ticket] = SimpleQueue()
+    inbound.put(_submit(rid="r1-0"))
+    inbound.put(_submit(rid="r1-0"))
+    engine = Engine(
+        RecordingRunner(FakeRunner(INFO, FAST, sleep=lambda s: None)),
+        FakeDetokenizer,
+        EngineConfig(),
+        inbound,
+        lambda batch, load: None,
+        ran_events.append,
+    )
+    with pytest.raises(ValueError, match="r1-0"):
+        engine.run()
+    assert check_trace(frames_from(ran_events, "r1")).problems == []

@@ -35,3 +35,7 @@ def test_the_ullm_command_runs_the_sim() -> None:
     )
     assert done.returncode == 0, done.stderr
     assert "trace check: ok" in done.stdout
+
+
+def test_clients_refused_past_max_in_flight_are_not_a_failure() -> None:
+    assert main(["sim", "--clients", "100", "--seed", "9", "--disconnect", "0"]) == 0

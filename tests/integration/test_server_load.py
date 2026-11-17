@@ -31,7 +31,8 @@ class Reply:
 
 
 def _content(i: int) -> str:
-    return f"client {i}"
+    """FakeRunner's tokens ignore the prompt, so each client's prompt length is its mark."""
+    return "x" * (i + 1)
 
 
 def _max_tokens(i: int) -> int:

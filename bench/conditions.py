@@ -12,6 +12,7 @@ from pathlib import Path
 
 from bench.schema import Power, RunEnv
 
+POWERMETRICS = "/usr/bin/powermetrics"
 LIBRARIES = ("mlx", "mlx-lm", "transformers", "tokenizers", "fastapi", "uvicorn", "httpx2")
 
 
@@ -51,7 +52,9 @@ def power() -> Power:
 
 
 def can_sudo() -> bool:
-    done = _run("sudo", "-n", "true")
+    """True when powermetrics can start without a password prompt: a fresh ``sudo -v``, or a
+    sudoers rule that lets this user run it with NOPASSWD, for unattended matrices."""
+    done = _run("sudo", "-n", "-l", POWERMETRICS)
     return done is not None and done.returncode == 0
 
 
@@ -71,7 +74,7 @@ def violations(power: Power, *, sudo: bool, containers: int | None, plan: Plan) 
     if power.low_power_mode is not False:
         found.append("Low Power Mode is on or unknown: turn it off")
     if not sudo:
-        found.append("powermetrics needs root: run `sudo -v` first")
+        found.append("powermetrics needs root: run `sudo -v` first, or allow it without a password")
     if containers:
         found.append(f"{containers} Docker containers are running: stop the compose stack")
     if plan.repeats < 3:
@@ -91,7 +94,7 @@ class PowerMetrics:
             [
                 "sudo",
                 "-n",
-                "powermetrics",
+                POWERMETRICS,
                 "--samplers",
                 "gpu_power,cpu_power,thermal",
                 "--sample-rate",
@@ -102,7 +105,7 @@ class PowerMetrics:
                 str(path),
             ],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
         )
 
     def stop(self) -> None:

@@ -164,7 +164,9 @@ def run(args: argparse.Namespace) -> int:
         chat_template_kwargs=workload.chat_template_kwargs,
         smoke=args.smoke,
     )
-    env = conditions.environment(used_powermetrics=powermetrics is not None, started=started)
+    plist = out / schema.POWERMETRICS
+    logged = plist.exists() and plist.stat().st_size > 0
+    env = conditions.environment(used_powermetrics=logged, started=started)
     (out / schema.CONFIG).write_text(config.model_dump_json(indent=2) + "\n")
     (out / schema.ENV).write_text(env.model_dump_json(indent=2) + "\n")
     (out / schema.RAW).write_text("".join(r.model_dump_json() + "\n" for r in records))

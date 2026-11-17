@@ -91,6 +91,9 @@ class MLXTokenizer:
     def detokenizer(self) -> ByteDetokenizer:
         return ByteDetokenizer(self._token_bytes)
 
+    def token_bytes(self) -> tuple[bytes, ...]:
+        return self._token_bytes
+
 
 def _token_bytes(wrapped: Any, vocab_size: int) -> tuple[bytes, ...]:
     """Each token id's bytes, for every id the model can sample (decision 0009)."""

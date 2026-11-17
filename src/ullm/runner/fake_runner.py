@@ -112,3 +112,6 @@ class FakeTokenizer:
 
     def detokenizer(self) -> FakeDetokenizer:
         return FakeDetokenizer()
+
+    def token_bytes(self) -> tuple[bytes, ...]:
+        return (b"", *(bytes([b]) for b in range(256)))

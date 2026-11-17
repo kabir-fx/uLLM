@@ -1,8 +1,9 @@
 """A1: the OpenAI-compatible HTTP server over ``EngineClient`` (decision 0011)."""
 
+import json
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass, field
 from typing import Literal
@@ -38,9 +39,8 @@ from ullm.telemetry import events as ev
 _log = logging.getLogger(__name__)
 
 RETRY_AFTER_S = 1
-# A request body bigger than this many bytes per context token cannot fit, even with JSON
-# escaping; refusing it before parsing bounds the work a client can cause.
-MAX_BODY_BYTES_PER_TOKEN = 32
+# Room in a request body for everything but the messages: model, stop strings, options.
+BODY_SLACK_BYTES = 64 * 1024
 MAX_LOGGED_FIELDS = 32  # unknown field names logged per process; client-chosen, so bounded
 LOCAL_HOSTS = ("127.0.0.1", "localhost")  # a DNS-rebound page arrives under its own name
 DEFAULT_MAX_TOKENS = 512  # mlx_lm.server's default, so baselines match
@@ -62,7 +62,7 @@ def create_app(
     runner: Runner, tokenizer: Tokenizer, config: ServeConfig, emit: Emit = _drop
 ) -> FastAPI:
     info = runner.info()
-    max_body = MAX_BODY_BYTES_PER_TOKEN * info.max_model_len
+    max_body = max_body_bytes(tokenizer.token_bytes(), info.max_model_len)
     created = int(time.time())
     logged_fields: set[str] = set()
     engine: EngineClient | None = None
@@ -154,6 +154,18 @@ def create_app(
         return _Reply(stream, req.model, streamed=req.stream, include_usage=req.include_usage)
 
     return app
+
+
+def max_body_bytes(token_bytes: Sequence[bytes], max_model_len: int) -> int:
+    """The largest body a prompt that fits the context can need: its costliest token, as JSON
+    escapes it, at every position. Refusing more before parsing bounds a client's work."""
+    return max(map(_json_cost, token_bytes)) * max_model_len + BODY_SLACK_BYTES
+
+
+def _json_cost(token: bytes) -> int:
+    # The most bytes a client's JSON can spend on these bytes: ensure_ascii escapes control
+    # characters to 2 or 6 bytes, and spends at most 3 per byte of a multi-byte character.
+    return sum(len(json.dumps(chr(b))) - 2 if b < 0x80 else 3 for b in token)
 
 
 async def _read_body(request: Request, limit: int) -> bytes:

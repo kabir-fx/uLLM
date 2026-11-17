@@ -10,6 +10,9 @@ The bar is the engineering rules and the definition of done in `docs/AGENT_ROADM
 |---|---|---|---|
 | Fast | `make check` | after every increment; the pre-push hook runs it | 7 s |
 | Full | `make ci` | before proof, before a pull request | 71 s on an M4 with the model downloaded |
+| Performance | `make bench-smoke` | a performance-relevant change: on the base before the first commit, and again after | 82 s on an M4, model load included |
+
+`make bench-smoke` skips the B5 checks, so its numbers are for before and after only, never a claim. Run both on the same power source: the summary records AC, battery and Low Power Mode. The pull request carries both summary tables (roadmap 3.3).
 
 `make ci` runs the `ci-core`, `ci-router`, `ci-terminal` and `ci-mlx` targets, and each CI job runs its own target (decision 0007). `ci-mlx` runs `make equivalence` first, then the other tests marked `mlx`. It needs MLX and the model (`make models`).
 

@@ -18,6 +18,7 @@ A proof-of-work project: a small, readable LLM inference engine for Apple Silico
 
 - Fast check: `make check` (after every increment)
 - Full check: `make ci` (before proof and before shipping)
+- Performance check: `make bench-smoke` on the base and after the change, for performance-relevant changes; both summaries go in the pull request
 - Quality bar: `QUALITY.md`. Never weaken it to make a change pass.
 - Specs: `docs/AGENT_ROADMAP.md` (tasks in section 7, catalog in section 6) · Decisions: `docs/decisions/` · Glossary: none yet · Briefs: `docs/briefs/`
 - Done marker: tick the task in section 7; no `Status:` lines. The verdicts live in the pull request body.

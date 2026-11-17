@@ -190,8 +190,9 @@ def run(args: argparse.Namespace) -> int:
     failed = sum(s.failed + s.prompt_mismatches for s in result.stats)
     if failed:
         print(f"{failed} measured requests failed or rendered another prompt", file=sys.stderr)
-        return 1
-    return 0
+    if not args.smoke and not logged:
+        print("powermetrics wrote no log: this run does not meet B5", file=sys.stderr)
+    return 1 if failed or (not args.smoke and not logged) else 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:

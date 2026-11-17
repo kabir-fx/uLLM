@@ -76,7 +76,8 @@ def _run_sim(args: argparse.Namespace) -> int:
     print(f"{args.clients} clients, {report.steps} steps, {len(events)} events")
     for outcome, n in sorted(outcomes.items()):
         print(f"  {n:4d}  {outcome}")
-    bad = [o for o in outcomes if not o.startswith(("finished", "left early"))]
+    # A refusal past max_in_flight is the bound working; the trace check covers the rest.
+    bad = [o for o in outcomes if not o.startswith(("finished", "left early", "refused (full)"))]
     for problem in report.problems:
         print(f"trace problem: {problem}", file=sys.stderr)
     if bad:

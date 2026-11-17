@@ -68,7 +68,8 @@ def containers() -> int | None:
 
 
 def violations(power: Power, *, sudo: bool, containers: int | None, plan: Plan) -> list[str]:
-    """Every B5 condition a full run would break, in words. Unknown counts as broken."""
+    """Every B5 condition a full run would break, in words. An unknown power state counts as
+    broken; no Docker daemon means no containers."""
     found = []
     if power.on_ac is not True:
         found.append("not on AC power: plug in")

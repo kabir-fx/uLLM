@@ -3,8 +3,8 @@
     uv run python -m bench.run --target ullm --launch "uv run ullm serve"
     uv run python -m bench.run --target ullm --launch "uv run ullm serve" --smoke --requests 16
 
-A full run refuses to start unless B5 holds. ``--smoke`` skips that check and says so in every
-file it writes.
+A full run refuses to start unless B5 holds. ``--smoke`` skips that check and says so in
+config.json and summary.md.
 """
 
 import argparse

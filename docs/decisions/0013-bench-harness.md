@@ -35,9 +35,9 @@ Facts this design rests on:
 - Prompt tokens are counted with uLLM's own `MLXTokenizer.render` on the pinned Qwen3-0.6B tokenizer, thinking off, and stored per request. A dialogue whose rendering changes when control-token text is sanitized is skipped, so `mlx_lm.server`, which does not sanitize, renders the same ids (decision 0011).
 - `max_tokens` is drawn uniformly from 50 to 300 with a seeded `random.Random`.
 - 256 requests. A run may take the first N.
-- Measured on the committed file: every request is a 5-turn prefix; prompts run from 155 to 793 tokens, median 461; the `max_tokens` budgets sum to 45,988. The file is 671 KB, and a second build reproduced it byte for byte (SHA-256 `a8983061`).
+- Measured on the committed file: every request is a 5-turn prefix; prompts run from 155 to 793 tokens, median 460.5; the `max_tokens` budgets sum to 45,988. The file is 671 KB, and a second build reproduced it byte for byte (SHA-256 `a8983061`).
 
-**The C5 run directory.** One directory per run: one target, one concurrency, measured under B5. A run holds one discarded warm-up and R measured repeats over the same requests in the same order.
+**The C5 run directory.** One directory per run: one target, one concurrency, measured under B5. A run holds one discarded warm-up, the first W requests of the workload, and R measured repeats over the same requests in the same order.
 
 | File | Content |
 |---|---|
@@ -55,17 +55,17 @@ Facts this design rests on:
 - TPOT: (last chunk − first chunk) / (`completion_tokens` − 1), from `usage`, so a chunk that carries several tokens does not distort it. Undefined for one-token replies.
 - End-to-end latency: end time.
 - Output tokens per second per repeat: the sum of `completion_tokens` over the repeat's wall time, from the first send to the last end.
-- p50 and p99 by nearest rank, over all measured requests. Each repeat's figures, and the median over repeats, are reported.
+- p50 and p99 by nearest rank, per repeat, over that repeat's successful requests. Each repeat's figures are reported, and the headline is the median of each figure over the repeats (B5).
 - Fairness: the count of replies whose `prompt_tokens` differ from the workload's, and of failed requests. Both should be 0.
 
 **Run conditions (B5).** A full run refuses to start unless all hold, and prints each failure:
 
 - on AC power, Low Power Mode off;
-- `sudo -n true` succeeds, so `powermetrics` can log (the author runs `sudo -v` first);
-- no running Docker containers (the compose stack is stopped);
+- `sudo -n powermetrics` takes one sample, so `powermetrics` can log: after `sudo -v`, or under a NOPASSWD sudoers rule for `/usr/bin/powermetrics` for unattended matrices. `sudo -n -l` is not used: any unrelated NOPASSWD rule makes it pass (`man sudoers`);
+- no running Docker containers (the compose stack is stopped); a machine where no Docker daemon answers passes;
 - at least 3 repeats, at least 1 warm-up request, a cooldown above 0 s (default 120 s, from the original spec).
 
-Other apps cannot be checked, so `env.json` records the top processes instead. `--smoke` skips the checks and records `smoke: true`. `bench.analysis` heads a smoke summary with "smoke: not a B5 run".
+A full run whose `powermetrics` wrote no log exits 1. A launch onto a port that already listens is refused. Other apps cannot be checked, so `env.json` records the top processes instead. `--smoke` skips the checks and records `smoke: true`. `bench.analysis` heads a smoke summary with "smoke: not a B5 run".
 
 **`make bench-smoke`.** Launches `ullm serve` on the default model, runs the first 16 requests of workload A at concurrency 1, 2 warm-up requests, 1 repeat, no cooldown, into `bench/.scratch/`, and prints the summary. It took 81 s on the M4, model load included.
 
@@ -84,5 +84,6 @@ Other apps cannot be checked, so `env.json` records the top processes instead. `
 - matplotlib joins the dev dependency group for the chart (rule 13).
 - `bench/` is checked by ruff and mypy like `src/`, `tests/` and `scripts/`.
 - M1-T7 adds a target per baseline by passing its launch command. It needs no harness change.
+- Every repeat resends the same prompts, and the warm-up resends the first ones. A target with a prompt cache therefore skips prefill on repeated prompts: `mlx_lm.server` keeps one by default (`--prompt-cache-size`, default 10, `mlx_lm/server.py` line 2043; an exact hit at `models/cache.py` line 1654), and uLLM has none until M2. The author chose to run `mlx_lm.server` both ways in M1-T7: with its default cache, and with `--prompt-cache-size 0`, which evicts each entry as it is inserted (`models/cache.py` line 1706). `config.json` records the launch command, so a reader can tell the two apart.
 - Poisson open-loop arrivals (B3) come with M2-T6. KV utilisation and prefix hit rate in summaries come once `/metrics` exists (M2-T5).
 - Workload A depends on one Hugging Face file at a pinned revision. If it disappears, the committed `a.json` still runs. Only regeneration needs it.

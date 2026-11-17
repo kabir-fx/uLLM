@@ -27,6 +27,7 @@ dev = [
     "huggingface-hub==2.4.0",
     "hypothesis==6.170.15",
     "jsonschema==4.26.0",
+    "matplotlib==3.11.2",
     "mypy==2.4.1",
     "openai==3.51.0",
     "pytest==9.2.0",
@@ -80,7 +81,7 @@ ban-relative-imports = "all"
 [tool.mypy]
 python_version = "3.12"
 mypy_path = ["src", "."]
-files = ["src", "tests", "scripts"]
+files = ["src", "tests", "scripts", "bench"]
 explicit_package_bases = true
 plugins = ["pydantic.mypy"]
 strict = true

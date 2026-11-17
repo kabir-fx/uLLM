@@ -28,9 +28,11 @@ MESSAGES: list[openai.types.chat.ChatCompletionMessageParam] = [{"role": "user",
 def sdk_for(latency: Latency, engine: EngineConfig | None = None) -> Iterator[openai.OpenAI]:
     runner = RecordingRunner(FakeRunner(INFO, latency))
     config = ServeConfig(served_model=SERVED, engine=engine or EngineConfig())
-    with TestClient(create_app(runner, FakeTokenizer(), config)) as http:
+    with TestClient(
+        create_app(runner, FakeTokenizer(), config), base_url="http://127.0.0.1"
+    ) as http:
         yield openai.OpenAI(
-            base_url="http://testserver/v1", api_key="unused", http_client=http, max_retries=0
+            base_url="http://127.0.0.1/v1", api_key="unused", http_client=http, max_retries=0
         )
 
 

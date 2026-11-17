@@ -1,7 +1,8 @@
 """A client that leaves frees its request, through a real uvicorn server (A1, decision 0011)."""
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 
 import httpx2
@@ -9,7 +10,7 @@ import pytest
 import uvicorn
 from tests.recording import RecordingRunner
 
-from ullm.runner.base import RunnerInfo
+from ullm.runner.base import RunnerInfo, TemplateMessage, Tokenizer
 from ullm.runner.fake_runner import FakeRunner, FakeTokenizer, Latency
 from ullm.server.app import ServeConfig, create_app
 from ullm.telemetry import events as ev
@@ -34,9 +35,10 @@ def _run(main: Callable[[], Awaitable[None]]) -> None:
 
 @asynccontextmanager
 async def serving(
-    runner: RecordingRunner, events: list[ev.Event]
+    runner: RecordingRunner, events: list[ev.Event], tokenizer: Tokenizer | None = None
 ) -> AsyncIterator[httpx2.AsyncClient]:
-    app = create_app(runner, FakeTokenizer(), ServeConfig(served_model=SERVED), events.append)
+    config = ServeConfig(served_model=SERVED)
+    app = create_app(runner, tokenizer or FakeTokenizer(), config, events.append)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning"))
     task = asyncio.create_task(server.serve())
     while not server.started:
@@ -91,3 +93,30 @@ def test_leaving_a_plain_request_during_its_prefill_aborts_it() -> None:
     assert _aborted(events) == ["client_disconnect"]
     assert runner.adds == runner.releases == 1
     assert len(runner.steps) <= 2  # the prefill, and at most one decode before the abort
+
+
+class _SlowRender(FakeTokenizer):
+    def render(
+        self, messages: Sequence[TemplateMessage], template_kwargs: Mapping[str, object]
+    ) -> tuple[int, ...]:
+        time.sleep(0.5)  # a long prompt through the real tokenizer: about 2.8 us a token
+        return super().render(messages, template_kwargs)
+
+
+def test_health_stays_fast_while_a_long_prompt_renders() -> None:
+    runner = RecordingRunner(FakeRunner(INFO, SLOW_DECODE))
+    events: list[ev.Event] = []
+
+    async def main() -> None:
+        async with serving(runner, events, _SlowRender()) as client:
+            request = asyncio.create_task(
+                client.post("/v1/chat/completions", json={**BODY, "max_tokens": 1})
+            )
+            await asyncio.sleep(0.1)  # the render has begun
+            began = time.perf_counter()
+            assert (await client.get("/health")).status_code == 200
+            asked = time.perf_counter() - began
+            assert (await request).status_code == 200
+            assert asked < 0.1  # a blocked loop answers only after the render, 0.4 s later
+
+    _run(main)

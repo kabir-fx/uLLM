@@ -14,7 +14,7 @@ from ullm.core.client import EngineClient, RequestStream
 from ullm.core.engine import EngineConfig
 from ullm.runner.base import RunnerInfo, SamplingParams
 from ullm.runner.fake_runner import FakeRunner, FakeTokenizer, Latency
-from ullm.server.app import ServeConfig, create_app
+from ullm.server.app import MAX_BODY_BYTES_PER_TOKEN, MAX_LOGGED_FIELDS, ServeConfig, create_app
 from ullm.server.schemas import ChatCompletion, ChatCompletionChunk, ErrorResponse
 from ullm.telemetry import events as ev
 
@@ -28,6 +28,7 @@ SLOW = Latency(
 )
 PROMPT_TOKENS = len("user\nhi\n")  # FakeTokenizer: one token per byte
 TERMINAL = "http://localhost:5173"
+LOCAL = "http://127.0.0.1:8000"
 
 
 def body(**fields: Any) -> dict[str, Any]:
@@ -67,7 +68,7 @@ def server() -> Server:
 
 @pytest.fixture
 def http(server: Server) -> Iterator[TestClient]:
-    with TestClient(server.app) as client:
+    with TestClient(server.app, base_url=LOCAL) as client:
         yield client
 
 
@@ -178,7 +179,7 @@ def test_an_error_never_echoes_the_prompt(http: TestClient) -> None:
 def test_a_full_engine_replies_503_queue_full_with_retry_after() -> None:
     server = Server(RecordingRunner(FakeRunner(INFO, SLOW)), EngineConfig(max_in_flight=1))
     with (
-        TestClient(server.app) as http,
+        TestClient(server.app, base_url=LOCAL) as http,
         http.stream("POST", "/v1/chat/completions", json=body(stream=True)) as first,
     ):
         assert first.status_code == 200
@@ -197,7 +198,7 @@ class _FailsSecondStep(RecordingRunner):
 def test_a_failure_mid_stream_sends_an_error_event_and_no_done() -> None:
     server = Server(_FailsSecondStep(FakeRunner(INFO, FAST)))
     with (
-        TestClient(server.app) as http,
+        TestClient(server.app, base_url=LOCAL) as http,
         http.stream("POST", "/v1/chat/completions", json=body(stream=True)) as response,
     ):
         payloads = sse_events(response.iter_lines())
@@ -211,7 +212,7 @@ def test_a_failure_mid_stream_sends_an_error_event_and_no_done() -> None:
 
 def test_a_failure_before_a_plain_reply_is_503() -> None:
     server = Server(_FailsSecondStep(FakeRunner(INFO, FAST)))
-    with TestClient(server.app) as http:
+    with TestClient(server.app, base_url=LOCAL) as http:
         response = http.post("/v1/chat/completions", json=body())
     assert error_of(response)[:2] == (503, "engine_unavailable")
     assert response.headers["retry-after"] == "1"
@@ -224,7 +225,7 @@ class _DiesOnAdd(RecordingRunner):
 
 def test_health_reports_a_dead_engine_and_requests_get_503() -> None:
     server = Server(_DiesOnAdd(FakeRunner(INFO, FAST)))
-    with TestClient(server.app) as http:
+    with TestClient(server.app, base_url=LOCAL) as http:
         assert http.get("/health").status_code == 200
         assert error_of(http.post("/v1/chat/completions", json=body()))[:2] == (
             503,
@@ -261,7 +262,7 @@ def test_traceparent_rides_on_the_ticket(server: Server, monkeypatch: pytest.Mon
 
     monkeypatch.setattr(EngineClient, "submit", spy)
     traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
-    with TestClient(server.app) as http:
+    with TestClient(server.app, base_url=LOCAL) as http:
         http.post("/v1/chat/completions", json=body(), headers={"traceparent": traceparent})
         http.post("/v1/chat/completions", json=body())
     assert seen == [traceparent, None]
@@ -278,6 +279,48 @@ def test_cors_allows_only_the_terminal(http: TestClient, origin: str, allowed: b
         },
     )
     assert (preflight.headers.get("access-control-allow-origin") == origin) is allowed
+
+
+def test_a_cross_origin_simple_post_runs_nothing(server: Server, http: TestClient) -> None:
+    # A page on any origin may send text/plain with no preflight; only JSON is a request.
+    response = http.post(
+        "/v1/chat/completions",
+        content=json.dumps(body()),
+        headers={"content-type": "text/plain", "origin": "http://evil.test"},
+    )
+    assert error_of(response)[:2] == (400, "invalid_value")
+    assert server.runner.adds == 0
+
+
+def test_a_foreign_host_is_refused(server: Server, http: TestClient) -> None:
+    # A DNS-rebound page reaches 127.0.0.1 under its own host name.
+    response = http.post("/v1/chat/completions", json=body(), headers={"host": "evil.test"})
+    assert response.status_code == 400
+    assert server.runner.adds == 0
+    assert http.get("/health", headers={"host": "localhost:8000"}).status_code == 200
+
+
+def test_a_body_too_large_for_the_context_is_refused_before_parsing(
+    server: Server, http: TestClient
+) -> None:
+    huge = "x" * (MAX_BODY_BYTES_PER_TOKEN * INFO.max_model_len)
+    response = http.post(
+        "/v1/chat/completions", json=body(messages=[{"role": "user", "content": huge}])
+    )
+    assert error_of(response)[:2] == (400, "invalid_value")
+    assert huge not in response.text
+    assert server.runner.adds == 0
+
+
+def test_unknown_field_logging_is_bounded(
+    http: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    extras = {f"x{i}": 1 for i in range(100)}
+    with caplog.at_level(logging.WARNING, logger="ullm.server"):
+        for _ in range(3):
+            assert http.post("/v1/chat/completions", json=body(**extras)).is_success
+    logged = [r for r in caplog.records if r.name.startswith("ullm.server")]
+    assert len(logged) == MAX_LOGGED_FIELDS
 
 
 def test_each_unknown_field_is_logged_once(

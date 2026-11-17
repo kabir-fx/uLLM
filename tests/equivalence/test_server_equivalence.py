@@ -42,7 +42,7 @@ def test_greedy_replies_over_http_are_mlx_lms_text(
     eos = runner.info().eos_token_ids
     failures = []
     app = create_app(runner, tokenizer, ServeConfig(served_model=DEFAULT_MODEL.repo))
-    with TestClient(app) as http:
+    with TestClient(app, base_url="http://127.0.0.1") as http:
         for case in golden:
             want, _, finish = reference(runner.model, tokenizer.wrapped, case["prompt_ids"], TOKENS)
             detokenizer = tokenizer.detokenizer()

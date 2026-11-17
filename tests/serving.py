@@ -27,7 +27,9 @@ async def serving(
     while not server.started:
         await asyncio.sleep(0.01)
     port = server.servers[0].sockets[0].getsockname()[1]
-    async with httpx2.AsyncClient(base_url=f"http://127.0.0.1:{port}") as client:
-        yield client
-    server.should_exit = True
-    await task
+    try:
+        async with httpx2.AsyncClient(base_url=f"http://127.0.0.1:{port}") as client:
+            yield client
+    finally:
+        server.should_exit = True
+        await task

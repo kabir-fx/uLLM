@@ -19,7 +19,7 @@ M1-T5 names three test groups: unit tests (Q1), single-request equivalence (Q3),
 Four gaps remained:
 
 - No test held 50 clients open at once over HTTP.
-- No test read the raw SSE bytes. A server that ended each event with one newline instead of two passed every existing test (mutant run, below).
+- No test read the raw SSE bytes. A server that ended each event with one newline instead of two passed every test in `test_server.py`, whose `sse_events` helper keeps only `data:` lines. Only two SDK tests in `test_server_sdk.py` failed (mutant run, below).
 - The engine equivalence test did not report mlx-lm's top-2 margin on a mismatch, as Q3 requires.
 - `make equivalence` was a placeholder.
 
@@ -39,7 +39,7 @@ Decision 0006 also left one choice to this task: the documented near-tie thresho
 
 **Tests added.**
 
-- `tests/integration/test_server_load.py`: 50 `openai.AsyncOpenAI` clients at once against a real uvicorn server on 127.0.0.1 with `FakeRunner`. Even-numbered clients ask for a plain reply, odd ones stream with usage. Each prompt and `max_tokens` differs. Each reply must be the text of exactly its own request's sampled tokens, with exact usage and one completion id. Then: at least 25 requests were open at once (measured: 48 to 50 in 8 runs), every sequence was released, `/health` shows none in flight, and the trace checker finds no problem.
+- `tests/integration/test_server_load.py`: 50 `openai.AsyncOpenAI` clients at once against a real uvicorn server on 127.0.0.1 with `FakeRunner`. Even-numbered clients ask for a plain reply, odd ones stream with usage. Client `i` sends `i + 1` characters, so its `prompt_tokens` identifies it, and `max_tokens` cycles from 1 to 8. Each reply must be the text of exactly its own request's sampled tokens, with exact usage and one completion id. Then: at least 25 requests were open at once (measured: 48 to 50 in 8 runs), every sequence was released, `/health` shows none in flight, and the trace checker finds no problem.
 - `tests/serving.py`: the real-uvicorn helper, moved from `test_server_disconnect.py` so both files use it.
 - `test_each_sse_event_is_one_data_line_then_a_blank_line` (`tests/integration/test_server.py`): splits the raw body on blank lines. Each event is one `data: ` line with no other line break, the last is `[DONE]`, and every other one parses as a chunk.
 - `tests/equivalence/divergence.py`: `divergence()` formats the first differing position and mlx-lm's margin there. The runner and engine equivalence tests use it.
@@ -51,7 +51,8 @@ Decision 0006 also left one choice to this task: the documented near-tie thresho
 |---|---|
 | `_Reply._write_json` appends to one buffer shared by every reply | the load test fails: `client 0` got ` t13 t123 t265 t147 t133 t40` instead of ` t40` |
 | The load test awaits its clients one at a time | the load test fails: at most 1 request open |
-| Each SSE event ends with `\n` instead of `\n\n` | the framing test fails, and both `test_a_stream_follows_c1s_order` cases still pass |
+| Two clients' whole replies swap (10 and 26) | the load test fails on `prompt_tokens`: 33 against 17. Each prompt has its own length, because `FakeRunner`'s tokens ignore the prompt |
+| Each SSE event ends with `\n` instead of `\n\n` | the framing test fails, and both `test_a_stream_follows_c1s_order` cases still pass. `test_the_sdk_streams_a_reply_with_usage` and `test_the_sdk_sees_503_when_the_engine_is_full` also fail |
 | A single `[1, L]` prefill (decision 0008) | runner and engine equivalence fail: `palindrome` at token 20, margin 0.0, and `translate` at token 14, margin 0.125 |
 
 ## Alternatives considered

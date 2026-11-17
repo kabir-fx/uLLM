@@ -11,7 +11,7 @@ This slice completes the tests that gate G1 needs. You get one command for equiv
 
 - Rule 8 says that tests ship with behaviour. So M1-T1 to M1-T4 already wrote most of Q1, Q3 and Q4.
 - No test sends 50 clients at the same time over HTTP. `test_bridge.py` sends 50 clients, but with no HTTP server.
-- No test reads the raw SSE bytes. The helper `sse_events` drops lines that are not `data:`, so a bad frame can pass.
+- No test reads the raw SSE bytes. The helper `sse_events` drops lines that are not `data:`, so a bad frame passes `test_server.py`. Only two SDK tests catch it.
 - Q3 says that a mismatch must show the top-2 margin. The engine equivalence test does not show it.
 - `make equivalence` is a stub that exits 2.
 - Rule 1 says that the equivalence tests must never become less strict.
@@ -20,7 +20,7 @@ This slice completes the tests that gate G1 needs. You get one command for equiv
 ## How it works
 
 1. **`tests/serving.py`.** The agent moves the `serving` helper here from `test_server_disconnect.py`. It starts a real uvicorn server on 127.0.0.1 on a free port.
-2. **`tests/integration/test_server_load.py`.** Fifty `AsyncOpenAI` clients send requests at the same time. Each client sends a different prompt and limit. Half of the clients stream. Each reply must be the text of its own tokens, with exact usage.
+2. **`tests/integration/test_server_load.py`.** Fifty `AsyncOpenAI` clients send requests at the same time. Each client sends a prompt of a different length, so its usage identifies it. Half of the clients stream. Each reply must be the text of its own tokens, with exact usage.
 3. **The SSE framing test** (`test_server.py`). It reads the raw body. Each event must be one `data:` line and one blank line.
 4. **The engine equivalence test.** At the first different token, the failure message shows the mlx-lm top-2 margin.
 5. **The near-tie threshold.** uLLM against mlx-lm on one machine gets no allowance. Any different token fails. Only mlx-lm against goldens from another chip keeps the 0.25 allowance.
@@ -30,7 +30,7 @@ This slice completes the tests that gate G1 needs. You get one command for equiv
 
 - `make equivalence` runs the four equivalence files on the real model.
 - `uv run pytest tests/integration/test_server_load.py` proves that 50 concurrent SDK clients each get their own reply.
-- `make check` runs the new SSE framing test and the load test with no model.
+- `make ci-core` and the core CI job run the new SSE framing test and the load test with no model.
 
 What you do not get yet: equivalence at batch sizes above 1 (M2-T3).
 

@@ -1,4 +1,5 @@
-"""The ``ullm`` command. ``ullm sim`` runs the real engine on FakeRunner (DEC-3, decision 0010)."""
+"""The ``ullm`` command. ``ullm serve`` runs the API server (A1, decision 0011); ``ullm sim`` runs
+the real engine on FakeRunner (DEC-3, decision 0010)."""
 
 import argparse
 import asyncio
@@ -8,10 +9,14 @@ from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 
+import uvicorn
+
 from ullm.core.client import EngineClient, Unavailable
 from ullm.core.engine import Delta, EngineConfig, Failed, Finished
-from ullm.runner.base import RunnerInfo, SamplingParams
-from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, Latency
+from ullm.models import DEFAULT_MODEL, MODELS
+from ullm.runner.base import Runner, RunnerInfo, SamplingParams, Tokenizer
+from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, FakeTokenizer, Latency
+from ullm.server.app import ServeConfig, create_app
 from ullm.telemetry import events as ev
 from ullm.telemetry import trace
 from ullm.telemetry.check import check_trace
@@ -88,16 +93,45 @@ def _run_sim(args: argparse.Namespace) -> int:
     return 1
 
 
+def _serve(args: argparse.Namespace) -> int:
+    runner: Runner
+    tokenizer: Tokenizer
+    if args.fake:
+        runner, tokenizer = FakeRunner(SIM_INFO, SIM_LATENCY), FakeTokenizer()
+        served = args.served_model_name or SIM_INFO.model_id
+    else:
+        from ullm.runner.mlx_runner import load_mlx  # MLX exists only on Apple Silicon
+
+        spec = MODELS[args.model]
+        runner, tokenizer = load_mlx(spec)
+        served = args.served_model_name or spec.repo
+    config = ServeConfig(
+        served_model=served,
+        default_max_tokens=args.default_max_tokens,
+        engine=EngineConfig(max_in_flight=args.max_in_flight),
+    )
+    # Local by default (rule 14): no option binds another address.
+    uvicorn.run(create_app(runner, tokenizer, config), host="127.0.0.1", port=args.port)
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="ullm")
     commands = parser.add_subparsers(dest="command", required=True)
+    serve = commands.add_parser("serve", help="run the OpenAI-compatible API server")
+    serve.add_argument("--model", choices=sorted(MODELS), default=DEFAULT_MODEL.key)
+    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--served-model-name", help="the model id clients send; default the repo")
+    serve.add_argument("--default-max-tokens", type=int, default=512)
+    serve.add_argument("--max-in-flight", type=int, default=EngineConfig().max_in_flight)
+    serve.add_argument("--fake", action="store_true", help="FakeRunner and FakeTokenizer: no model")
     sim = commands.add_parser("sim", help="run the real engine on FakeRunner with fake clients")
     sim.add_argument("--clients", type=int, default=50)
     sim.add_argument("--seed", type=int, default=0)
     sim.add_argument("--disconnect", type=float, default=0.2, help="share that leave early")
     sim.add_argument("--trace", type=Path, help="also write the frames to this .jsonl.gz")
     args = parser.parse_args(argv)
-    return _run_sim(args)
+    return _serve(args) if args.command == "serve" else _run_sim(args)
 
 
 if __name__ == "__main__":

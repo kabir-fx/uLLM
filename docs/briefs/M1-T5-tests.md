@@ -1,6 +1,6 @@
 # M1-T5: The M1 tests
 
-**State:** in build. You do not need to do anything now.
+**State:** DONE at `a6e0ad5`. You can now type `/ship`.
 **Decision record:** [0012](../decisions/0012-m1-tests.md) (the full design, for agents) · **Spec:** roadmap M1-T5 (Q1, Q3, Q4)
 
 ## The goal
@@ -80,3 +80,25 @@ Test yourself: why can a `TestClient` not prove that 50 clients run at the same 
 
 ## Result
 
+**DONE.** The proof is VERIFIED and the review is READY at `9d9fb41`. The fix commits up to `a6e0ad5` are covered. One reviewer agent did the work. `make ci` passed at `a6e0ad5`: 344 core tests and 93 `mlx` tests.
+
+Changes against the plan:
+
+- Decision 0012 also sets the near-tie threshold of rule 1. Decision 0006 gave this slice that job.
+- A new unit test checks `divergence()`. An off-by-one mutant makes it fail.
+
+The review found three bugs, and the agent fixed each one:
+
+- Two clients can swap whole replies, and the load test did not see it. Now each client sends a prompt of a different length. The swap fails on `prompt_tokens`, 33 against 17.
+- `serving` did not stop its server when a test body failed. The `ullm-engine` thread stayed alive. Now a `finally` stops it.
+- Two documentation sentences were false. One said that `make check` runs the new tests. The other said that no test caught the SSE framing mutant. Two SDK tests did catch it.
+
+Not proven: the load test on a slow CI runner. The reviewer ran it 20 times with 20 CPU burners. It passed each time, in 2.3 s to 2.7 s.
+
+For later slices: M2-T3 must measure how batches change the logits. Then it can set a threshold for batches.
+
+Read these yourself:
+
+- `tests/integration/test_server_load.py:112`: does each assertion tie a reply to its own client?
+- `docs/decisions/0012-m1-tests.md`, the section "Near-tie threshold for rule 1": do you agree that one machine gets no allowance?
+- `Makefile:87`: `make equivalence` downloads the model if necessary.

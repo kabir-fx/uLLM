@@ -229,10 +229,8 @@ def test_a_run_with_a_prompt_mismatch_exits_1(
 
 @pytest.mark.parametrize("flag", ["--concurrency", "--requests"])
 def test_a_run_of_nothing_is_refused(flag: str, tmp_path: Path) -> None:
+    out = tmp_path / "run"
     with pytest.raises(SystemExit) as refused:
-        main(
-            ["--target", "fake", flag, "0", "--ready-timeout", "1", "--smoke"]
-            + ["--out", str(tmp_path / "run")]
-        )
+        main(["--target", "fake", flag, "0", "--ready-timeout", "1", "--smoke", "--out", str(out)])
     assert refused.value.code == 2
-    assert not (tmp_path / "run").exists()
+    assert not out.exists()

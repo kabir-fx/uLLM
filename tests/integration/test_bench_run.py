@@ -196,6 +196,7 @@ def test_a_full_run_without_a_powermetrics_log_fails(
     assert code == 1
     assert json.loads((out / schema.ENV).read_text())["powermetrics"] is False
     assert "powermetrics" in capsys.readouterr().err
+    assert "| fake (not B5: no powermetrics log) |" in analysis.compare([analysis.load_run(out)])
 
 
 @pytest.mark.parametrize(

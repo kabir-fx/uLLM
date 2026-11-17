@@ -10,6 +10,7 @@ from typing import Literal
 import anyio
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -37,6 +38,11 @@ from ullm.telemetry import events as ev
 _log = logging.getLogger(__name__)
 
 RETRY_AFTER_S = 1
+# A request body bigger than this many bytes per context token cannot fit, even with JSON
+# escaping; refusing it before parsing bounds the work a client can cause.
+MAX_BODY_BYTES_PER_TOKEN = 32
+MAX_LOGGED_FIELDS = 32  # unknown field names logged per process; client-chosen, so bounded
+LOCAL_HOSTS = ("127.0.0.1", "localhost")  # a DNS-rebound page arrives under its own name
 DEFAULT_MAX_TOKENS = 512  # mlx_lm.server's default, so baselines match
 TERMINAL_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
 
@@ -56,6 +62,7 @@ def create_app(
     runner: Runner, tokenizer: Tokenizer, config: ServeConfig, emit: Emit = _drop
 ) -> FastAPI:
     info = runner.info()
+    max_body = MAX_BODY_BYTES_PER_TOKEN * info.max_model_len
     created = int(time.time())
     logged_fields: set[str] = set()
     engine: EngineClient | None = None
@@ -74,6 +81,7 @@ def create_app(
 
     app = FastAPI(title="uLLM", lifespan=lifespan)
     app.add_middleware(_EchoRequestId)
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOCAL_HOSTS)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=TERMINAL_ORIGINS,
@@ -96,8 +104,11 @@ def create_app(
 
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request) -> Response:
+        # A page on any origin may POST text/plain with no CORS preflight; JSON needs one.
+        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
+            raise ApiError(400, "invalid_value", "content-type must be application/json")
         try:
-            req = ChatCompletionRequest.model_validate_json(await request.body())
+            req = ChatCompletionRequest.model_validate_json(await _read_body(request, max_body))
         except ValidationError as e:
             raise ApiError.from_validation(e) from None
         if req.model != config.served_model:
@@ -105,12 +116,15 @@ def create_app(
                 404, "model_not_found", f"model {req.model!r} is not served here", param="model"
             )
         for name in req.ignored_fields:
-            if name not in logged_fields:
+            if name not in logged_fields and len(logged_fields) < MAX_LOGGED_FIELDS:
                 logged_fields.add(name)
                 _log.warning("ignoring unknown request field %r", name)
 
         messages = [TemplateMessage(role=m.template_role, content=m.text) for m in req.messages]
-        prompt = tokenizer.render(messages, req.chat_template_kwargs or {})
+        # About 2.8 us a token on the real tokenizer: 115 ms for a full context (decision 0011).
+        prompt = await anyio.to_thread.run_sync(
+            tokenizer.render, messages, req.chat_template_kwargs or {}
+        )
         max_tokens = req.output_limit or config.default_max_tokens
         if len(prompt) + max_tokens > info.max_model_len:
             raise ApiError(
@@ -140,6 +154,18 @@ def create_app(
         return _Reply(stream, req.model, streamed=req.stream, include_usage=req.include_usage)
 
     return app
+
+
+async def _read_body(request: Request, limit: int) -> bytes:
+    too_large = ApiError(400, "invalid_value", f"the request body is over {limit} bytes")
+    if int(request.headers.get("content-length") or 0) > limit:
+        raise too_large
+    body = bytearray()
+    async for piece in request.stream():
+        body += piece
+        if len(body) > limit:
+            raise too_large
+    return bytes(body)
 
 
 def _unavailable(why: Literal["full", "stopped"]) -> ApiError:

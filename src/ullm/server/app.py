@@ -1,0 +1,298 @@
+"""A1: the OpenAI-compatible HTTP server over ``EngineClient`` (decision 0011)."""
+
+import logging
+import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from dataclasses import asdict, dataclass, field
+from typing import Literal
+
+import anyio
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
+from pydantic import ValidationError
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from ullm.core.client import EngineClient, RequestStream, Unavailable
+from ullm.core.engine import Delta as EngineDelta
+from ullm.core.engine import EngineConfig, Failed, Finished
+from ullm.core.request import Emit
+from ullm.runner.base import Runner, SamplingParams, TemplateMessage, Tokenizer
+from ullm.server.schemas import (
+    ApiError,
+    AssistantMessage,
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionRequest,
+    Choice,
+    ChunkChoice,
+    Delta,
+    ModelCard,
+    ModelList,
+    Usage,
+)
+from ullm.telemetry import events as ev
+
+_log = logging.getLogger(__name__)
+
+RETRY_AFTER_S = 1
+TERMINAL_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
+
+
+@dataclass(frozen=True, slots=True)
+class ServeConfig:
+    served_model: str  # the id a client sends as `model`
+    default_max_tokens: int = 512  # mlx_lm.server's default, so baselines match
+    engine: EngineConfig = field(default_factory=EngineConfig)
+
+
+def _drop(event: ev.Event) -> None:
+    """Telemetry has no reader until O1 (M2-T4)."""
+
+
+def create_app(
+    runner: Runner, tokenizer: Tokenizer, config: ServeConfig, emit: Emit = _drop
+) -> FastAPI:
+    info = runner.info()
+    created = int(time.time())
+    logged_fields: set[str] = set()
+    engine: EngineClient | None = None
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        nonlocal engine
+        engine = EngineClient.start(runner, tokenizer.detokenizer, config.engine, emit)
+        yield
+        await engine.close()
+
+    def running() -> EngineClient:
+        if engine is None:
+            raise RuntimeError("the engine starts with the app's lifespan")
+        return engine
+
+    app = FastAPI(title="uLLM", lifespan=lifespan)
+    app.add_middleware(_EchoRequestId)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=TERMINAL_ORIGINS,
+        allow_methods=["GET", "POST"],
+        allow_headers=["content-type"],
+    )
+
+    @app.exception_handler(ApiError)
+    async def api_error(request: Request, exc: ApiError) -> Response:
+        return _error_response(exc)
+
+    @app.get("/v1/models")
+    async def models() -> ModelList:
+        return ModelList(data=[ModelCard(id=config.served_model, created=created)])
+
+    @app.get("/health")
+    async def health() -> Response:
+        state = running().health()
+        return JSONResponse(asdict(state), status_code=200 if state.alive else 503)
+
+    @app.post("/v1/chat/completions")
+    async def chat_completions(request: Request) -> Response:
+        try:
+            req = ChatCompletionRequest.model_validate_json(await request.body())
+        except ValidationError as e:
+            raise ApiError.from_validation(e) from None
+        if req.model != config.served_model:
+            raise ApiError(
+                404, "model_not_found", f"model {req.model!r} is not served here", param="model"
+            )
+        for name in req.ignored_fields:
+            if name not in logged_fields:
+                logged_fields.add(name)
+                _log.warning("ignoring unknown request field %r", name)
+
+        messages = [TemplateMessage(role=m.template_role, content=m.text) for m in req.messages]
+        prompt = tokenizer.render(messages, req.chat_template_kwargs or {})
+        max_tokens = req.output_limit or config.default_max_tokens
+        if len(prompt) + max_tokens > info.max_model_len:
+            raise ApiError(
+                400,
+                "context_length_exceeded",
+                f"the prompt ({len(prompt)} tokens) plus max_tokens ({max_tokens}) exceeds "
+                f"the context of {info.max_model_len} tokens",
+                param="messages",
+            )
+        try:
+            sampling = SamplingParams(
+                temperature=req.temperature, top_p=req.top_p, top_k=req.top_k, seed=req.seed
+            )
+        except ValueError as e:
+            raise ApiError(400, "invalid_value", str(e), param="temperature") from None
+        try:
+            stream = running().submit(
+                prompt,
+                sampling,
+                max_tokens=max_tokens,
+                stop=req.stop,
+                trace=request.headers.get("traceparent"),
+            )
+        except Unavailable as e:
+            raise _unavailable(e.why) from None
+
+        reply = _Reply(stream, req.model, req.include_usage)
+        return reply.streamed() if req.stream else reply.plain()
+
+    return app
+
+
+def _unavailable(why: Literal["full", "stopped"]) -> ApiError:
+    if why == "full":
+        return ApiError(503, "queue_full", "too many open requests", retry_after_s=RETRY_AFTER_S)
+    return ApiError(
+        503, "engine_unavailable", "the engine is not running", retry_after_s=RETRY_AFTER_S
+    )
+
+
+def _failed() -> ApiError:
+    return ApiError(
+        503, "engine_unavailable", "the engine failed this request", retry_after_s=RETRY_AFTER_S
+    )
+
+
+def _error_response(exc: ApiError) -> JSONResponse:
+    headers = {} if exc.retry_after_s is None else {"retry-after": str(exc.retry_after_s)}
+    return JSONResponse(exc.body().model_dump(), status_code=exc.status, headers=headers)
+
+
+class _Reply:
+    """One request's reply. It owns the stream: a reply that ends early, the client leaving
+    included, aborts the request."""
+
+    def __init__(self, stream: RequestStream, model: str, include_usage: bool) -> None:
+        self._stream = stream
+        self._id = f"chatcmpl-{stream.rid}"
+        self._created = int(time.time())
+        self._model = model
+        self._include_usage = include_usage
+
+    def streamed(self) -> Response:
+        return _Watched(self._stream, self._write_events)
+
+    def plain(self) -> Response:
+        return _Watched(self._stream, self._write_json)
+
+    async def _write_json(self, scope: Scope, receive: Receive, send: Send) -> None:
+        text: list[str] = []
+        async for out in self._stream:
+            match out:
+                case EngineDelta(text=piece):
+                    text.append(piece)
+                case Finished(text=piece, reason=reason) as done:
+                    text.append(piece)
+                    reply = ChatCompletion(
+                        id=self._id,
+                        created=self._created,
+                        model=self._model,
+                        choices=[
+                            Choice(
+                                message=AssistantMessage(content="".join(text)),
+                                finish_reason=reason,
+                            )
+                        ],
+                        usage=_usage(done),
+                    )
+                    await JSONResponse(reply.model_dump(mode="json"))(scope, receive, send)
+                case Failed():
+                    await _error_response(_failed())(scope, receive, send)
+
+    async def _write_events(self, scope: Scope, receive: Receive, send: Send) -> None:
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    (b"content-type", b"text/event-stream; charset=utf-8"),
+                    (b"cache-control", b"no-cache"),
+                ],
+            }
+        )
+
+        async def event(data: str) -> None:
+            body = f"data: {data}\n\n".encode()
+            await send({"type": "http.response.body", "body": body, "more_body": True})
+
+        await event(self._chunk(Delta(role="assistant")).model_dump_json(exclude_none=True))
+        async for out in self._stream:
+            match out:
+                case EngineDelta(text=piece):
+                    chunk = self._chunk(Delta(content=piece))
+                    await event(chunk.model_dump_json(exclude_none=True))
+                case Finished(text=piece, reason=reason) as done:
+                    last = self._chunk(Delta(content=piece or None), reason)
+                    await event(last.model_dump_json(exclude_none=True))
+                    if self._include_usage:
+                        usage = ChatCompletionChunk(
+                            id=self._id,
+                            created=self._created,
+                            model=self._model,
+                            choices=[],
+                            usage=_usage(done),
+                        )
+                        await event(usage.model_dump_json(exclude_none=True))
+                    await event("[DONE]")
+                case Failed():
+                    await event(_failed().body().model_dump_json())
+        await send({"type": "http.response.body", "body": b"", "more_body": False})
+
+    def _chunk(
+        self, delta: Delta, finish_reason: Literal["stop", "length"] | None = None
+    ) -> ChatCompletionChunk:
+        return ChatCompletionChunk(
+            id=self._id,
+            created=self._created,
+            model=self._model,
+            choices=[ChunkChoice(delta=delta, finish_reason=finish_reason)],
+        )
+
+
+def _usage(done: Finished) -> Usage:
+    return Usage.of(prompt_tokens=done.prompt_tokens, completion_tokens=done.completion_tokens)
+
+
+class _Watched(Response):
+    """Writes a reply while watching for the client to leave. Uvicorn reports a disconnect
+    only to a ``receive`` call, and Starlette's replies do not all make one (decision 0011)."""
+
+    def __init__(self, stream: RequestStream, write: ASGIApp) -> None:
+        super().__init__()
+        self._stream = stream
+        self._write = write
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        async with self._stream, anyio.create_task_group() as tasks:
+
+            async def watch() -> None:
+                while (await receive())["type"] != "http.disconnect":
+                    pass
+                tasks.cancel_scope.cancel()
+
+            tasks.start_soon(watch)
+            await self._write(scope, receive, send)
+            tasks.cancel_scope.cancel()
+
+
+class _EchoRequestId:
+    """C4: a client's ``X-Request-Id`` comes back on the reply. It is never the engine's rid."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self._app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        sent = [v for k, v in scope.get("headers", []) if k == b"x-request-id"]
+        if scope["type"] != "http" or not sent:
+            await self._app(scope, receive, send)
+            return
+
+        async def echo(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                message["headers"] = [*message.get("headers", []), (b"x-request-id", sent[0])]
+            await send(message)
+
+        await self._app(scope, receive, echo)

@@ -1,0 +1,113 @@
+"""B1 and B5: a whole benchmark run against ``ullm serve --fake`` writes a C5 directory, and a
+run that breaks B5 never starts (decision 0013)."""
+
+import json
+import socket
+import sys
+from pathlib import Path
+
+import pytest
+from bench import schema
+from bench.run import main
+from bench.schema import Message, Source, Workload, WorkloadRequest
+
+from ullm.runner.fake_runner import FakeTokenizer
+
+
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return int(s.getsockname()[1])
+
+
+def _workload(path: Path, n: int) -> Path:
+    requests = []
+    for i in range(n):
+        content = f"question {i} " * (i + 1)
+        prompt = FakeTokenizer().render([{"role": "user", "content": content}], {})
+        requests.append(
+            WorkloadRequest(
+                id=f"t-{i}",
+                messages=(Message(role="user", content=content),),
+                max_tokens=4 + i,
+                prompt_tokens=len(prompt),
+            )
+        )
+    workload = Workload(
+        name="test",
+        source=Source(dataset="none", revision="none", file="none", licence="none"),
+        tokenizer="fake",
+        chat_template_kwargs={"enable_thinking": False},
+        seed=0,
+        requests=tuple(requests),
+    )
+    path.write_text(workload.model_dump_json())
+    return path
+
+
+def test_a_smoke_run_writes_every_c5_file(tmp_path: Path) -> None:
+    port = _free_port()
+    out = tmp_path / "run"
+    code = main(
+        [
+            "--target",
+            "fake",
+            "--launch",
+            f"{sys.executable} -m ullm.cli serve --fake --port {port}",
+            "--base-url",
+            f"http://127.0.0.1:{port}",
+            "--workload",
+            str(_workload(tmp_path / "w.json", 5)),
+            "--concurrency",
+            "2",
+            "--repeats",
+            "2",
+            "--warmup",
+            "2",
+            "--cooldown",
+            "0.1",
+            "--ready-timeout",
+            "30",
+            "--smoke",
+            "--out",
+            str(out),
+        ]
+    )
+    assert code == 0
+    for name in (schema.CONFIG, schema.ENV, schema.RAW, schema.SUMMARY, schema.CHART):
+        assert (out / name).is_file(), name
+    assert "Uvicorn running" in (out / schema.TARGET_LOG).read_text()
+    assert not (out / schema.METRICS).exists()  # ullm serve has no /metrics until M2-T5
+    assert not (out / schema.POWERMETRICS).exists()
+
+    config = json.loads((out / schema.CONFIG).read_text())
+    assert (config["served_model"], config["requests"], config["smoke"]) == ("fake", 5, True)
+    raw = [json.loads(line) for line in (out / schema.RAW).read_text().splitlines()]
+    assert [(r["phase"], r["repeat"]) for r in raw] == [("warmup", -1)] * 2 + [
+        ("measure", 0)
+    ] * 5 + [("measure", 1)] * 5
+    assert all(r["error"] is None for r in raw)
+    summary = (out / schema.SUMMARY).read_text()
+    assert "smoke: not a B5 run" in summary
+    assert "| **median** |" in summary
+
+
+def test_a_full_run_that_breaks_b5_never_starts(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = tmp_path / "run"
+    code = main(
+        [
+            "--target",
+            "nothing",
+            "--workload",
+            str(_workload(tmp_path / "w.json", 1)),
+            "--repeats",
+            "1",
+            "--out",
+            str(out),
+        ]
+    )
+    assert code == 2
+    assert not out.exists()
+    assert "1 repeats" in capsys.readouterr().err

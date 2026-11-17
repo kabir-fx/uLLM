@@ -222,7 +222,11 @@ def compare(runs: Sequence[Run]) -> str:
     ]
     for run in runs:
         c = run.config
-        target = f"{c.target} (smoke)" if c.smoke else c.target
+        target = c.target
+        if c.smoke:
+            target += " (smoke)"
+        elif not run.env.powermetrics:
+            target += " (not B5: no powermetrics log)"
         failed = sum(s.failed for s in run.stats)
         lines.append(
             f"| {target} | {c.concurrency} | {c.requests} | {c.repeats} "

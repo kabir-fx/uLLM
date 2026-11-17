@@ -80,6 +80,10 @@ goldens: ## Regenerate the golden token IDs from mlx-lm (after a model, prompt o
 goldens-check: ## Regenerate the goldens in memory and compare them in full
 	$(UV) python scripts/make_goldens.py --check
 
+.PHONY: bench-baselines
+bench-baselines: models ## M1-T7: six B5 runs of uLLM and mlx_lm.server, about 3 h on an idle Mac
+	bench/baselines.sh
+
 .PHONY: test-mlx equivalence bench-smoke sim up verify
 test-mlx: ## Tests marked mlx: need MLX (Apple Silicon); the model from M0-T7 on
 	$(UV) pytest -m mlx

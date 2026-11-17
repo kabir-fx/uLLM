@@ -46,7 +46,15 @@ def _run(requests: list[WorkloadRequest], concurrency: int) -> list[RequestRecor
         events: list[ev.Event] = []
         async with serving(RecordingRunner(FakeRunner(INFO, LATENCY)), events) as client:
             return await closed_loop(
-                client, SERVED, requests, concurrency, KWARGS, "measure", 0, time.perf_counter()
+                client,
+                SERVED,
+                requests,
+                concurrency,
+                KWARGS,
+                "measure",
+                0,
+                time.perf_counter(),
+                extra_body={},
             )
 
     return asyncio.run(asyncio.wait_for(main(), timeout=30))

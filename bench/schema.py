@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 CONFIG = "config.json"
 ENV = "env.json"
@@ -65,6 +65,9 @@ class RunConfig(Frozen):
     cooldown_s: float
     temperature: float
     chat_template_kwargs: dict[str, bool]
+    extra_body: dict[str, JsonValue] = Field(
+        default_factory=dict, description="request fields this target alone got"
+    )
     smoke: bool
 
 

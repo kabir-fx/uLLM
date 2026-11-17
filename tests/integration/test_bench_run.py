@@ -249,3 +249,58 @@ def test_a_run_of_nothing_is_refused(flag: str, tmp_path: Path) -> None:
         main(["--target", "fake", flag, "0", "--ready-timeout", "1", "--smoke", "--out", str(out)])
     assert refused.value.code == 2
     assert not out.exists()
+
+
+def _fake_run(tmp_path: Path, *extra: str) -> tuple[int, Path]:
+    port = _free_port()
+    out = tmp_path / "run"
+    code = main(
+        [
+            "--target",
+            "fake",
+            "--launch",
+            f"{sys.executable} -m ullm.cli serve --fake --port {port}",
+            "--base-url",
+            f"http://127.0.0.1:{port}",
+            "--workload",
+            str(_workload(tmp_path / "w.json", 2)),
+            "--repeats",
+            "1",
+            "--warmup",
+            "1",
+            "--ready-timeout",
+            "30",
+            "--smoke",
+            "--out",
+            str(out),
+            *extra,
+        ]
+    )
+    return code, out
+
+
+def test_extra_body_and_model_are_sent_and_recorded(tmp_path: Path) -> None:
+    code, out = _fake_run(tmp_path, "--model", "fake", "--extra-body", '{"seed": 0}')
+    assert code == 0
+    config = json.loads((out / schema.CONFIG).read_text())
+    assert (config["served_model"], config["extra_body"]) == ("fake", {"seed": 0})
+    assert "seed" in (out / schema.SUMMARY).read_text()
+
+
+def test_a_model_the_target_does_not_serve_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit, match="not-served"):
+        _fake_run(tmp_path, "--model", "not-served")
+
+
+@pytest.mark.parametrize("body", ['{"temperature": 1}', "[0]", "not json"])
+def test_extra_body_that_is_not_a_new_field_object_is_rejected(tmp_path: Path, body: str) -> None:
+    with pytest.raises(SystemExit) as exit_:
+        _fake_run(tmp_path, "--extra-body", body)
+    assert exit_.value.code == 2
+    assert not (tmp_path / "run").exists()
+
+
+def test_a_run_without_extra_body_records_none(tmp_path: Path) -> None:
+    code, out = _fake_run(tmp_path)
+    assert code == 0
+    assert json.loads((out / schema.CONFIG).read_text())["extra_body"] == {}

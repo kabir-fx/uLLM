@@ -5,7 +5,8 @@ import asyncio
 import json
 
 import httpx2
-from bench.loadgen import Reply, send
+import pytest
+from bench.loadgen import COMMON_FIELDS, Reply, send
 from bench.schema import Message, WorkloadRequest
 
 REQUEST = WorkloadRequest(
@@ -22,7 +23,9 @@ GOOD = (
 )
 
 
-def _send(stream: str) -> tuple[Reply, list[dict[str, object]]]:
+def _send(
+    stream: str, extra_body: dict[str, object] | None = None
+) -> tuple[Reply, list[dict[str, object]]]:
     bodies: list[dict[str, object]] = []
 
     def handler(request: httpx2.Request) -> httpx2.Response:
@@ -32,7 +35,9 @@ def _send(stream: str) -> tuple[Reply, list[dict[str, object]]]:
     async def main() -> Reply:
         transport = httpx2.MockTransport(handler)
         async with httpx2.AsyncClient(base_url="http://target", transport=transport) as client:
-            reply, _ = await send(client, "served-model", REQUEST, KWARGS)
+            reply, _ = await send(
+                client, "served-model", REQUEST, KWARGS, extra_body=extra_body or {}
+            )
             return reply
 
     return asyncio.run(main()), bodies
@@ -52,6 +57,23 @@ def test_every_target_gets_one_request_body() -> None:
             "chat_template_kwargs": {"enable_thinking": False},
         }
     ]
+
+
+def test_extra_body_fields_join_the_one_request_body() -> None:
+    _, bodies = _send(GOOD, {"seed": 0})
+    _, plain = _send(GOOD)
+    assert bodies == [{**plain[0], "seed": 0}]
+
+
+@pytest.mark.parametrize("field", COMMON_FIELDS)
+def test_extra_body_cannot_replace_a_field_every_target_gets(field: str) -> None:
+    with pytest.raises(ValueError, match=field):
+        _send(GOOD, {field: 1})
+
+
+def test_common_fields_name_the_whole_request_body() -> None:
+    _, bodies = _send(GOOD)
+    assert set(bodies[0]) == set(COMMON_FIELDS)
 
 
 def test_a_payload_that_is_not_json_fails_the_request() -> None:

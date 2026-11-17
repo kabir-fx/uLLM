@@ -2,6 +2,8 @@
 
     uv run python -m bench.run --target ullm --launch "uv run ullm serve"
     uv run python -m bench.run --target ullm --launch "uv run ullm serve" --smoke --requests 16
+    uv run python -m bench.run --target mlx-lm --launch "uv run mlx_lm.server --model <dir>" \
+        --model <dir> --extra-body '{"seed": 0}'
 
 A full run refuses to start unless B5 holds. ``--smoke`` skips that check and says so in
 config.json and summary.md.
@@ -10,6 +12,7 @@ config.json and summary.md.
 import argparse
 import asyncio
 import hashlib
+import json
 import os
 import shlex
 import signal
@@ -24,7 +27,7 @@ from typing import IO
 
 import httpx2
 from bench import analysis, conditions, schema
-from bench.loadgen import TEMPERATURE, closed_loop
+from bench.loadgen import COMMON_FIELDS, TEMPERATURE, closed_loop
 from bench.schema import RequestRecord, RunConfig, WorkloadRequest
 
 WORKLOAD = Path("bench/workloads/a.json")
@@ -59,8 +62,11 @@ def _port_in_use(base_url: str) -> bool:
         return False
 
 
-async def _ready(client: httpx2.AsyncClient, target: Target | None, timeout_s: float) -> str:
-    """Wait for ``GET /health``, then return the served model id from ``GET /v1/models``."""
+async def _ready(
+    client: httpx2.AsyncClient, target: Target | None, timeout_s: float, model: str | None
+) -> str:
+    """Wait for ``GET /health``, then return the model id to send: ``model`` when
+    ``GET /v1/models`` lists it, else the first id it lists."""
     deadline = time.monotonic() + timeout_s
     while True:
         if target is not None and target.proc.poll() is not None:
@@ -74,8 +80,12 @@ async def _ready(client: httpx2.AsyncClient, target: Target | None, timeout_s: f
         if time.monotonic() > deadline:
             raise SystemExit(f"the target was not healthy after {timeout_s:g} s")
         await asyncio.sleep(0.5)
-    models = (await client.get("/v1/models")).json()
-    return str(models["data"][0]["id"])
+    served = [str(m["id"]) for m in (await client.get("/v1/models")).json()["data"]]
+    if model is None:
+        return served[0]
+    if model not in served:
+        raise SystemExit(f"the target does not serve {model!r}; it lists {served}")
+    return model
 
 
 async def _measure(
@@ -86,7 +96,7 @@ async def _measure(
     out: Path,
 ) -> tuple[str, list[RequestRecord]]:
     async with httpx2.AsyncClient(base_url=args.base_url, timeout=None) as client:
-        model = await _ready(client, target, args.ready_timeout)
+        model = await _ready(client, target, args.ready_timeout, args.model)
         start = time.perf_counter()
         records = await closed_loop(
             client,
@@ -97,6 +107,7 @@ async def _measure(
             "warmup",
             -1,
             start,
+            extra_body=args.extra_body,
         )
         for repeat in range(args.repeats):
             if repeat:
@@ -110,6 +121,7 @@ async def _measure(
                 "measure",
                 repeat,
                 start,
+                extra_body=args.extra_body,
             )
         metrics = await client.get("/metrics")
         if metrics.status_code == 200:
@@ -175,6 +187,7 @@ def run(args: argparse.Namespace) -> int:
         cooldown_s=args.cooldown,
         temperature=TEMPERATURE,
         chat_template_kwargs=workload.chat_template_kwargs,
+        extra_body=args.extra_body,
         smoke=args.smoke,
     )
     plist = out / schema.POWERMETRICS
@@ -201,12 +214,33 @@ def _positive(text: str) -> int:
     return value
 
 
+def _extra_body(text: str) -> dict[str, object]:
+    try:
+        body = json.loads(text)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"not JSON: {e}") from e
+    if not isinstance(body, dict):
+        raise argparse.ArgumentTypeError("not a JSON object")
+    if clash := sorted(body.keys() & set(COMMON_FIELDS)):
+        raise argparse.ArgumentTypeError(f"replaces fields every target gets: {clash}")
+    return body
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="bench.run")
     parser.add_argument("--target", required=True, help="a short name for the server under test")
     parser.add_argument("--launch", help="the command that starts the target; omit if it runs")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--workload", type=Path, default=WORKLOAD)
+    parser.add_argument(
+        "--model", help="the model id to send; default the first that GET /v1/models lists"
+    )
+    parser.add_argument(
+        "--extra-body",
+        type=_extra_body,
+        default={},
+        help="a JSON object of request fields for this target only, recorded in config.json",
+    )
     parser.add_argument("--requests", type=_positive, help="the first N requests; default all")
     parser.add_argument("--concurrency", type=_positive, default=1)
     parser.add_argument("--repeats", type=int, default=3)

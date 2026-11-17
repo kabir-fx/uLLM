@@ -146,7 +146,8 @@ def summary(run: Run) -> str:
     lines += [
         f"- Model: `{c.served_model}`. Workload: `{c.workload}`, {c.requests} requests, "
         f"`max_tokens` from the workload, `chat_template_kwargs` {c.chat_template_kwargs}, "
-        f"temperature {c.temperature}.",
+        f"temperature {c.temperature}."
+        + (f" This target alone also got {c.extra_body}." if c.extra_body else ""),
         f"- Warm-up: {c.warmup} requests, discarded. "
         f"Repeats: {c.repeats}, cooldown {c.cooldown_s:g} s.",
         f"- Commit `{e.commit[:12]}`{' (dirty tree)' if e.dirty else ''}. "

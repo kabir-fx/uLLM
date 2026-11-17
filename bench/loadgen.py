@@ -4,7 +4,7 @@ order, stream each reply over raw SSE, and time every content chunk (decision 00
 import asyncio
 import json
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -12,6 +12,15 @@ import httpx2
 from bench.schema import RequestRecord, Usage, WorkloadRequest
 
 TEMPERATURE = 0.0
+COMMON_FIELDS = (
+    "model",
+    "messages",
+    "max_tokens",
+    "temperature",
+    "stream",
+    "stream_options",
+    "chat_template_kwargs",
+)
 
 
 @dataclass
@@ -61,8 +70,14 @@ async def send(
     model: str,
     request: WorkloadRequest,
     template_kwargs: dict[str, bool],
+    *,
+    extra_body: Mapping[str, object],
 ) -> tuple[Reply, float]:
-    """Stream one request. Returns the reply and its end time, both in ms after the send."""
+    """Stream one request. Returns the reply and its end time, both in ms after the send.
+    ``extra_body`` adds fields for one target and may not replace one that every target gets
+    (rule 7)."""
+    if clash := sorted(extra_body.keys() & set(COMMON_FIELDS)):
+        raise ValueError(f"extra body fields replace fields every target gets: {clash}")
     body = {
         "model": model,
         "messages": [m.model_dump() for m in request.messages],
@@ -71,6 +86,7 @@ async def send(
         "stream": True,
         "stream_options": {"include_usage": True},
         "chat_template_kwargs": template_kwargs,
+        **extra_body,
     }
     reply = Reply()
     start = time.perf_counter()
@@ -97,6 +113,8 @@ async def closed_loop(
     phase: Literal["warmup", "measure"],
     repeat: int,
     run_start: float,
+    *,
+    extra_body: Mapping[str, object],
 ) -> list[RequestRecord]:
     """Send every request with at most ``concurrency`` open, in order. ``run_start`` is a
     ``time.perf_counter`` value; records are returned in workload order."""
@@ -108,7 +126,9 @@ async def closed_loop(
         while queue:
             i, request = queue.pop()
             sent_s = time.perf_counter() - run_start
-            reply, end_ms = await send(client, model, request, template_kwargs)
+            reply, end_ms = await send(
+                client, model, request, template_kwargs, extra_body=extra_body
+            )
             records[i] = RequestRecord(
                 phase=phase,
                 repeat=repeat,

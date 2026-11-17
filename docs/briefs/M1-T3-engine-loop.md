@@ -1,6 +1,6 @@
 # M1-T3: The engine loop
 
-**State:** approved; built in `/build M1-T3`.
+**State:** DONE at `1d2d9e8`. You can now type `/ship`.
 **Decision record:** [0010](../decisions/0010-engine-loop-and-thread-bridge.md) (the full design, for agents) · **Roadmap:** M1-T3 (E4, E5, E6)
 
 ## The goal
@@ -115,4 +115,34 @@ No. `submit` and the exit callback both run on the event loop thread, so they ca
 
 ## Result
 
-The agent writes this part when `/build` ends.
+**State.** DONE. The proof is VERIFIED at `126622e`. The review is READY and covers the fix commits to `1d2d9e8`. `make ci` passed at `1d2d9e8`.
+
+**Changes against the plan.**
+
+- `Finished.text` holds the last piece of the reply. The `Delta` texts plus this piece are the full reply.
+- The engine sends `hello` as its first event.
+- A stream that the caller leaves stays open until the engine ends it. Thus the limit counts what the engine still holds.
+- The client never sends `Failed("shutdown")` at exit. After a `Shutdown`, the engine already ended every request that it got.
+
+**Bugs that proof and review found.** The agent fixed each one with a test first.
+
+1. A bug after the end of a reply hid the first error. The engine also did not end the other requests in the trace.
+2. A duplicate `rid` made the engine wait forever. Now the engine stops with an error.
+3. `ullm sim` failed when the client limit refused clients. A refusal is now a good result.
+4. `health()` could show `alive=True` for a short time after the exit callback.
+5. No test failed a prefill step. A new test does.
+
+**Not proven.** The agent did not measure a real prefill on the event loop. The fake latency model gave the 500 ms step.
+
+**For later slices.**
+
+- M1-T4 must set a limit on the length of each stop string. The schema limits only the number of stop strings.
+- M1-T4 must not accept an abort by `rid` from a client. The ids are easy to guess.
+- `Submit` errors repeat the full prompt. M1-T4 must not send that text back in a 400 reply.
+- `tests/recording.py` matches tokens to requests through the engine's own step events. M2-T2 must match them in a different way.
+
+**Read these yourself.**
+
+- `src/ullm/core/engine.py:168`: the engine waits on the queue only when no request is live.
+- `src/ullm/core/engine.py:235`: an ended request leaves `_live` before the runner releases it.
+- `src/ullm/core/client.py:168`: the exit callback fails every open stream. Then no stream can wait forever.

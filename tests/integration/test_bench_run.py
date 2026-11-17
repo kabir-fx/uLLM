@@ -111,3 +111,28 @@ def test_a_full_run_that_breaks_b5_never_starts(
     assert code == 2
     assert not out.exists()
     assert "1 repeats" in capsys.readouterr().err
+
+
+def test_a_launch_onto_a_busy_port_never_starts(tmp_path: Path) -> None:
+    with socket.socket() as busy:
+        busy.bind(("127.0.0.1", 0))
+        busy.listen()
+        port = busy.getsockname()[1]
+        out = tmp_path / "run"
+        code = main(
+            [
+                "--target",
+                "fake",
+                "--launch",
+                f"{sys.executable} -m ullm.cli serve --fake --port {port}",
+                "--base-url",
+                f"http://127.0.0.1:{port}",
+                "--workload",
+                str(_workload(tmp_path / "w.json", 1)),
+                "--smoke",
+                "--out",
+                str(out),
+            ]
+        )
+    assert code == 2
+    assert not out.exists()

@@ -13,6 +13,7 @@ import hashlib
 import os
 import shlex
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -50,6 +51,15 @@ class Target:
                 self.proc.wait()
 
 
+def _port_in_use(base_url: str) -> bool:
+    url = httpx2.URL(base_url)
+    try:
+        with socket.create_connection((url.host, url.port or 80), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
 async def _ready(client: httpx2.AsyncClient, target: Target | None, timeout_s: float) -> str:
     """Wait for ``GET /health``, then return the served model id from ``GET /v1/models``."""
     deadline = time.monotonic() + timeout_s
@@ -57,10 +67,11 @@ async def _ready(client: httpx2.AsyncClient, target: Target | None, timeout_s: f
         if target is not None and target.proc.poll() is not None:
             raise SystemExit(f"the target exited with {target.proc.returncode} before it was ready")
         try:
-            if (await client.get("/health")).status_code == 200:
-                break
+            healthy = (await client.get("/health")).status_code == 200
         except httpx2.TransportError:
-            pass
+            healthy = False  # not listening yet
+        if healthy:
+            break
         if time.monotonic() > deadline:
             raise SystemExit(f"the target was not healthy after {timeout_s:g} s")
         await asyncio.sleep(0.5)
@@ -131,6 +142,9 @@ def run(args: argparse.Namespace) -> int:
                 print(f"  - {problem}", file=sys.stderr)
             print("use --smoke for a run that is not B5", file=sys.stderr)
             return 2
+    if args.launch and _port_in_use(args.base_url):
+        print(f"refusing to launch: something already listens at {args.base_url}", file=sys.stderr)
+        return 2
     started = datetime.now(UTC)
     out = _out_dir(args, started)
     out.mkdir(parents=True)

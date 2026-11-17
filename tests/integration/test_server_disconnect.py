@@ -109,14 +109,16 @@ def test_health_stays_fast_while_a_long_prompt_renders() -> None:
 
     async def main() -> None:
         async with serving(runner, events, _SlowRender()) as client:
+            # The client shares the server's loop, so time from the start: a blocked loop
+            # answers the health check only after the 0.5 s render.
+            began = time.perf_counter()
             request = asyncio.create_task(
                 client.post("/v1/chat/completions", json={**BODY, "max_tokens": 1})
             )
             await asyncio.sleep(0.1)  # the render has begun
-            began = time.perf_counter()
             assert (await client.get("/health")).status_code == 200
-            asked = time.perf_counter() - began
+            answered = time.perf_counter() - began
             assert (await request).status_code == 200
-            assert asked < 0.1  # a blocked loop answers only after the render, 0.4 s later
+            assert answered < 0.4
 
     _run(main)

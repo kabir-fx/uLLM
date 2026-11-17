@@ -24,13 +24,12 @@ from typing import IO
 
 import httpx2
 from bench import analysis, conditions, schema
-from bench.loadgen import closed_loop
+from bench.loadgen import TEMPERATURE, closed_loop
 from bench.schema import RequestRecord, RunConfig, WorkloadRequest
 
 WORKLOAD = Path("bench/workloads/a.json")
 RESULTS = Path("bench/results")
 SCRATCH = Path("bench/.scratch")
-TEMPERATURE = 0.0
 
 
 class Target:
@@ -69,7 +68,7 @@ async def _ready(client: httpx2.AsyncClient, target: Target | None, timeout_s: f
         try:
             healthy = (await client.get("/health")).status_code == 200
         except httpx2.TransportError:
-            healthy = False  # not listening yet
+            healthy = False
         if healthy:
             break
         if time.monotonic() > deadline:

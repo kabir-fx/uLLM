@@ -11,6 +11,8 @@ from typing import Literal
 import httpx2
 from bench.schema import RequestRecord, Usage, WorkloadRequest
 
+TEMPERATURE = 0.0
+
 
 @dataclass
 class Reply:
@@ -66,7 +68,7 @@ async def send(
         "model": model,
         "messages": [m.model_dump() for m in request.messages],
         "max_tokens": request.max_tokens,
-        "temperature": 0.0,
+        "temperature": TEMPERATURE,
         "stream": True,
         "stream_options": {"include_usage": True},
         "chat_template_kwargs": template_kwargs,

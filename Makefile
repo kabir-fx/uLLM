@@ -90,8 +90,8 @@ equivalence: ## Token-for-token equivalence against mlx-lm (needs the model)
 bench-smoke: ## Short benchmark run, for before/after numbers in a pull request
 	$(call todo,M1-T6)
 
-sim: ## Run the real engine on FakeRunner (no model)
-	$(call todo,M1-T3)
+sim: ## Run the real engine on FakeRunner with fake clients, then check the trace (no model)
+	$(UV) ullm sim
 
 up: ## Router plus replicas
 	$(call todo,M5-T4)

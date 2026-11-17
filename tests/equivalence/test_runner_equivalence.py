@@ -16,6 +16,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from tests.equivalence.divergence import divergence
 
 from ullm.models import DEFAULT_MODEL
 from ullm.runner.base import DecodePlan, PrefillPlan, SamplingParams, Tokenizer
@@ -73,10 +74,5 @@ def test_greedy_tokens_equal_mlx_lm_on_this_machine(
         want, margins, _ = reference(runner.model, tokenizer.wrapped, case["prompt_ids"], TOKENS)
         got = _generate(runner, seq, tuple(case["prompt_ids"]), TOKENS)
         if got != want:
-            i = next(
-                (n for n, (a, b) in enumerate(zip(got, want, strict=False)) if a != b),
-                min(len(got), len(want)),
-            )
-            margin = margins[i] if i < len(margins) else "-"
-            failures.append(f"{case['id']}: first difference at token {i}, mlx-lm margin {margin}")
+            failures.append(divergence(case["id"], got, want, margins))
     assert not failures, "MLXRunner differs from mlx-lm:\n" + "\n".join(failures)

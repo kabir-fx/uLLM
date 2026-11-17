@@ -45,8 +45,8 @@ from ullm.models import DEFAULT_MODEL  # noqa: E402
 # comparison is `make goldens-check`.
 TOKENS = int(os.environ.get("ULLM_GOLDEN_TOKENS", "32"))
 
-# Provisional (decision 0006): about two bf16 steps at the magnitude of
-# Qwen3's logits. M1-T5 settles the documented threshold for rule 1.
+# About two bf16 steps at the magnitude of Qwen3's logits (decisions 0006, 0012).
+# Only for mlx-lm against goldens from another chip; never for uLLM against mlx-lm.
 NEAR_TIE_MARGIN = 0.25
 
 

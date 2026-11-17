@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11), M1-T2 (#12) and M1-T3 (#13) shipped. M1-T4 built on `m1/t4-api-server`, not yet shipped |
+| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11), M1-T2 (#12), M1-T3 (#13) and M1-T4 (#14) shipped. M1-T5 built on `m1/t5-tests`, not yet shipped |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | `/ship` M1-T4 from `m1/t4-api-server`, base `main`. Then M1-T5 (tests: unit, single-request equivalence, SDK contract and 50 clients over HTTP) |
-| Lane A (engine) | M1-T4 awaiting `/ship` |
+| Next task | `/ship` M1-T5 from `m1/t5-tests`, base `main`. Then M1-T6 (benchmark harness, workload A, run conditions) |
+| Lane A (engine) | M1-T5 awaiting `/ship` |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | ship M1-T4; close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
+| Blocked on the author | ship M1-T5; close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | Built M1-T4 (decision 0011, brief `docs/briefs/M1-T4-api-server.md`): `server/app.py` (`create_app`, `ServeConfig`; `/v1/chat/completions` streamed and plain, `/v1/models`, `/health` 503 when the engine is dead; `_Reply` owns the stream and watches for a disconnect, so a client that leaves aborts its request in both modes; refuses a foreign `Host`, a non-JSON `content-type` and a body over a vocabulary-derived limit before parsing; renders on a worker thread; echoes `X-Request-Id`, carries `traceparent`), `ullm serve [--fake]` on 127.0.0.1, `FakeTokenizer`, `Tokenizer.token_bytes()`, `MLXTokenizer.render` escapes control tokens, `chat_template_kwargs` takes only `enable_thinking`, stop strings at most 256 characters. New deps `fastapi==0.163.1`, `uvicorn==0.54.0`. Claims 14 and 15. Proof VERIFIED at `1c55ab8`; review READY with fixes to `d125bc0` (browser paths, body limit, render off the loop, bounded field logging, the limit's wording). Departs from decision 0003: `X-Request-Id` is never the rid. Noticed, not fixed: a 29,928-token prefill took 46.9 s on the real model. Verdicts go in the pull request body. Teach-back given in the session |
+| Last session | Built M1-T5 (decision 0012, brief `docs/briefs/M1-T5-tests.md`). Most of Q1, Q3 and Q4 shipped with M1-T1 to M1-T4; this task closed the gaps: `tests/integration/test_server_load.py` (50 `AsyncOpenAI` clients at once over real uvicorn on `FakeRunner`, each client marked by its prompt length; peak 48 to 50 open), the raw SSE framing test in `test_server.py`, `tests/equivalence/divergence.py` (first difference and mlx-lm margin, used by the runner and engine equivalence tests), `tests/serving.py` (shared real-uvicorn helper), `make equivalence`. Decision 0012 sets rule 1's near-tie threshold: none for uLLM against mlx-lm on one machine at batch size 1; 0.25 only for the goldens across chips; batched variants measure their own in M2-T3. Claim 16. Proof VERIFIED and review READY at `9d9fb41`, fixes to `a6e0ad5` (a whole swapped reply went undetected, `serving` leaked its server on a failing body, two false doc sentences). Noticed, not fixed: `docs/decisions/README.md` has no row for 0011. Verdicts go in the pull request body |
 
 ---
 
@@ -88,7 +88,7 @@ Where any of them differs from this file, this file wins. Known differences are 
 
 Non-negotiable. If a task seems to require breaking one, stop and raise it.
 
-1. **Correctness anchor.** With greedy decoding, uLLM's token IDs equal mlx-lm's reference for: one request; many concurrent requests; batch sizes 1, 2, 4, 8; prefix cache on and off; block-based and contiguous KV; a forced preemption. A divergence fails the test unless the logged top-2 logit margin at the first differing position is under the documented near-tie threshold. Never loosen the test to make it pass.
+1. **Correctness anchor.** With greedy decoding, uLLM's token IDs equal mlx-lm's reference for: one request; many concurrent requests; batch sizes 1, 2, 4, 8; prefix cache on and off; block-based and contiguous KV; a forced preemption. A divergence fails the test unless the logged top-2 logit margin at the first differing position is under the documented near-tie threshold (decision 0012: none for one machine at batch size 1). Never loosen the test to make it pass.
 2. **One owner.** Only the engine thread touches MLX, the scheduler and KV state. No locks in `core`. Threads communicate through queues only.
 3. **`ullm.core` never imports `mlx`.** A test enforces it.
 4. **MLX is lazy.** Call `mx.eval` at the end of each step. Never record a timing before it.
@@ -489,7 +489,7 @@ Tests ask whether the code is correct: pass or fail, the same every run. Evals a
 
 **Q2 Property tests.** Block manager, as a stateful machine over random sequences of allocate, share, append, preempt, free and evict, checking after every operation: no block is owned twice; ref counts never go negative; free + used + cached equals the total; a block with ref count ≥ 1 is never free or evicted; freed blocks are reusable. Scheduler on `FakeRunner`: every request finishes; FCFS order holds; nothing leaks.
 
-**Q3 Output equivalence.** The correctness anchor in rule 1. The same prompts go through mlx-lm and through uLLM with greedy decoding, on the same machine in the same session; token IDs must match. Committed goldens are not a strict cross-machine reference (decision 0006). Variants: one request, many at once, batch sizes, prefix cache on and off, block-based against contiguous, a forced preemption. On a mismatch, log the top-2 margin; a near-tie is recorded, anything else fails.
+**Q3 Output equivalence.** The correctness anchor in rule 1. The same prompts go through mlx-lm and through uLLM with greedy decoding, on the same machine in the same session; token IDs must match. Committed goldens are not a strict cross-machine reference (decision 0006). Variants: one request, many at once, batch sizes, prefix cache on and off, block-based against contiguous, a forced preemption. On a mismatch, log the top-2 margin; a near-tie under the threshold of decision 0012 is recorded, anything else fails.
 
 **Q4 Integration.** The OpenAI SDK contract test, 50 concurrent clients, the router chaos test, an MCP client test.
 
@@ -574,7 +574,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [x] **M1-T2** Sampler, stop check, detokenizer (E2, E3).
 - [x] **M1-T3** `[design]` Request state machine, engine loop, thread bridge, scheduler interface at `max_num_seqs = 1`, `ullm sim` (E4, E5, E6).
 - [x] **M1-T4** API server (A1).
-- [ ] **M1-T5** Tests: unit (Q1), single-request equivalence (Q3), SDK contract and 50 clients (Q4).
+- [x] **M1-T5** Tests: unit (Q1), single-request equivalence (Q3), SDK contract and 50 clients (Q4).
 - [ ] **M1-T6** Benchmark harness, workload A, run conditions (B1, B2, B5).
 - [ ] **M1-T7** First baselines (B4): uLLM sequential, `mlx_lm.server` sequential and batched.
 - [ ] **M1-T8** `[B]` Terminal shell, ticker and feed on fixture telemetry (T1, part of T2).

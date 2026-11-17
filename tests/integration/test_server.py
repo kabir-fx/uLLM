@@ -129,6 +129,18 @@ def test_a_stream_follows_c1s_order(server: Server, http: TestClient, include_us
     assert text == server.sampled_text(chunks[0].id)
 
 
+def test_each_sse_event_is_one_data_line_then_a_blank_line(http: TestClient) -> None:
+    request = body(stream=True, stream_options={"include_usage": True})
+    with http.stream("POST", "/v1/chat/completions", json=request) as response:
+        raw = b"".join(response.iter_bytes()).decode()
+    events = raw.split("\n\n")
+    assert events.pop() == ""
+    assert all(e.startswith("data: ") and not {"\n", "\r"} & set(e) for e in events)
+    assert events[-1] == "data: [DONE]"
+    for event in events[:-1]:
+        ChatCompletionChunk.model_validate_json(event.removeprefix("data: "))
+
+
 def test_a_stop_string_ends_the_reply_and_is_never_sent(http: TestClient) -> None:
     # FakeDetokenizer spells every token " t<id>", so the first token holds the stop string.
     reply = http.post("/v1/chat/completions", json=body(stop=" t")).json()

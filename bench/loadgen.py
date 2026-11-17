@@ -26,15 +26,19 @@ class Reply:
         if data == "[DONE]":
             self.done = True
             return
-        event = json.loads(data)
-        if "error" in event:
-            self.error = json.dumps(event["error"])
+        try:
+            event = json.loads(data)
+            if "error" in event:
+                self.error = json.dumps(event["error"])
+                return
+            if usage := event.get("usage"):
+                self.usage = Usage(
+                    prompt_tokens=usage["prompt_tokens"],
+                    completion_tokens=usage["completion_tokens"],
+                )
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
+            self.error = f"unreadable payload {data[:200]!r}: {type(e).__name__}: {e}"
             return
-        if event.get("usage"):
-            usage = event["usage"]
-            self.usage = Usage(
-                prompt_tokens=usage["prompt_tokens"], completion_tokens=usage["completion_tokens"]
-            )
         for choice in event.get("choices", []):
             if choice.get("delta", {}).get("content"):
                 self.chunk_ms.append(at_ms)

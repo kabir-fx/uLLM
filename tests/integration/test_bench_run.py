@@ -4,6 +4,7 @@ run that breaks B5 never starts (decision 0013)."""
 import json
 import socket
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -197,14 +198,23 @@ def test_a_full_run_without_a_powermetrics_log_fails(
     assert "powermetrics" in capsys.readouterr().err
 
 
-def test_a_run_with_a_prompt_mismatch_exits_1(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize(
+    "wrong",
+    [
+        pytest.param(lambda r: {"prompt_tokens": r.prompt_tokens + 1}, id="prompt-mismatch"),
+        pytest.param(lambda r: {"max_tokens": 10**6}, id="refused-request"),
+    ],
+)
+def test_a_run_with_a_mismatch_or_a_failure_exits_1(
+    wrong: Callable[[WorkloadRequest], dict[str, int]],
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     workload = Workload.model_validate_json(_workload(tmp_path / "w.json", 2).read_text())
     first, second = workload.requests
-    wrong = first.model_copy(update={"prompt_tokens": first.prompt_tokens + 1})
+    broken = first.model_copy(update=wrong(first))
     path = tmp_path / "wrong.json"
-    path.write_text(workload.model_copy(update={"requests": (wrong, second)}).model_dump_json())
+    path.write_text(workload.model_copy(update={"requests": (broken, second)}).model_dump_json())
     port = _free_port()
     code = main(
         [

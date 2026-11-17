@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from bench import conditions, schema
+from bench import analysis, conditions, schema
 from bench.run import main
 from bench.schema import Message, Power, Source, Workload, WorkloadRequest
 
@@ -45,7 +45,9 @@ def _workload(path: Path, n: int) -> Path:
     return path
 
 
-def test_a_smoke_run_writes_every_c5_file(tmp_path: Path) -> None:
+def test_a_smoke_run_writes_every_c5_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     port = _free_port()
     out = tmp_path / "run"
     code = main(
@@ -90,6 +92,11 @@ def test_a_smoke_run_writes_every_c5_file(tmp_path: Path) -> None:
     summary = (out / schema.SUMMARY).read_text()
     assert "smoke: not a B5 run" in summary
     assert "| **median** |" in summary
+
+    capsys.readouterr()
+    assert analysis.main([str(out), str(out), "--compare"]) == 0
+    rows = [line for line in capsys.readouterr().out.splitlines() if line.startswith("| fake")]
+    assert len(rows) == 2
 
 
 def test_a_full_run_that_breaks_b5_never_starts(

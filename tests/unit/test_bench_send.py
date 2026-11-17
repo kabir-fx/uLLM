@@ -64,3 +64,8 @@ def test_usage_without_completion_tokens_fails_the_request() -> None:
     reply, _ = _send('data: {"choices":[],"usage":{"prompt_tokens":9}}\n\ndata: [DONE]\n\n')
     assert reply.usage is None
     assert reply.outcome_error() is not None
+
+
+def test_a_json_payload_of_the_wrong_shape_fails_the_request() -> None:
+    reply, _ = _send('data: {"choices":[{"delta":null}]}\n\ndata: [DONE]\n\n')
+    assert reply.outcome_error() is not None

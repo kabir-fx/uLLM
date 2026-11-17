@@ -26,7 +26,7 @@ Facts this design rests on:
 | `bench/run.py` | One run, end to end: launch, health, warm-up, repeats, cooldowns, files |
 | `bench/analysis.py` | `summary.md` and `latency.svg` per run; a comparison table across runs |
 
-`scripts/make_workload_a.py` builds `bench/workloads/a.json`.
+`bench/make_workload_a.py` builds `bench/workloads/a.json` (`uv run python -m bench.make_workload_a`). It lives in `bench/`, not `scripts/`, so it can import `bench.schema`.
 
 **Workload A (B2).**
 
@@ -35,6 +35,7 @@ Facts this design rests on:
 - Prompt tokens are counted with uLLM's own `MLXTokenizer.render` on the pinned Qwen3-0.6B tokenizer, thinking off, and stored per request. A dialogue whose rendering changes when control-token text is sanitized is skipped, so `mlx_lm.server`, which does not sanitize, renders the same ids (decision 0011).
 - `max_tokens` is drawn uniformly from 50 to 300 with a seeded `random.Random`.
 - 256 requests. A run may take the first N.
+- Measured on the committed file: every request is a 5-turn prefix; prompts run from 155 to 793 tokens, median 461; the `max_tokens` budgets sum to 45,988. The file is 671 KB, and a second build reproduced it byte for byte (SHA-256 `a8983061`).
 
 **The C5 run directory.** One directory per run: one target, one concurrency, measured under B5. A run holds one discarded warm-up and R measured repeats over the same requests in the same order.
 
@@ -66,7 +67,7 @@ Facts this design rests on:
 
 Other apps cannot be checked, so `env.json` records the top processes instead. `--smoke` skips the checks and records `smoke: true`. `bench.analysis` heads a smoke summary with "smoke: not a B5 run".
 
-**`make bench-smoke`.** Launches `ullm serve` on the default model, runs the first 16 requests of workload A at concurrency 1, 2 warm-up requests, 1 repeat, no cooldown, into `bench/.scratch/`, and prints the summary.
+**`make bench-smoke`.** Launches `ullm serve` on the default model, runs the first 16 requests of workload A at concurrency 1, 2 warm-up requests, 1 repeat, no cooldown, into `bench/.scratch/`, and prints the summary. It took 81 s on the M4, model load included.
 
 ## Alternatives considered
 

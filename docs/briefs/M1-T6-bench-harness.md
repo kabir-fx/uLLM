@@ -18,7 +18,7 @@ This slice adds one harness that measures any OpenAI-compatible server in the sa
 ## How it works
 
 ```
-scripts/make_workload_a.py ──▶ bench/workloads/a.json
+bench/make_workload_a.py ──▶ bench/workloads/a.json
                                       │
 bench/run.py ── conditions.py (B5 check, powermetrics)
      │
@@ -27,7 +27,7 @@ bench/run.py ── conditions.py (B5 check, powermetrics)
      └── bench/results/<run>/ ──▶ analysis.py ──▶ summary.md, latency.svg
 ```
 
-1. **`scripts/make_workload_a.py`.** It reads UltraChat dialogues at a pinned revision. It keeps 256 prompts of 100 to 1,000 tokens. It counts the tokens with the uLLM tokenizer and gives each request a `max_tokens` from 50 to 300.
+1. **`bench/make_workload_a.py`.** It reads UltraChat dialogues at a pinned revision. It keeps 256 prompts of 100 to 1,000 tokens. It counts the tokens with the uLLM tokenizer and gives each request a `max_tokens` from 50 to 300.
 2. **`bench/schema.py`.** It defines the workload file and each result file.
 3. **`bench/loadgen.py`.** N clients send requests from one queue. Each client reads the raw SSE stream and records the time of each text chunk.
 4. **`bench/conditions.py`.** It reads the power source and Low Power Mode with `pmset`. It refuses a full run that breaks B5. It starts and stops `powermetrics`.
@@ -36,7 +36,7 @@ bench/run.py ── conditions.py (B5 check, powermetrics)
 
 ## What you get at the end
 
-- `make bench-smoke` measures the real model on 16 requests in about one minute.
+- `make bench-smoke` measures the real model on 16 requests. It took 81 s on the M4.
 - `uv run python -m bench.run --target ullm --launch "uv run ullm serve"` makes a full B5 run.
 - `uv run python -m bench.analysis <run>...` writes the summaries and a comparison table.
 - Tests prove the SSE timing, the metric formulas, the B5 refusal, and a full run against `ullm serve --fake`.

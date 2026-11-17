@@ -52,8 +52,8 @@ ci-router: ## CI router job: gofmt, go vet, tests with the race detector
 
 ci-terminal: check-ts ## CI terminal job: same as check-ts
 
-ci-mlx: models ## CI mlx job: the tests marked mlx; a missing model fails instead of skipping
-	ULLM_REQUIRE_MODEL=1 $(UV) pytest -m mlx
+ci-mlx: equivalence ## CI mlx job: equivalence, then the other tests marked mlx; a missing model fails instead of skipping
+	ULLM_REQUIRE_MODEL=1 $(UV) pytest -m mlx --ignore=tests/equivalence
 
 .PHONY: contracts
 contracts: ## Regenerate the telemetry JSON Schema and TypeScript types (C2)

@@ -9,9 +9,9 @@ The bar is the engineering rules and the definition of done in `docs/AGENT_ROADM
 | Check | Command | When | Typical time |
 |---|---|---|---|
 | Fast | `make check` | after every increment; the pre-push hook runs it | 7 s |
-| Full | `make ci` | before proof, before a pull request | 23 s on an M4 with the model downloaded |
+| Full | `make ci` | before proof, before a pull request | 71 s on an M4 with the model downloaded |
 
-`make ci` runs the `ci-core`, `ci-router`, `ci-terminal` and `ci-mlx` targets, and each CI job runs its own target (decision 0007). It needs MLX and the model (`make models`).
+`make ci` runs the `ci-core`, `ci-router`, `ci-terminal` and `ci-mlx` targets, and each CI job runs its own target (decision 0007). `ci-mlx` runs `make equivalence` first, then the other tests marked `mlx`. It needs MLX and the model (`make models`).
 
 ## Floor
 
@@ -22,6 +22,7 @@ Always true on `main`. A change that breaks one of these does not merge.
 - Engine code imports none of mlx-lm's generation loop, batching or caches (rule 11): the `TID251` bans in `pyproject.toml`, run by `ci-core`.
 - `ullm.core` never imports MLX (rule 3): `tests/unit/test_core_is_mlx_free.py`, run by `ci-core`.
 - Every test outside the `mlx` marker passes with MLX absent: the core job's MLX-absent step on Linux, then `ci-core`.
+- Greedy output equals mlx-lm's token IDs through the runner, the engine and the HTTP server (rule 1): `make equivalence`, run by `ci-mlx`.
 - mlx-lm reproduces the committed goldens, and a missing model fails instead of skipping: `ci-mlx`.
 - Lockfiles match their manifests: `uv run --locked` and `pnpm install --frozen-lockfile`, in `ci-core` and `ci-terminal`.
 - The generated TypeScript contract types match the schema, and the terminal typechecks strictly: `ci-terminal`.

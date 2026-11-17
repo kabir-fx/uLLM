@@ -157,14 +157,17 @@ def create_app(
 
 
 def max_body_bytes(token_bytes: Sequence[bytes], max_model_len: int) -> int:
-    """The largest body a prompt that fits the context can need: its costliest token, as JSON
-    escapes it, at every position. Refusing more before parsing bounds a client's work."""
+    """The costliest token, as ``ensure_ascii`` JSON spells it, at every context position.
+    It covers string contents whose text the chat template keeps. It does not cover the
+    overhead of many content parts or text the template drops, such as an earlier turn's
+    reasoning, so such a request can be refused before the context check (decision 0011)."""
     return max(map(_json_cost, token_bytes)) * max_model_len + BODY_SLACK_BYTES
 
 
 def _json_cost(token: bytes) -> int:
-    # The most bytes a client's JSON can spend on these bytes: ensure_ascii escapes control
-    # characters to 2 or 6 bytes, and spends at most 3 per byte of a multi-byte character.
+    # These bytes as ensure_ascii JSON spells them: control characters escape to 2 or 6 bytes,
+    # and a multi-byte character costs at most 3 a byte. A client may spell any character as
+    # a 6-byte escape; that is not covered.
     return sum(len(json.dumps(chr(b))) - 2 if b < 0x80 else 3 for b in token)
 
 

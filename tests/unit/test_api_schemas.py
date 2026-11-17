@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from ullm.server.schemas import ApiError, ChatCompletionRequest, Usage
+from ullm.server.schemas import MAX_STOP_CHARS, ApiError, ChatCompletionRequest, Usage
 
 MODEL = "mlx-community/Qwen3-0.6B-bf16"
 
@@ -129,6 +129,30 @@ def test_stop_normalised_and_bounded() -> None:
     assert ChatCompletionRequest.model_validate(request(stop=["a", "b"])).stop == ("a", "b")
     assert rejected(request(stop=["a", "b", "c", "d", "e"])).param == "stop"
     assert rejected(request(stop=[""])).param == "stop"
+
+
+def test_each_stop_string_is_bounded_in_length() -> None:
+    longest = "x" * MAX_STOP_CHARS
+    assert ChatCompletionRequest.model_validate(request(stop=[longest])).stop == (longest,)
+    err = rejected(request(stop=["ok", longest + "x"]))
+    assert (err.status, err.code, err.param) == (400, "invalid_value", "stop")
+
+
+def test_chat_template_kwargs_take_only_enable_thinking() -> None:
+    req = ChatCompletionRequest.model_validate(
+        request(chat_template_kwargs={"enable_thinking": False})
+    )
+    assert req.chat_template_kwargs == {"enable_thinking": False}
+    for key in ("tools", "documents", "add_generation_prompt"):
+        err = rejected(request(chat_template_kwargs={key: []}))
+        assert (err.status, err.code, err.param) == (
+            400,
+            "unsupported_parameter",
+            "chat_template_kwargs",
+        )
+        assert key in err.message
+    err = rejected(request(chat_template_kwargs={"enable_thinking": "no"}))
+    assert (err.code, err.param) == ("invalid_value", "chat_template_kwargs.enable_thinking")
 
 
 @pytest.mark.parametrize(

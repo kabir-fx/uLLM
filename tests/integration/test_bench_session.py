@@ -481,3 +481,23 @@ def test_the_summary_states_its_conditions_and_keeps_streams_inside_a_regime(
     peak = summary.index("## Peak")
     assert summary.index("Largest gap") > peak
     assert "## Streams" not in summary
+
+
+def test_a_missing_model_snapshot_refuses_the_session(
+    tmp_path: Path, machine: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import scripts.fetch_models
+
+    monkeypatch.setattr(scripts.fetch_models, "local_path", lambda spec: None)
+    out = tmp_path / "session"
+    code = main(
+        [
+            str(_group(tmp_path / "group.json", "resident", launch="serve --model {model}")),
+            "--workload",
+            str(_workload(tmp_path / "w.json", 5)),
+            "--out",
+            str(out),
+        ]
+    )
+    assert code == 2
+    assert not out.exists()

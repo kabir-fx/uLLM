@@ -34,3 +34,4 @@ The same item now finds a pull request by its task ID in the title or by its bra
 - A fix made after the verdicts is checked by its own failing-then-passing test and a green full check, not by a fresh run of the verifier. This is weaker than re-proving. Roadmap 3.6 forbids weakening a gate, so this record is an exception the author approved: the gate now enforces the workflow 0007 adopted, not a stricter one.
 - The gate reads "Covered since" commit by commit, so a missing entry, or one without evidence, still fails.
 - Gate G1's own text in section 7 is unchanged.
+- #11 (M1-T1) passes as an exception the author approved. After its proof commit `4076d5e`, `03cb260` adds a test and `3aa4e42` rewords a docstring in `src/ullm/runner/base.py`. Its body names neither under "Covered since" and gives no before and after evidence, but its full review reached READY at the head `3dcd616`, after both. No later pull request may pass this way.

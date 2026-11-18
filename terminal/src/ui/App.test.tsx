@@ -28,6 +28,12 @@ describe("App", () => {
     expect(renderToStaticMarkup(<App store={store} label="x" />)).toContain("SIMULATED");
   });
 
+  it("labels data as simulated until a hello says it comes from the engine", () => {
+    const store = new TelemetryStore(() => {});
+    store.ingest(ev.frames([[ev.arrived(1, "a")]])[0]!);
+    expect(renderToStaticMarkup(<App store={store} label="x" />)).toContain("SIMULATED");
+  });
+
   it("does not label engine data as simulated", () => {
     const store = new TelemetryStore(() => {});
     store.ingest(ev.frames([[ev.hello({ source: "engine" })]])[0]!);

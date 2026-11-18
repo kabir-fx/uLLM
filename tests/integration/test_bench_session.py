@@ -443,7 +443,8 @@ def test_a_twin_that_disagrees_with_the_baseline_discards_the_session(
     valid: Path, tmp_path: Path
 ) -> None:
     copy = _rewritten(valid, tmp_path, _slower("base-twin", "measure", 2.0))
-    assert _failed(copy) == ["Twin"]
+    gates = analysis.load_session(copy).gates
+    assert [g.name for g in gates if not g.passed] == ["Twin"], gates
 
 
 def test_warmup_requests_are_never_measured(valid: Path, tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 # M1-T7: The first baselines
 
-**State:** you answered the open questions. Type `/build M1-T7` to start the build.
+**State:** the code is built and reviewed. The sessions wait for your green light on an idle Mac.
 **Decision record:** [0016](../decisions/0016-paired-sessions.md) (the full design, for agents), with [0014](../decisions/0014-m1-baselines.md) and [0015](../decisions/0015-mlx-cache-limit.md) · **Spec:** roadmap M1-T7 (B4), and your `Fanless Mac Benchmarking - Final Approach.md`
 
 ## The goal
@@ -140,3 +140,13 @@ Test yourself: why does the baseline, and not uLLM, decide when a block is Susta
 </details>
 
 ## Result
+
+**NOT DONE.** The code is built, and the proof and the review pass. The real sessions have not run.
+
+- The verifier ran a real c1 smoke session. All 64 requests passed, and no server stayed up.
+- The capped rule gives your counts on both spikes: 3, 5, 4 and 7, 2, 7.
+- The review found 4 Required problems. The agent fixed each one with a test that failed first.
+- A block that the clock log does not cover is now Transition, not Peak.
+- The memory figures in 0016 have no committed output. The c1 and c8 sessions will give them.
+- To finish, you give an idle Mac on AC power. Then the agent runs one c8 block as a smoke session, and after that `make bench-baselines`.
+

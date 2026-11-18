@@ -18,7 +18,7 @@ uv="uv run --locked"
 # mlx_lm.server gets the pinned snapshot by path: given a repo id it would load the main ref.
 model=$($uv python scripts/fetch_models.py 2>/dev/null | sed -n 's/^qwen3-0.6b-bf16: //p')
 [ -d "$model" ] || { echo "no local snapshot of the default model: run make models" >&2; exit 1; }
-mlx_lm="$uv mlx_lm.server --model $model --port 8000"
+mlx_lm="$uv python scripts/mlx_lm_server.py --model $model --port 8000"
 # A seeded request takes mlx_lm.server's single-request path; any other request is batched.
 sequential=(--model "$model" --extra-body '{"seed": 0}')
 

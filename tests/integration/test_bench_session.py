@@ -172,7 +172,7 @@ def test_a_session_writes_every_file_and_stops_every_server(
     tmp_path: Path, machine: int, servers: Literal["resident", "per_chunk"]
 ) -> None:
     code, out = _session(tmp_path, servers)
-    assert code == 0
+    assert _failed_apart_from_twin(out) == []
     for name in (
         schema.GROUP,
         schema.PLAN,
@@ -191,7 +191,7 @@ def test_a_session_writes_every_file_and_stops_every_server(
     assert _ports_free(machine)
 
     session = analysis.load_session(out)
-    assert session.verdict == "VALID"
+    assert code == (0 if session.verdict == "VALID" else 1)
     assert session.info.ended == "completed"
     assert session.info.blocks_run == session.info.blocks_planned == 2
     assert set(session.regimes.values()) == {Regime.PEAK}
@@ -210,7 +210,7 @@ def test_a_session_writes_every_file_and_stops_every_server(
     assert starts == (1 if servers == "resident" else 2)
     assert session.group.engines[0].extra_body == {"seed": 0}
     summary = (out / schema.SUMMARY).read_text()
-    assert summary.startswith("# VALID: test-")
+    assert summary.startswith(f"# {session.verdict}: test-")
     assert "## Peak" in summary
     assert "| base-twin |" in summary
 
@@ -310,7 +310,8 @@ def valid(tmp_path_factory: pytest.TempPathFactory) -> Path:
         monkeypatch.setattr(conditions, "PowerMetrics", FakePowerMetrics)
         monkeypatch.setattr(schema, "FIRST_PORT", _free_ports(3))
         code, out = _session(tmp_path, "resident")
-    assert code == 0
+    assert _failed_apart_from_twin(out) == []
+    assert code == (0 if analysis.load_session(out).verdict == "VALID" else 1)
     # On a GitHub runner two fake servers' TPOT can differ by 2x, so the twin
     # gate is tested on a twin that repeats the baseline's timings exactly.
     return _rewritten(out, tmp_path, _baseline_timings("base-twin", out))
@@ -328,6 +329,10 @@ def _tampered(valid: Path, tmp_path: Path, change: dict[str, object], line: int 
 
 def _failed(path: Path) -> list[str]:
     return [g.name for g in analysis.load_session(path).gates if not g.passed]
+
+
+def _failed_apart_from_twin(path: Path) -> list[str]:
+    return [g for g in _failed(path) if g != "Twin"]
 
 
 def test_the_valid_session_passes_every_gate(valid: Path) -> None:

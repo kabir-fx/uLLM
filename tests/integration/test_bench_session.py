@@ -468,3 +468,16 @@ def test_a_reply_whose_prompt_length_differs_discards_the_session(
         return r.model_copy(update={"sent": r.sent.model_copy(update={"usage": usage})})
 
     assert _failed(_rewritten(valid, tmp_path, change)) == ["Liveness"]
+
+
+def test_the_summary_states_its_conditions_and_keeps_streams_inside_a_regime(
+    valid: Path,
+) -> None:
+    summary = (valid / schema.SUMMARY).read_text()
+    env = json.loads((valid / schema.ENV).read_text())
+    assert f"Commit `{env['commit'][:12]}`" in summary
+    assert f"macOS {env['macos']}" in summary
+    assert "lid open" in summary
+    peak = summary.index("## Peak")
+    assert summary.index("Largest gap") > peak
+    assert "## Streams" not in summary

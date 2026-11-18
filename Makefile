@@ -26,10 +26,11 @@ check-py: ## Ruff lint and format check, mypy, unit and property tests
 	$(UV) mypy
 	$(UV) pytest -m "not mlx" tests/unit tests/property
 
-check-ts: ## Terminal: generated contract types are fresh and typecheck
+check-ts: ## Terminal: generated contract types are fresh, typecheck, unit tests
 	pnpm -C terminal install --frozen-lockfile --silent
 	pnpm -C terminal check:contracts
 	pnpm -C terminal typecheck
+	pnpm -C terminal test
 
 check-go: ## Go vet and tests for the router module
 	cd router && go vet ./... && go test ./...

@@ -137,4 +137,5 @@ def test_read_powermetrics_rebuilds_the_clock_and_skips_a_cut_off_last_sample(
     assert first.applied == pytest.approx(8.0)
     assert first.busy == pytest.approx(1.0)
     assert first.steps == {1470: 1.0}
-    assert second.requested is None and second.applied is None
+    assert second.requested is None
+    assert second.applied is None

@@ -106,7 +106,7 @@ def _group(
         "warmup_per_chunk": 1,
         "seed": 0,
         "baseline": {"name": "base", **spec},
-        "engines": [{"name": "other", **spec}],
+        "engines": [{"name": "other", **spec, "extra_body": {"seed": 0}}],
         "gates": {"twin_tpot_peak": 0.5, "twin_tpot_sustained": 0.5},
     }
     path.write_text(json.dumps(group))
@@ -198,6 +198,7 @@ def test_a_session_writes_every_file_and_stops_every_server(
     assert len(session.probes) == 1 + 2 * 3
     starts = (out / "base.log").read_text().count("Uvicorn running")
     assert starts == (1 if servers == "resident" else 2)
+    assert session.group.engines[0].extra_body == {"seed": 0}
     summary = (out / schema.SUMMARY).read_text()
     assert summary.startswith("# VALID: test-")
     assert "## Peak" in summary

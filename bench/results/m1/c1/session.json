@@ -1,0 +1,15 @@
+{
+  "served_models": {
+    "mlx-lm-sequential-no-cache": "~/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8",
+    "mlx-lm-sequential-no-cache-twin": "~/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8",
+    "ullm": "mlx-community/Qwen3-0.6B-bf16",
+    "mlx-lm-sequential": "~/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8"
+  },
+  "smoke": false,
+  "settle_s": 240.0,
+  "started_unix": 1795013747.5108612,
+  "ended_unix": 1795017476.850409,
+  "blocks_planned": 21,
+  "blocks_run": 21,
+  "ended": "completed"
+}

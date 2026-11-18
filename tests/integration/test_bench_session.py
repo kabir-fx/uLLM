@@ -369,3 +369,21 @@ def test_compare_prints_each_sessions_ratios_with_its_lifecycle(
     assert out.startswith("### Peak: test-resident, concurrency 2, servers stay loaded, VALID")
     assert "| other |" in out
     assert "| base-twin |" in out
+
+
+def test_a_session_that_crashes_is_recorded_as_interrupted(
+    tmp_path: Path, machine: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = iter(range(100))
+
+    def swap_used() -> int:
+        if next(calls) == 2:
+            raise RuntimeError("sysctl vm.swapusage gave no swap figure")
+        return 400 * MB
+
+    monkeypatch.setattr(conditions, "swap_used", swap_used)
+    with pytest.raises(RuntimeError, match="swapusage"):
+        _session(tmp_path, "resident")
+    info = json.loads((tmp_path / "session" / schema.SESSION).read_text())
+    assert info["ended"] == "interrupted"
+    assert _ports_free(machine)

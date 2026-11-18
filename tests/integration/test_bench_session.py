@@ -8,6 +8,7 @@ import shutil
 import socket
 import sys
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -17,7 +18,16 @@ from bench import analysis, conditions, schema
 from bench.analysis import _twin_gate
 from bench.paired import Estimate
 from bench.regimes import Regime
-from bench.schema import Group, Message, Power, Probe, Source, Workload, WorkloadRequest
+from bench.schema import (
+    Group,
+    Message,
+    Power,
+    Probe,
+    SessionRecord,
+    Source,
+    Workload,
+    WorkloadRequest,
+)
 from bench.session import main
 
 from ullm.runner.fake_runner import FakeTokenizer
@@ -387,3 +397,74 @@ def test_a_session_that_crashes_is_recorded_as_interrupted(
     info = json.loads((tmp_path / "session" / schema.SESSION).read_text())
     assert info["ended"] == "interrupted"
     assert _ports_free(machine)
+
+
+def _rewritten(
+    valid: Path, tmp_path: Path, change: Callable[[SessionRecord], SessionRecord]
+) -> Path:
+    """A copy of the valid session with its raw.jsonl records changed."""
+    copy = tmp_path / "copy"
+    shutil.copytree(valid, copy)
+    raw = copy / schema.RAW
+    rows = [
+        change(SessionRecord.model_validate_json(line)) for line in raw.read_text().splitlines()
+    ]
+    raw.write_text("".join(r.model_dump_json() + "\n" for r in rows))
+    return copy
+
+
+def _slower(engine: str, phase: str, factor: float) -> Callable[[SessionRecord], SessionRecord]:
+    def change(r: SessionRecord) -> SessionRecord:
+        if r.engine != engine or r.phase != phase:
+            return r
+        sent = r.sent.model_copy(
+            update={
+                "chunk_ms": tuple(t * factor for t in r.sent.chunk_ms),
+                "end_ms": r.sent.end_ms * factor,
+            }
+        )
+        return r.model_copy(update={"sent": sent})
+
+    return change
+
+
+def test_ratios_pair_each_engine_with_the_baseline_prompt_by_prompt(
+    valid: Path, tmp_path: Path
+) -> None:
+    session = analysis.load_session(_rewritten(valid, tmp_path, _slower("other", "measure", 2.0)))
+    est = analysis.ratios(session, "other", Regime.PEAK)
+    before = analysis.ratios(analysis.load_session(valid), "other", Regime.PEAK)
+    assert est["TPOT"].point == pytest.approx(2 * before["TPOT"].point)
+    assert est["E2E"].point == pytest.approx(2 * before["E2E"].point)
+    assert est["TPOT"].prompts == 4
+
+
+def test_a_twin_that_disagrees_with_the_baseline_discards_the_session(
+    valid: Path, tmp_path: Path
+) -> None:
+    copy = _rewritten(valid, tmp_path, _slower("base-twin", "measure", 2.0))
+    assert _failed(copy) == ["Twin"]
+
+
+def test_warmup_requests_are_never_measured(valid: Path, tmp_path: Path) -> None:
+    session = analysis.load_session(_rewritten(valid, tmp_path, _slower("other", "warmup", 50.0)))
+    before = analysis.ratios(analysis.load_session(valid), "other", Regime.PEAK)
+    after = analysis.ratios(session, "other", Regime.PEAK)
+    assert after["TPOT"] == before["TPOT"]
+    assert after["TPOT"].prompts == 4
+
+
+def test_a_reply_whose_prompt_length_differs_discards_the_session(
+    valid: Path, tmp_path: Path
+) -> None:
+    done = False
+
+    def change(r: SessionRecord) -> SessionRecord:
+        nonlocal done
+        if done or r.phase != "measure" or r.sent.usage is None:
+            return r
+        done = True
+        usage = r.sent.usage.model_copy(update={"prompt_tokens": r.sent.usage.prompt_tokens + 1})
+        return r.model_copy(update={"sent": r.sent.model_copy(update={"usage": usage})})
+
+    assert _failed(_rewritten(valid, tmp_path, change)) == ["Liveness"]

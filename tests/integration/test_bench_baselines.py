@@ -59,4 +59,10 @@ def test_baselines_runs_the_six_runs_with_or_without_args(tmp_path: Path, args: 
     assert all(("--smoke" in r) == (args is not None) for r in runs)
     assert [("--extra-body" in r) for r in runs] == [False, True, True, False, False, False]
     assert all(r[r.index("--model") + 1] == str(model) for r in runs if "--model" in r)
+    launches = [r[r.index("--launch") + 1].split() for r in runs]
+    assert all(
+        "scripts/mlx_lm_server.py" in launch and "mlx_lm.server" not in launch
+        for (target, _), launch in zip(targets, launches, strict=True)
+        if target.startswith("mlx-lm")
+    )
     assert (out / "comparison.md").read_text() == "| row |\n"

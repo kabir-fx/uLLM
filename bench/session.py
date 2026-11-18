@@ -162,12 +162,13 @@ class Session:
         out: Path,
         args: argparse.Namespace,
     ) -> None:
-        self.group, self.plan, self.servers, self.out, self.args = group, p, servers, out, args
+        self.group, self.plan, self.servers, self.args = group, p, servers, args
         self.kwargs = workload.chat_template_kwargs
         self.raw = (out / schema.RAW).open("w")
         self.probes = (out / schema.PROBES).open("w")
         self.blocks_run = 0
-        self.ended: Literal["completed", "failed request", "interrupted"] = "completed"
+        # Interrupted until the last block ends: a crash leaves it so.
+        self.ended: Literal["completed", "failed request", "interrupted"] = "interrupted"
 
     def close(self) -> None:
         self.raw.close()
@@ -220,11 +221,12 @@ class Session:
                         self.ended = "failed request"
                         return
                 self.blocks_run += 1
+            self.ended = "completed"
         except ServerFailed as e:
             print(f"server failed: {e}", file=sys.stderr)
             self.ended = "failed request"
         except asyncio.CancelledError:
-            self.ended = "interrupted"
+            pass
 
     async def chunk(
         self, block: int, pos: int, server: Server, warmup: Sequence[WorkloadRequest]

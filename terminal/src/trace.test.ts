@@ -1,10 +1,7 @@
-import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
+import { fixtureBytes as fixture } from "./testing/fixtures";
 import { parseFrame, parseTrace } from "./trace";
-
-const fixture = (name: string) =>
-  new Uint8Array(readFileSync(new URL(`../fixtures/telemetry/${name}`, import.meta.url)));
 
 describe("parseTrace", () => {
   it("reads every frame of a gzip trace, hello first", async () => {

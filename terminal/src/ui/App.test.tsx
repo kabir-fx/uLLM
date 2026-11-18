@@ -1,15 +1,13 @@
-import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { TelemetryStore } from "../store";
 import * as ev from "../testing/events";
-import { parseTrace } from "../trace";
+import { fixtureFrames } from "../testing/fixtures";
 import { App } from "./App";
 
 async function fixtureStore(name: string): Promise<TelemetryStore> {
-  const bytes = new Uint8Array(readFileSync(new URL(`../../fixtures/telemetry/${name}`, import.meta.url)));
   const store = new TelemetryStore(() => {});
-  (await parseTrace(bytes)).forEach((f) => store.ingest(f));
+  (await fixtureFrames(name)).forEach((f) => store.ingest(f));
   store.setStatus({ kind: "ended" });
   return store;
 }

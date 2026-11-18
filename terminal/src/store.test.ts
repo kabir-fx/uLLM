@@ -1,19 +1,16 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Frame } from "./contracts/telemetry";
 import { FEED_ROWS, TelemetryStore } from "./store";
 import * as ev from "./testing/events";
-import { parseTrace } from "./trace";
+import { fixtureFrames as fixture } from "./testing/fixtures";
 
-const fixture = (name: string) =>
-  parseTrace(
-    new Uint8Array(readFileSync(new URL(`../fixtures/telemetry/${name}`, import.meta.url))),
-  );
-
-const manual = () => {
+function manual() {
   const pending: (() => void)[] = [];
-  return { schedule: (cb: () => void) => pending.push(cb), flush: () => pending.splice(0).forEach((cb) => cb()) };
-};
+  return {
+    schedule: (cb: () => void) => pending.push(cb),
+    flush: () => pending.splice(0).forEach((cb) => cb()),
+  };
+}
 
 function storeOf(frames: Frame[]): TelemetryStore {
   const store = new TelemetryStore(() => {});

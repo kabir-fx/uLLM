@@ -17,6 +17,7 @@ One short file per design decision, numbered in order (roadmap 3.3). A decision 
 | [0012](0012-m1-tests.md) | The M1 tests: 50 SDK clients over a real socket, raw SSE framing, margins on an equivalence mismatch, `make equivalence`; no near-tie allowance for uLLM against mlx-lm on one machine, 0.25 only across chips for the goldens | M1-T5 |
 | [0013](0013-bench-harness.md) | The benchmark harness: closed-loop raw-SSE client, one C5 directory per run, workload A from UltraChat sized with uLLM's tokenizer, full runs refused unless B5 holds and `powermetrics` logs | M1-T6 |
 | [0014](0014-m1-baselines.md) | The M1 baselines: `mlx_lm.server` sequential through its single-request path (`"seed": 0`) and batched at its defaults, prompt cache on and off; `bench.run --model` and `--extra-body`; the repeat slowdown was CPU contention | M1-T7 |
+| [0015](0015-mlx-cache-limit.md) | A 256 MB limit on MLX's cache of freed buffers, set by `load_mlx`: without it `ContiguousKV`'s unreusable buffers held 9 GB after 12 requests and the machine swapped | M1-T7 |
 
 ## Template
 

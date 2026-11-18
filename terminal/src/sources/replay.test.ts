@@ -55,6 +55,21 @@ describe("replaySource", () => {
     expect(out.frames).toEqual([]);
   });
 
+  it("reports an error and stops when the sink throws on a frame", async () => {
+    const statuses: SourceStatus[] = [];
+    let delivered = 0;
+    replaySource("t", async () => trace).start({
+      frame: () => {
+        delivered++;
+        throw new TypeError("bad event");
+      },
+      status: (s) => statuses.push(s),
+    });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(delivered).toBe(1);
+    expect(statuses.at(-1)).toEqual({ kind: "error", message: "bad event" });
+  });
+
   it("reports a trace that fails to load", async () => {
     const out = record();
     const statuses: SourceStatus[] = [];

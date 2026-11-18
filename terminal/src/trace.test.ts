@@ -27,4 +27,8 @@ describe("parseFrame", () => {
   it("rejects text that is not a frame object", () => {
     expect(() => parseFrame("[1, 2]")).toThrow(/not a telemetry frame/);
   });
+
+  it("rejects a version 1 frame without its fields", () => {
+    expect(() => parseFrame('{"v":1,"seq":1,"t":5}')).toThrow(/not a telemetry frame/);
+  });
 });

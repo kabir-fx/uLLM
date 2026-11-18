@@ -110,7 +110,11 @@ def classify(
 ) -> Regime:
     """``deciders`` are the baseline and its twin: ``mlx_lm.server`` asks for the top state
     whenever it is busy, so the cap always shows on it."""
-    if not any(capped(s) for span in block for s in _overlapping(span, samples)):
+    covered = [_overlapping(span, samples) for span in block]
+    if not all(covered):
+        # The log ended or started late: nothing shows the clock was full.
+        return Regime.TRANSITION
+    if not any(capped(s) for inside in covered for s in inside):
         return Regime.PEAK
     spans = [span for span in block if span.engine in deciders]
     if len(spans) == len(deciders) and all(

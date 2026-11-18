@@ -12,10 +12,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, ".")
-import httpx2  # noqa: E402
-from bench import schema  # noqa: E402
-from bench.loadgen import closed_loop  # noqa: E402
-from bench.run import Target, _ready  # noqa: E402
+import httpx2
+from bench import schema
+from bench.loadgen import closed_loop
+from bench.run import Target, _ready
 
 SCRATCH = Path(__file__).resolve().parent
 MODEL = subprocess.run(

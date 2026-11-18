@@ -31,10 +31,10 @@ CTL = HERE / "ctl"
 sys.path.insert(0, str(REPO))
 os.chdir(REPO)
 
-import httpx2  # noqa: E402
-from bench import conditions, schema  # noqa: E402
-from bench.loadgen import send  # noqa: E402
-from bench.run import Target, _port_in_use, _ready  # noqa: E402
+import httpx2
+from bench import conditions, schema
+from bench.loadgen import send
+from bench.run import Target, _port_in_use, _ready
 
 MODEL = (
     "~/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/"

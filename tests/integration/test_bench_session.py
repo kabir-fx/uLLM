@@ -311,7 +311,9 @@ def valid(tmp_path_factory: pytest.TempPathFactory) -> Path:
         monkeypatch.setattr(schema, "FIRST_PORT", _free_ports(3))
         code, out = _session(tmp_path, "resident")
     assert code == 0
-    return out
+    # On a GitHub runner two fake servers' TPOT can differ by 2x, so the twin
+    # gate is tested on a twin that repeats the baseline's timings exactly.
+    return _rewritten(out, tmp_path, _baseline_timings("base-twin", out))
 
 
 def _tampered(valid: Path, tmp_path: Path, change: dict[str, object], line: int = -1) -> Path:
@@ -413,6 +415,25 @@ def _rewritten(
     return copy
 
 
+def _baseline_timings(engine: str, session: Path) -> Callable[[SessionRecord], SessionRecord]:
+    base = {
+        (r.block, r.sent.id): r.sent
+        for line in (session / schema.RAW).read_text().splitlines()
+        if (r := SessionRecord.model_validate_json(line)).engine == "base" and r.phase == "measure"
+    }
+
+    def change(r: SessionRecord) -> SessionRecord:
+        if r.engine != engine or r.phase != "measure":
+            return r
+        b = base[(r.block, r.sent.id)]
+        sent = r.sent.model_copy(
+            update={"chunk_ms": b.chunk_ms, "end_ms": b.end_ms, "usage": b.usage}
+        )
+        return r.model_copy(update={"sent": sent})
+
+    return change
+
+
 def _slower(engine: str, phase: str, factor: float) -> Callable[[SessionRecord], SessionRecord]:
     def change(r: SessionRecord) -> SessionRecord:
         if r.engine != engine or r.phase != phase:
@@ -445,6 +466,7 @@ def test_a_twin_that_disagrees_with_the_baseline_discards_the_session(
     copy = _rewritten(valid, tmp_path, _slower("base-twin", "measure", 2.0))
     gates = analysis.load_session(copy).gates
     assert [g.name for g in gates if not g.passed] == ["Twin"], gates
+    assert "Peak twin TPOT median 2.0000" in gates[-1].detail
 
 
 def test_warmup_requests_are_never_measured(valid: Path, tmp_path: Path) -> None:

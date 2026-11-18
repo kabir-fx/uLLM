@@ -359,3 +359,13 @@ def test_the_twin_gate_checks_the_tpot_median_in_each_regime() -> None:
     assert not _twin_gate(group, {Regime.PEAK: tpot(1.006), Regime.SUSTAINED: None}).passed
     assert not _twin_gate(group, {Regime.PEAK: None, Regime.SUSTAINED: tpot(1.031)}).passed
     assert _twin_gate(group, {Regime.PEAK: None, Regime.SUSTAINED: None}).passed
+
+
+def test_compare_prints_each_sessions_ratios_with_its_lifecycle(
+    valid: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert analysis.main([str(valid), "--compare"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("### Peak: test-resident, concurrency 2, servers stay loaded, VALID")
+    assert "| other |" in out
+    assert "| base-twin |" in out

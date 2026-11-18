@@ -1,0 +1,136 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--size) / 1.4 var(--font-ui);
+}
+
+.shell {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  grid-template-areas: "header" "ticker" "feed";
+  gap: var(--gap);
+  height: 100vh;
+  background: var(--line);
+}
+
+.header,
+.ticker,
+.feed {
+  background: var(--panel);
+}
+
+.header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--pad);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.brand {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.dim {
+  color: var(--dim);
+}
+
+.warn {
+  color: var(--warn);
+}
+
+.badge-sim {
+  padding: 1px 6px;
+  border: 1px solid var(--sim);
+  border-radius: 3px;
+  color: var(--sim);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.status-error {
+  color: var(--error);
+}
+
+.ticker {
+  grid-area: ticker;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--gap);
+  background: var(--line);
+}
+
+.stat {
+  background: var(--panel);
+  padding: var(--pad);
+}
+
+.stat-name,
+.stat-note {
+  color: var(--dim);
+}
+
+.stat-value {
+  font: 600 18px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.feed {
+  grid-area: feed;
+  overflow: auto;
+  min-height: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  color: var(--dim);
+  font-weight: 400;
+  text-align: left;
+}
+
+th,
+td {
+  padding: 2px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.num {
+  text-align: right;
+}
+
+.pill {
+  display: inline-block;
+  min-width: 76px;
+  padding: 0 6px;
+  border-radius: 3px;
+  text-align: center;
+  color: var(--bg);
+}
+
+.pill-waiting { background: var(--state-waiting); }
+.pill-prefilling { background: var(--state-prefilling); }
+.pill-running { background: var(--state-running); }
+.pill-preempted { background: var(--state-preempted); }
+.pill-finished { background: var(--state-finished); }
+.pill-aborted { background: var(--state-aborted); }

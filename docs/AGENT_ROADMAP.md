@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11) to M1-T7 (#18) shipped |
+| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11) to M1-T8 (#19) shipped |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M1-T8 (lane B), then gate G1, once #18 is merged |
+| Next task | gate G1 (`/gate M1`) |
 | Lane A (engine) | idle. M1-T7 shipped as #18: results in `bench/results/m1/c1`, `c8` (both VALID), `comparison.md`; claims 21 and 22 |
-| Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | merge #18 once its CI is green; M1-T7 leftovers: a yes or no on deleting the five old, untracked run directories in `bench/results/m1/`, and where explaining uLLM's 1.167 TPOT ratio at c1 belongs (B6); close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
+| Lane B (contract-isolated) | idle. M1-T8 shipped as #19 (decision 0017): `pnpm -C terminal dev` replays `steady-chat` at http://127.0.0.1:5173; `?trace=`, `?live=`, `?speed=` |
+| Blocked on the author | M1-T7 leftovers: a yes or no on deleting the five old, untracked run directories in `bench/results/m1/`, and where explaining uLLM's 1.167 TPOT ratio at c1 belongs (B6); close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | `/build M1-T7` finished: the author ran the c8 smoke block and `make bench-baselines` on the idle Mac. Both sessions VALID, 2,784 requests, swap never grew. c1: Peak 2, Sustained 19 blocks; uLLM over sequential `mlx_lm.server`, Sustained: TPOT 1.167 [1.160, 1.172], TTFT 0.866, output tok/s 0.877. c8: Peak 1, Sustained 9; uLLM at `max_num_seqs = 1` gives 0.322 of batched tok/s, sequential mlx-lm 0.362. Batched `mlx_lm.server` streams spent 22% of stream time in stalls over 100 ms and peaked at 9.68 GB with its cache. Committed results show the home directory as `~`. Noticed, not fixed: the session records absolute snapshot paths in `session.json` and the server logs. Shipped as #18; its body holds the verdicts |
+| Last session | `/build M1-T8` and `/ship` as #19: the terminal shell (Vite 8, React 19, Vitest 5, pinned), an external `TelemetryStore` with ring buffers notified once per animation frame, `TelemetrySource` with replay and live SSE (`fetch`), the stats ticker and the request feed, a SIMULATED badge unless `hello` says `engine`. `make check-ts` now runs the terminal tests and `vite build`. The verifier drove the built app in headless Chrome: both fixtures, a `ullm sim` trace and a local SSE server end with the trace's finished and aborted counts. Review found a replay that froze on a malformed frame, an untested 200-row eviction, and data before `hello` shown without the badge; all fixed test-first. Noticed, not fixed: `prefix-pressure` has `kv_tokens` up to 39,949 against `capacity_tokens` 16,384, so the KV stat reads up to 221%; a missing `?trace=` on the dev server returns the HTML page, so the error names JSON, not 404. The live source is untested against the engine until M2-T4 |
 
 ---
 
@@ -577,7 +577,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [x] **M1-T5** Tests: unit (Q1), single-request equivalence (Q3), SDK contract and 50 clients (Q4).
 - [x] **M1-T6** Benchmark harness, workload A, run conditions (B1, B2, B5).
 - [x] **M1-T7** First baselines (B4): uLLM sequential, `mlx_lm.server` sequential and batched.
-- [ ] **M1-T8** `[B]` Terminal shell, ticker and feed on fixture telemetry (T1, part of T2).
+- [x] **M1-T8** `[B]` Terminal shell, ticker and feed on fixture telemetry (T1, part of T2).
 
 **Gate G1:** equivalence and SDK contract tests green in CI; baseline results committed; `curl` streams from the real model.
 

@@ -80,6 +80,13 @@ goldens: ## Regenerate the golden token IDs from mlx-lm (after a model, prompt o
 goldens-check: ## Regenerate the goldens in memory and compare them in full
 	$(UV) python scripts/make_goldens.py --check
 
+.PHONY: bench-baselines
+bench-baselines: models ## M1-T7: the c1 and c8 sessions of decision 0016, on an idle Mac on AC power
+	$(UV) python -m bench.session bench/groups/m1-c1.json --settle 240 --out bench/results/m1/c1
+	$(UV) python -m bench.session bench/groups/m1-c8.json --settle 600 --out bench/results/m1/c8
+	$(UV) python -m bench.analysis bench/results/m1/c1 bench/results/m1/c8 --compare \
+		> bench/results/m1/comparison.md
+
 .PHONY: test-mlx equivalence bench-smoke sim up verify
 test-mlx: ## Tests marked mlx: need MLX (Apple Silicon); the model from M0-T7 on
 	$(UV) pytest -m mlx
@@ -89,7 +96,7 @@ equivalence: models ## Token-for-token equivalence against mlx-lm (needs the mod
 
 bench-smoke: models ## Short benchmark run, for before/after numbers in a pull request (not a B5 run)
 	$(UV) python -m bench.run --target ullm --launch "$(UV) ullm serve" \
-		--smoke --requests 16 --warmup 2 --repeats 1 --cooldown 0
+		--requests 16 --warmup 2 --repeats 1 --cooldown 0
 
 sim: ## Run the real engine on FakeRunner with fake clients, then check the trace (no model)
 	$(UV) ullm sim

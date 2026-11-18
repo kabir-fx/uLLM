@@ -1,0 +1,12 @@
+run-20261118-141243 Peak      mlxA  n= 36 TPOT p50 14.96 ms  TTFT p50  192.0 ms
+run-20261118-141243 Peak      mlxB  n= 36 TPOT p50 14.97 ms  TTFT p50  192.9 ms
+run-20261118-141243 Peak      ullm  n= 36 TPOT p50 20.52 ms  TTFT p50  242.6 ms
+run-20261118-141243 Sustained mlxA  n= 48 TPOT p50 15.42 ms  TTFT p50  237.3 ms
+run-20261118-141243 Sustained mlxB  n= 48 TPOT p50 15.33 ms  TTFT p50  236.0 ms
+run-20261118-141243 Sustained ullm  n= 48 TPOT p50 19.22 ms  TTFT p50  344.9 ms
+run-20261118-163540 Peak      mlxA  n= 84 TPOT p50 14.10 ms  TTFT p50  189.0 ms
+run-20261118-163540 Peak      mlxB  n= 84 TPOT p50 14.25 ms  TTFT p50  188.8 ms
+run-20261118-163540 Peak      ullm  n= 84 TPOT p50 16.68 ms  TTFT p50  176.8 ms
+run-20261118-163540 Sustained mlxA  n= 84 TPOT p50 14.43 ms  TTFT p50  214.9 ms
+run-20261118-163540 Sustained mlxB  n= 84 TPOT p50 14.40 ms  TTFT p50  217.2 ms
+run-20261118-163540 Sustained ullm  n= 84 TPOT p50 16.88 ms  TTFT p50  196.5 ms

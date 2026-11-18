@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11) to M1-T6 (#17) shipped |
+| Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11) to M1-T7 (#18) shipped |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M1-T7 (first baselines), once #17 is merged |
-| Lane A (engine) | idle. M1-T7 next |
+| Next task | M1-T8 (lane B), then gate G1, once #18 is merged |
+| Lane A (engine) | idle. M1-T7 shipped as #18: results in `bench/results/m1/c1`, `c8` (both VALID), `comparison.md`; claims 21 and 22 |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | merge #17 once its CI is green; close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
+| Blocked on the author | merge #18 once its CI is green; M1-T7 leftovers: a yes or no on deleting the five old, untracked run directories in `bench/results/m1/`, and where explaining uLLM's 1.167 TPOT ratio at c1 belongs (B6); close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | Built M1-T6 (decision 0013, brief `docs/briefs/M1-T6-bench-harness.md`). `bench/`: `loadgen.py` (closed loop, raw SSE over `httpx2`, a timestamp per content chunk), `conditions.py` (B5 refusal, `powermetrics` as root via `sudo -n`), `run.py` (one C5 directory per run: warm-up, 3 repeats, cooldowns), `analysis.py` (`summary.md`, `latency.svg`, `--compare`), `make_workload_a.py` and `workloads/a.json` (256 UltraChat prefixes, prompts 155 to 793 tokens). `make bench-smoke` works (81 s); `make ci-mlx` now runs `make equivalence`. Claims 17 and 18. Proof VERIFIED and review READY at `2ccec75`, fixes to `ad3478e` (an unreadable SSE payload ended the run, `sudo -n -l` passed on any NOPASSWD rule, `--compare` crashed, zero concurrency measured nothing, untested median and exit code). The author's full B5 run logged 136 `powermetrics` samples. For M1-T7: repeats 2 and 3 ran 3.5 times slower per token than repeat 1 on one request with thermal pressure Nominal, cause unknown; `mlx_lm.server` returned fewer tokens on 3 of 8 requests inside a run than alone, prompt cache suspected; the author chose to run `mlx_lm.server` with its prompt cache on and off. Noticed, not fixed: `README.md` says nothing serves a model yet; requests have no timeout. Shipped as #17; its body holds the verdicts |
+| Last session | `/build M1-T7` finished: the author ran the c8 smoke block and `make bench-baselines` on the idle Mac. Both sessions VALID, 2,784 requests, swap never grew. c1: Peak 2, Sustained 19 blocks; uLLM over sequential `mlx_lm.server`, Sustained: TPOT 1.167 [1.160, 1.172], TTFT 0.866, output tok/s 0.877. c8: Peak 1, Sustained 9; uLLM at `max_num_seqs = 1` gives 0.322 of batched tok/s, sequential mlx-lm 0.362. Batched `mlx_lm.server` streams spent 22% of stream time in stalls over 100 ms and peaked at 9.68 GB with its cache. Committed results show the home directory as `~`. Noticed, not fixed: the session records absolute snapshot paths in `session.json` and the server logs. Shipped as #18; its body holds the verdicts |
 
 ---
 
@@ -516,7 +516,7 @@ Tests ask whether the code is correct: pass or fail, the same every run. Evals a
 
 **B4 Baselines.** uLLM in sequential mode; `mlx_lm.server` configured sequential and in its default batched mode (work out and document the flags); vllm-metal (attempt it, and if setup fails document what was tried); vllm-mlx; Ollama (it cannot load MLX weights, so use the closest quantization and say so). Same model and quantization everywhere else.
 
-**B5 Run conditions.** Plugged in, Low Power Mode off, other apps closed, the compose stack stopped, a cooldown between runs, a discarded warm-up, the median of three runs, GPU frequency and power logged with `powermetrics`. Long matrices run unattended.
+**B5 Run conditions.** Plugged in, Low Power Mode off, other apps closed, the compose stack stopped, GPU frequency and power logged with `powermetrics`. Engines take turns on the same prompts in one session, with a twin of the baseline as the noise floor and a discarded warm-up before every turn; blocks are sorted into Peak and Sustained from the clock log afterwards, and each figure states its regime (decision 0016, which replaced cooldowns and the median of three on the fanless Mac). Long sessions run unattended.
 
 **B6 Reporting.** uLLM will likely be slower than mlx-lm and vllm-metal in places. Report it, and explain each gap with our own measurements. Every table states its conditions.
 
@@ -576,7 +576,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [x] **M1-T4** API server (A1).
 - [x] **M1-T5** Tests: unit (Q1), single-request equivalence (Q3), SDK contract and 50 clients (Q4).
 - [x] **M1-T6** Benchmark harness, workload A, run conditions (B1, B2, B5).
-- [ ] **M1-T7** First baselines (B4): uLLM sequential, `mlx_lm.server` sequential and batched.
+- [x] **M1-T7** First baselines (B4): uLLM sequential, `mlx_lm.server` sequential and batched.
 - [ ] **M1-T8** `[B]` Terminal shell, ticker and feed on fixture telemetry (T1, part of T2).
 
 **Gate G1:** equivalence and SDK contract tests green in CI; baseline results committed; `curl` streams from the real model.

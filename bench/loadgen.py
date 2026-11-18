@@ -4,12 +4,11 @@ order, stream each reply over raw SSE, and time every content chunk (decision 00
 import asyncio
 import json
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Literal
 
 import httpx2
-from bench.schema import RequestRecord, Usage, WorkloadRequest
+from bench.schema import COMMON_FIELDS, Sent, Usage, WorkloadRequest
 
 TEMPERATURE = 0.0
 
@@ -61,8 +60,14 @@ async def send(
     model: str,
     request: WorkloadRequest,
     template_kwargs: dict[str, bool],
+    *,
+    extra_body: Mapping[str, object],
 ) -> tuple[Reply, float]:
-    """Stream one request. Returns the reply and its end time, both in ms after the send."""
+    """Stream one request. Returns the reply and its end time, both in ms after the send.
+    ``extra_body`` adds fields for one target and may not replace one that every target gets
+    (rule 7)."""
+    if clash := sorted(extra_body.keys() & set(COMMON_FIELDS)):
+        raise ValueError(f"extra body fields replace fields every target gets: {clash}")
     body = {
         "model": model,
         "messages": [m.model_dump() for m in request.messages],
@@ -71,6 +76,7 @@ async def send(
         "stream": True,
         "stream_options": {"include_usage": True},
         "chat_template_kwargs": template_kwargs,
+        **extra_body,
     }
     reply = Reply()
     start = time.perf_counter()
@@ -94,26 +100,25 @@ async def closed_loop(
     requests: Sequence[WorkloadRequest],
     concurrency: int,
     template_kwargs: dict[str, bool],
-    phase: Literal["warmup", "measure"],
-    repeat: int,
-    run_start: float,
-) -> list[RequestRecord]:
-    """Send every request with at most ``concurrency`` open, in order. ``run_start`` is a
-    ``time.perf_counter`` value; records are returned in workload order."""
+    *,
+    extra_body: Mapping[str, object],
+) -> list[Sent]:
+    """Send every request with at most ``concurrency`` open, in order. Returns them in
+    workload order."""
     queue = list(enumerate(requests))
     queue.reverse()
-    records: list[RequestRecord | None] = [None] * len(requests)
+    sent: list[Sent | None] = [None] * len(requests)
 
     async def client_loop() -> None:
         while queue:
             i, request = queue.pop()
-            sent_s = time.perf_counter() - run_start
-            reply, end_ms = await send(client, model, request, template_kwargs)
-            records[i] = RequestRecord(
-                phase=phase,
-                repeat=repeat,
+            sent_unix = time.time()
+            reply, end_ms = await send(
+                client, model, request, template_kwargs, extra_body=extra_body
+            )
+            sent[i] = Sent(
                 id=request.id,
-                sent_s=sent_s,
+                sent_unix=sent_unix,
                 chunk_ms=tuple(reply.chunk_ms),
                 end_ms=end_ms,
                 usage=reply.usage,
@@ -122,4 +127,4 @@ async def closed_loop(
             )
 
     await asyncio.gather(*(client_loop() for _ in range(concurrency)))
-    return [r for r in records if r is not None]
+    return [s for s in sent if s is not None]

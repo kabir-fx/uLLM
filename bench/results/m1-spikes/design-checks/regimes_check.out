@@ -1,0 +1,70 @@
+
+=== run-20261118-141243  margin 0.3 busy_min 0.0
+ blk phase     ullm  mlxA  mlxB  (capped share; * = any capped sample)  each pooled
+   0 cold_hot 0.00   0.00   0.00    P    P
+   1 cold_hot 0.00   0.00   0.00    P    P
+   2 cold_hot 0.00   0.16*  0.00    T    T
+   3 cold_hot 0.07*  0.15*  0.81*   T    T
+   4 cold_hot 0.02*  0.74*  0.84*   S    S
+   5 cold_hot 0.52*  0.41*  0.71*   T    S
+   6 cold_hot 0.27*  0.13*  0.42*   T    T
+   7 cold_hot 0.29*  0.66*  0.87*   S    S
+   8 reload1  0.00   0.00   0.00    P    P
+   9 hot2     0.00   0.55*  0.19*   T    T
+  10 hot2     0.25*  1.00*  1.00*   S    S
+  11 hot2     0.73*  0.50*  0.57*   S    S
+  12 lpm      0.94*  0.95*  0.96*   S    S
+  13 lpm      0.87*  1.00*  1.00*   S    S
+  14 lpm      0.91*  0.95*  0.96*   S    S
+  15 lpm      0.96*  0.96*  0.96*   S    S
+  16 lpm      0.85*  1.00*  1.00*   S    S
+ non-LPM counts (each): {'P': 3, 'T': 5, 'S': 4}
+ non-LPM counts (pooled): {'P': 3, 'T': 4, 'S': 5}
+ regime P blocks [0, 1, 8]
+   mlxA/mlxB: ttft 0.996 [0.992,1.015]  tpot 0.999 [0.999,1.001]  e2e 1.001 [0.999,1.003]  tok/s 0.992  n=36
+   ullm/mlxA: ttft 1.136 [0.957,1.618]  tpot 1.358 [1.238,1.730]  e2e 1.338 [1.216,1.795]  tok/s 0.661  n=36
+   ullm/mlxB: ttft 1.157 [0.980,1.609]  tpot 1.385 [1.244,1.733]  e2e 1.355 [1.169,1.810]  tok/s 0.656  n=36
+ regime S blocks [4, 7, 10, 11]
+   mlxA/mlxB: ttft 0.983 [0.921,1.014]  tpot 0.999 [0.964,1.057]  e2e 0.995 [0.969,1.059]  tok/s 1.022  n=48
+   ullm/mlxA: ttft 1.592 [1.045,1.914]  tpot 1.250 [1.178,1.360]  e2e 1.319 [1.164,1.460]  tok/s 0.630  n=48
+   ullm/mlxB: ttft 1.427 [1.080,1.959]  tpot 1.238 [1.167,1.429]  e2e 1.236 [1.206,1.444]  tok/s 0.607  n=48
+ LPM blocks capped share mlxA: [0.95, 1.0, 0.95, 0.96, 1.0]
+ ullm: stalls>100ms 662 (28.4/1k tok), max gap 992 ms, stall share 25.816%
+ mlxA: stalls>100ms 0 (0.0/1k tok), max gap 49 ms, stall share 0.000%
+
+=== run-20261118-163540  margin 0.3 busy_min 0.0
+ blk phase     ullm  mlxA  mlxB  (capped share; * = any capped sample)  each pooled
+   0 cold_hot 0.00   0.00   0.00    P    P
+   1 cold_hot 0.00   0.00   0.00    P    P
+   2 cold_hot 0.00   0.00   0.00    P    P
+   3 cold_hot 0.00   0.00   0.00    P    P
+   4 cold_hot 0.00   0.00   0.00    P    P
+   5 cold_hot 0.00   0.00   0.03*   T    T
+   6 cold_hot 0.23*  0.89*  0.86*   S    S
+   7 cold_hot 0.69*  0.95*  1.00*   S    S
+   8 cold_hot 0.58*  1.00*  1.00*   S    S
+   9 cold_hot 0.77*  1.00*  1.00*   S    S
+  10 cold_hot 1.00*  0.93*  0.95*   S    S
+  11 reload1  0.00   0.00   0.00    P    P
+  12 hot2     0.00   0.00   0.00    P    P
+  13 hot2     1.00*  0.00   0.43*   T    T
+  14 hot2     1.00*  1.00*  0.95*   S    S
+  15 hot2     1.00*  1.00*  1.00*   S    S
+  16 lpm      1.00*  1.00*  1.00*   S    S
+  17 lpm      1.00*  1.00*  1.00*   S    S
+  18 lpm      1.00*  1.00*  1.00*   S    S
+  19 lpm      1.00*  1.00*  1.00*   S    S
+  20 lpm      1.00*  1.00*  1.00*   S    S
+ non-LPM counts (each): {'P': 7, 'T': 2, 'S': 7}
+ non-LPM counts (pooled): {'P': 7, 'T': 2, 'S': 7}
+ regime P blocks [0, 1, 2, 3, 4, 11, 12]
+   mlxA/mlxB: ttft 0.998 [0.993,1.000]  tpot 0.998 [0.971,1.000]  e2e 0.998 [0.973,1.000]  tok/s 1.005  n=84
+   ullm/mlxA: ttft 0.926 [0.923,0.934]  tpot 1.170 [1.161,1.202]  e2e 1.147 [1.137,1.178]  tok/s 0.872  n=84
+   ullm/mlxB: ttft 0.923 [0.914,0.930]  tpot 1.156 [1.145,1.192]  e2e 1.136 [1.112,1.174]  tok/s 0.877  n=84
+ regime S blocks [6, 7, 8, 9, 10, 14, 15]
+   mlxA/mlxB: ttft 1.007 [0.989,1.019]  tpot 1.000 [0.998,1.002]  e2e 1.000 [0.998,1.003]  tok/s 0.997  n=84
+   ullm/mlxA: ttft 0.897 [0.872,0.909]  tpot 1.168 [1.166,1.175]  e2e 1.138 [1.132,1.145]  tok/s 0.874  n=84
+   ullm/mlxB: ttft 0.897 [0.884,0.907]  tpot 1.168 [1.157,1.173]  e2e 1.136 [1.128,1.144]  tok/s 0.873  n=84
+ LPM blocks capped share mlxA: [1.0, 1.0, 1.0, 1.0, 1.0]
+ ullm: stalls>100ms 0 (0.0/1k tok), max gap 36 ms, stall share 0.000%
+ mlxA: stalls>100ms 0 (0.0/1k tok), max gap 49 ms, stall share 0.000%

@@ -45,6 +45,8 @@ build-backend = "uv_build"
 line-length = 100
 target-version = "py312"
 src = ["src", "tests", "scripts"]
+# Committed benchmark evidence, kept exactly as it ran (rule 7).
+extend-exclude = ["bench/results"]
 
 [tool.ruff.lint]
 select = [
@@ -82,6 +84,7 @@ ban-relative-imports = "all"
 python_version = "3.12"
 mypy_path = ["src", "."]
 files = ["src", "tests", "scripts", "bench"]
+exclude = ["^bench/results/"]
 explicit_package_bases = true
 plugins = ["pydantic.mypy"]
 strict = true

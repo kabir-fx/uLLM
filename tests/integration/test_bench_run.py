@@ -1,5 +1,4 @@
-"""B1 and B5: a whole benchmark run against ``ullm serve --fake`` writes a C5 directory, and a
-run that breaks B5 never starts (decision 0013)."""
+"""B1: a whole smoke run against ``ullm serve --fake`` writes a C5 directory (decision 0013)."""
 
 import json
 import socket
@@ -8,9 +7,9 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from bench import analysis, conditions, schema
+from bench import analysis, schema
 from bench.run import main
-from bench.schema import Message, Power, Source, Workload, WorkloadRequest
+from bench.schema import Message, Source, Workload, WorkloadRequest
 
 from ullm.runner.fake_runner import FakeTokenizer
 
@@ -71,7 +70,6 @@ def test_a_smoke_run_writes_every_c5_file(
             "0.1",
             "--ready-timeout",
             "30",
-            "--smoke",
             "--out",
             str(out),
         ]
@@ -82,6 +80,7 @@ def test_a_smoke_run_writes_every_c5_file(
     assert "Uvicorn running" in (out / schema.TARGET_LOG).read_text()
     assert not (out / schema.METRICS).exists()  # ullm serve has no /metrics until M2-T5
     assert not (out / schema.POWERMETRICS).exists()
+    assert not (out / schema.POWERMETRICS_GZ).exists()
 
     config = json.loads((out / schema.CONFIG).read_text())
     assert (config["served_model"], config["requests"], config["smoke"]) == ("fake", 5, True)
@@ -104,27 +103,6 @@ def test_a_smoke_run_writes_every_c5_file(
         analysis.load_run(out)
 
 
-def test_a_full_run_that_breaks_b5_never_starts(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    out = tmp_path / "run"
-    code = main(
-        [
-            "--target",
-            "nothing",
-            "--workload",
-            str(_workload(tmp_path / "w.json", 1)),
-            "--repeats",
-            "1",
-            "--out",
-            str(out),
-        ]
-    )
-    assert code == 2
-    assert not out.exists()
-    assert "1 repeats" in capsys.readouterr().err
-
-
 def test_a_launch_onto_a_busy_port_never_starts(tmp_path: Path) -> None:
     with socket.socket() as busy:
         busy.bind(("127.0.0.1", 0))
@@ -141,62 +119,12 @@ def test_a_launch_onto_a_busy_port_never_starts(tmp_path: Path) -> None:
                 f"http://127.0.0.1:{port}",
                 "--workload",
                 str(_workload(tmp_path / "w.json", 1)),
-                "--smoke",
                 "--out",
                 str(out),
             ]
         )
     assert code == 2
     assert not out.exists()
-
-
-class _SilentPowerMetrics:
-    """powermetrics that started and logged nothing, as when root was refused."""
-
-    def __init__(self, path: Path) -> None:
-        self.path = path
-
-    def stop(self) -> None:
-        return
-
-
-def test_a_full_run_without_a_powermetrics_log_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setattr(
-        conditions, "power", lambda: Power(on_ac=True, battery_percent=100, low_power_mode=False)
-    )
-    monkeypatch.setattr(conditions, "can_sudo", lambda: True)
-    monkeypatch.setattr(conditions, "containers", lambda: 0)
-    monkeypatch.setattr(conditions, "PowerMetrics", _SilentPowerMetrics)
-    port = _free_port()
-    out = tmp_path / "run"
-    code = main(
-        [
-            "--target",
-            "fake",
-            "--launch",
-            f"{sys.executable} -m ullm.cli serve --fake --port {port}",
-            "--base-url",
-            f"http://127.0.0.1:{port}",
-            "--workload",
-            str(_workload(tmp_path / "w.json", 2)),
-            "--repeats",
-            "3",
-            "--warmup",
-            "1",
-            "--cooldown",
-            "0.1",
-            "--ready-timeout",
-            "30",
-            "--out",
-            str(out),
-        ]
-    )
-    assert code == 1
-    assert json.loads((out / schema.ENV).read_text())["powermetrics"] is False
-    assert "powermetrics" in capsys.readouterr().err
-    assert "| fake (not B5: no powermetrics log) |" in analysis.compare([analysis.load_run(out)])
 
 
 @pytest.mark.parametrize(
@@ -233,7 +161,6 @@ def test_a_run_with_a_mismatch_or_a_failure_exits_1(
             "1",
             "--ready-timeout",
             "30",
-            "--smoke",
             "--out",
             str(tmp_path / "run"),
         ]
@@ -246,6 +173,60 @@ def test_a_run_with_a_mismatch_or_a_failure_exits_1(
 def test_a_run_of_nothing_is_refused(flag: str, tmp_path: Path) -> None:
     out = tmp_path / "run"
     with pytest.raises(SystemExit) as refused:
-        main(["--target", "fake", flag, "0", "--ready-timeout", "1", "--smoke", "--out", str(out)])
+        main(["--target", "fake", flag, "0", "--ready-timeout", "1", "--out", str(out)])
     assert refused.value.code == 2
     assert not out.exists()
+
+
+def _fake_run(tmp_path: Path, *extra: str) -> tuple[int, Path]:
+    port = _free_port()
+    out = tmp_path / "run"
+    code = main(
+        [
+            "--target",
+            "fake",
+            "--launch",
+            f"{sys.executable} -m ullm.cli serve --fake --port {port}",
+            "--base-url",
+            f"http://127.0.0.1:{port}",
+            "--workload",
+            str(_workload(tmp_path / "w.json", 2)),
+            "--repeats",
+            "1",
+            "--warmup",
+            "1",
+            "--ready-timeout",
+            "30",
+            "--out",
+            str(out),
+            *extra,
+        ]
+    )
+    return code, out
+
+
+def test_extra_body_and_model_are_sent_and_recorded(tmp_path: Path) -> None:
+    code, out = _fake_run(tmp_path, "--model", "fake", "--extra-body", '{"seed": 0}')
+    assert code == 0
+    config = json.loads((out / schema.CONFIG).read_text())
+    assert (config["served_model"], config["extra_body"]) == ("fake", {"seed": 0})
+    assert "seed" in (out / schema.SUMMARY).read_text()
+
+
+def test_a_model_the_target_does_not_serve_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit, match="not-served"):
+        _fake_run(tmp_path, "--model", "not-served")
+
+
+@pytest.mark.parametrize("body", ['{"temperature": 1}', "[0]", "not json"])
+def test_extra_body_that_is_not_a_new_field_object_is_rejected(tmp_path: Path, body: str) -> None:
+    with pytest.raises(SystemExit) as exit_:
+        _fake_run(tmp_path, "--extra-body", body)
+    assert exit_.value.code == 2
+    assert not (tmp_path / "run").exists()
+
+
+def test_a_run_without_extra_body_records_none(tmp_path: Path) -> None:
+    code, out = _fake_run(tmp_path)
+    assert code == 0
+    assert json.loads((out / schema.CONFIG).read_text())["extra_body"] == {}

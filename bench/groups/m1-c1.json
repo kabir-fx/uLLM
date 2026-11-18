@@ -1,0 +1,39 @@
+{
+  "name": "m1-c1",
+  "concurrency": 1,
+  "servers": "resident",
+  "prompts_per_chunk": 12,
+  "warmup_per_chunk": 2,
+  "seed": 0,
+  "baseline": {
+    "name": "mlx-lm-sequential-no-cache",
+    "launch": "uv run --locked python scripts/mlx_lm_server.py --model {model} --port {port} --prompt-cache-size 0",
+    "model": "{model}",
+    "extra_body": {
+      "seed": 0
+    },
+    "footprint_gb": 3
+  },
+  "engines": [
+    {
+      "name": "ullm",
+      "launch": "uv run --locked ullm serve --port {port}",
+      "model": null,
+      "extra_body": {},
+      "footprint_gb": 3
+    },
+    {
+      "name": "mlx-lm-sequential",
+      "launch": "uv run --locked python scripts/mlx_lm_server.py --model {model} --port {port}",
+      "model": "{model}",
+      "extra_body": {
+        "seed": 0
+      },
+      "footprint_gb": 4
+    }
+  ],
+  "gates": {
+    "twin_tpot_peak": 0.005,
+    "twin_tpot_sustained": 0.03
+  }
+}

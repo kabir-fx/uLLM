@@ -216,6 +216,22 @@ def test_a_failure_inside_the_eval_fails_the_sequence(
     runner.release(1)
 
 
+def test_a_long_request_leaves_little_freed_memory_held_for_reuse(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    import mlx.core as mx
+
+    runner, _ = mlx_loaded
+    # Workload A's first request: 571 prompt tokens, 266 out. Without a cache limit, MLX held
+    # 4.79 GB of freed buffers after it, in a 16 GB machine shared with mlx-lm and the router.
+    runner.add(1, GREEDY)
+    token = runner.execute(PrefillPlan(seq=1, token_ids=tuple(range(1000, 1571)), start=0)).tokens
+    for _ in range(265):
+        token = runner.execute(DecodePlan(seqs=(1,), token_ids=token)).tokens
+    runner.release(1)
+    assert mx.get_cache_memory() < 512 * 2**20
+
+
 def test_the_cache_asks_for_no_mask_on_one_query_and_causal_otherwise() -> None:
     from ullm.runner.kv.contiguous import ContiguousKV
 

@@ -29,9 +29,15 @@ from ullm.runner.kv.contiguous import ContiguousKV
 from ullm.runner.ledger import SeqLedger
 from ullm.runner.sampler import SampleRow, sample
 
+# MLX keeps freed buffers for reuse up to its memory limit by default. ContiguousKV frees a
+# smaller K and V every step and never reuses them, so the default held 9 GB after 12
+# requests and swapped (decision 0015).
+CACHE_LIMIT = 256 * 2**20
+
 
 def load_mlx(spec: ModelSpec) -> tuple["MLXRunner", "MLXTokenizer"]:
     """Load weights, tokenizer and chat template once, at engine startup."""
+    mx.set_cache_limit(CACHE_LIMIT)
     loaded = load(spec.repo, revision=spec.revision)
     model, wrapped = loaded[0], loaded[1]
     info = RunnerInfo(

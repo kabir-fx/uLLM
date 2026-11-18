@@ -14,79 +14,21 @@ import asyncio
 import gzip
 import hashlib
 import json
-import os
-import shlex
-import signal
-import socket
-import subprocess
 import sys
 import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import IO
 
 import httpx2
 from bench import analysis, conditions, schema
 from bench.loadgen import COMMON_FIELDS, TEMPERATURE, closed_loop
 from bench.schema import RequestRecord, RunConfig, WorkloadRequest
+from bench.target import Target, port_in_use, ready
 
 WORKLOAD = Path("bench/workloads/a.json")
 RESULTS = Path("bench/results")
 SCRATCH = Path("bench/.scratch")
-
-
-class Target:
-    """The server under test, started from a command line in its own process group."""
-
-    def __init__(self, command: str, log: IO[bytes]) -> None:
-        self.proc = subprocess.Popen(
-            shlex.split(command), stdout=log, stderr=subprocess.STDOUT, start_new_session=True
-        )
-
-    def stop(self) -> None:
-        if self.proc.poll() is None:
-            os.killpg(self.proc.pid, signal.SIGINT)
-            try:
-                self.proc.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                os.killpg(self.proc.pid, signal.SIGKILL)
-                self.proc.wait()
-
-
-def _port_in_use(base_url: str) -> bool:
-    url = httpx2.URL(base_url)
-    try:
-        with socket.create_connection((url.host, url.port or 80), timeout=1):
-            return True
-    except OSError:
-        return False
-
-
-async def _ready(
-    client: httpx2.AsyncClient, target: Target | None, timeout_s: float, model: str | None
-) -> str:
-    """Wait for ``GET /health``, then return the model id to send: ``model`` when
-    ``GET /v1/models`` lists it, else the first id it lists."""
-    deadline = time.monotonic() + timeout_s
-    while True:
-        if target is not None and target.proc.poll() is not None:
-            raise SystemExit(f"the target exited with {target.proc.returncode} before it was ready")
-        try:
-            healthy = (await client.get("/health")).status_code == 200
-        except httpx2.TransportError:
-            healthy = False
-        if healthy:
-            break
-        if time.monotonic() > deadline:
-            raise SystemExit(f"the target was not healthy after {timeout_s:g} s")
-        await asyncio.sleep(0.5)
-    served = [str(m["id"]) for m in (await client.get("/v1/models")).json()["data"]]
-    if model is None:
-        return served[0]
-    if model not in served:
-        raise SystemExit(f"the target does not serve {model!r}; it lists {served}")
-    return model
 
 
 async def _measure(
@@ -97,7 +39,7 @@ async def _measure(
     out: Path,
 ) -> tuple[str, list[RequestRecord]]:
     async with httpx2.AsyncClient(base_url=args.base_url, timeout=None) as client:
-        model = await _ready(client, target, args.ready_timeout, args.model)
+        model = await ready(client, target, args.ready_timeout, args.model)
         start = time.perf_counter()
         records = await closed_loop(
             client,
@@ -167,7 +109,7 @@ def run(args: argparse.Namespace) -> int:
                 print(f"  - {problem}", file=sys.stderr)
             print("use --smoke for a run that is not B5", file=sys.stderr)
             return 2
-    if args.launch and _port_in_use(args.base_url):
+    if args.launch and port_in_use(args.base_url):
         print(f"refusing to launch: something already listens at {args.base_url}", file=sys.stderr)
         return 2
     started = datetime.now(UTC)

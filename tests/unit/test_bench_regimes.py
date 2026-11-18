@@ -139,3 +139,12 @@ def test_read_powermetrics_rebuilds_the_clock_and_skips_a_cut_off_last_sample(
     assert first.steps == {1470: 1.0}
     assert second.requested is None
     assert second.applied is None
+
+
+def test_a_block_the_clock_log_does_not_cover_is_transition() -> None:
+    # powermetrics stopped before the session did: no sample says the clock was full.
+    spans, samples = _block({"ullm": [False] * 4, "base": [False] * 4, "twin": [False] * 4})
+    late = [ChunkSpan(s.engine, s.start_unix + 100, s.end_unix + 100) for s in spans]
+    assert classify(late, samples, DECIDERS) is Regime.TRANSITION
+    one_late = [*spans[:2], late[2]]
+    assert classify(one_late, samples, DECIDERS) is Regime.TRANSITION

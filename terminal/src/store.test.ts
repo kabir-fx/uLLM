@@ -58,6 +58,18 @@ describe("TelemetryStore life cycle", () => {
     expect(tokens).toEqual({ a: 3, b: 4 });
   });
 
+  it("marks a preempted request, and prefills it again into running", () => {
+    const store = storeOf(
+      ev.frames([
+        [ev.hello(), ev.arrived(1, "a"), ev.admitted(1, "a"), ev.step(2, "prefill", ["a"])],
+        [{ type: "req.preempted", t: 3, rid: "a", completion_tokens: 1, blocks_freed: 2 }],
+      ]),
+    );
+    expect(store.request("a")?.state).toBe("preempted");
+    store.ingest(ev.frames([[ev.admitted(4, "a")], [ev.step(5, "prefill", ["a"])]], 2)[1]!);
+    expect(store.request("a")?.state).toBe("running");
+  });
+
   it("takes the engine's count when a request ends", () => {
     const store = storeOf(
       ev.frames([[ev.hello(), ev.arrived(1, "a"), ev.admitted(1, "a")], [ev.finished(9, "a", 7, 3)]]),
@@ -115,6 +127,14 @@ describe("TelemetryStore feed", () => {
     expect(feed).toHaveLength(FEED_ROWS);
     expect(feed[0]?.rid).toBe("live");
     expect(feed[1]?.rid).toBe(`r${n - 1}`);
+  });
+
+  it("forgets the oldest ended request beyond the feed's rows", () => {
+    const groups: ev.Event[][] = [[ev.hello()]];
+    for (let i = 0; i < FEED_ROWS + 50; i++) groups.push([ev.arrived(i, `r${i}`), ev.finished(i, `r${i}`, 1, null)]);
+    const store = storeOf(ev.frames(groups));
+    expect(store.request("r49")).toBeUndefined();
+    expect(store.request("r50")?.state).toBe("finished");
   });
 
   it("never drops a request that is still in flight", () => {

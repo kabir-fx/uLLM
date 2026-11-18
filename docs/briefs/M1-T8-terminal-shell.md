@@ -1,6 +1,6 @@
 # M1-T8: The terminal shell, ticker and feed
 
-**State:** in build. You do nothing now. Read this page when the build reports.
+**State:** DONE at `61c8a1e`. Type `/ship` to open the pull request.
 **Decision record:** [0017](../decisions/0017-terminal-shell.md) (the full design, for agents) · **Spec:** roadmap M1-T8 (T1, part of T2)
 
 ## The goal
@@ -87,3 +87,26 @@ The ticker uses the `t` of each event, and the replay does not change `t`. Only 
 </details>
 
 ## Result
+
+**State:** DONE. The proof is VERIFIED at `c851227`. The review is READY at `c851227`, with the fix commits up to `61c8a1e`. `make ci` passes at `61c8a1e`. This change used 2 agent runs.
+
+**Against the plan:** the build followed the plan. The UI tests render with `react-dom/server` under Node, so the change adds no DOM library.
+
+**Bugs that the review found:**
+
+- A frame without `events` froze the replay, and the header still showed "open". Now `parseFrame` rejects that frame. The replay also stops with an error status when the store throws.
+- No test checked that the store keeps only 200 ended rows. A new test fails when the eviction line goes.
+- Data before a `hello` showed no SIMULATED badge. Now the badge shows until a `hello` says `engine`.
+
+**What the verifier saw:** the agent drove the built app in headless Chrome. Both fixtures ended with the counts of the trace. A `ullm sim` trace showed 50 rows, with 38 finished and 12 aborted. A local SSE server gave the same result as the replay. At speed 1 and speed 8, the final TTFT and TPOT were the same.
+
+**What is not proven:**
+
+- The live source against the real engine. M2-T4 brings `/telemetry/stream`.
+- The lower edge of the 60 s window in a browser. The fixtures are shorter than 60 s.
+
+**Read these yourself:**
+
+- `terminal/src/store.ts:61-72`: the reset at `hello` and the count of missed frames.
+- `terminal/src/sources/replay.ts:24-45`: the tick loop and its error path.
+- `terminal/src/sources/live.ts:41-60`: the SSE parser and the CR LF case.

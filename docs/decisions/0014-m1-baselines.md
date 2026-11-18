@@ -1,6 +1,6 @@
 # 0014: The M1 baselines: what each target runs, and why
 
-**Status:** accepted · **Task:** M1-T7 (B4, B5, B6)
+**Status:** accepted; its run plan (repeats, cooldowns, the clock check, `bench/baselines.sh`) superseded by [0016](0016-paired-sessions.md), its targets and launch flags kept · **Task:** M1-T7 (B4, B5, B6)
 
 ## Context
 

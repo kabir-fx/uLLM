@@ -516,7 +516,7 @@ Tests ask whether the code is correct: pass or fail, the same every run. Evals a
 
 **B4 Baselines.** uLLM in sequential mode; `mlx_lm.server` configured sequential and in its default batched mode (work out and document the flags); vllm-metal (attempt it, and if setup fails document what was tried); vllm-mlx; Ollama (it cannot load MLX weights, so use the closest quantization and say so). Same model and quantization everywhere else.
 
-**B5 Run conditions.** Plugged in, Low Power Mode off, other apps closed, the compose stack stopped, a cooldown between runs, a discarded warm-up, the median of three runs, GPU frequency and power logged with `powermetrics`. Long matrices run unattended.
+**B5 Run conditions.** Plugged in, Low Power Mode off, other apps closed, the compose stack stopped, GPU frequency and power logged with `powermetrics`. Engines take turns on the same prompts in one session, with a twin of the baseline as the noise floor and a discarded warm-up before every turn; blocks are sorted into Peak and Sustained from the clock log afterwards, and each figure states its regime (decision 0016, which replaced cooldowns and the median of three on the fanless Mac). Long sessions run unattended.
 
 **B6 Reporting.** uLLM will likely be slower than mlx-lm and vllm-metal in places. Report it, and explain each gap with our own measurements. Every table states its conditions.
 

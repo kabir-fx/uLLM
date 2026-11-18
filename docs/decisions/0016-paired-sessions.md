@@ -1,6 +1,6 @@
 # 0016: Benchmarks as paired sessions, sorted by GPU cap
 
-**Status:** proposed, the author's answers recorded below · **Task:** M1-T7 (B1, B4, B5, B6) · **Implements:** the author's `Fanless Mac Benchmarking - Final Approach.md` (repo root, not committed), item by item in "Conformance" · **Supersedes:** the run plan of 0014 (repeats, cooldowns, the clock check) and 0013's B5 plan check, once accepted
+**Status:** accepted, the author's answers recorded below; built in M1-T7 with the deviations in "As built" · **Task:** M1-T7 (B1, B4, B5, B6) · **Implements:** the author's `Fanless Mac Benchmarking - Final Approach.md` (repo root, not committed), item by item in "Conformance" · **Supersedes:** the run plan of 0014 (repeats, cooldowns, the clock check) and 0013's B5 plan check, once accepted
 
 ## Problem
 
@@ -339,6 +339,17 @@ Asked in this design session, answered by the author:
 6. Settle 240 s before c1 and 600 s before c8. Agent's default, not changed by the author.
 7. Commit both spikes and the design checks under `bench/results/m1-spikes/`.
 8. The five old run directories are deleted only after the new sessions are committed, and only when the author says yes then.
+
+## As built
+
+Where the build differs from the shape above, and why:
+
+- `Probe` allows an engine with no footprint, when its server is gone. The memory gate then fails, instead of the probe crashing the session mid-run.
+- `paired.bootstrap` takes any statistic, so the p99 interval uses the same block bootstrap as the ratios; `ratio` is `bootstrap` with the median. `Estimate.median` is named `point`, since it holds a p99 there.
+- A started server is its own object, `Live`, so no request can go to a server that is not ready.
+- A smoke session exits 1: only a VALID session exits 0.
+- Ruff and mypy skip `bench/results/`: the committed spike scripts stay as they ran.
+- The committed spike files read `~` for the home directory; the scripts' paths still point at `bench/.scratch/thermal-spike/`, where they ran.
 
 ## First step
 

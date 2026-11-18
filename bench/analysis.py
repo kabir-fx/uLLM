@@ -275,6 +275,7 @@ class Session:
     path: Path
     group: Group
     info: SessionInfo
+    env: RunEnv
     records: list[SessionRecord]
     probes: list[Probe]
     prompt_tokens: dict[str, int]
@@ -490,8 +491,9 @@ def load_session(path: Path) -> Session:
         _liveness_gate(info, records, prompt_tokens),
         _memory_gate(group, probes),
     ]
+    env = RunEnv.model_validate_json((path / schema.ENV).read_text())
     session = Session(
-        path, group, info, records, probes, prompt_tokens, spans, samples, regimes, gates
+        path, group, info, env, records, probes, prompt_tokens, spans, samples, regimes, gates
     )
     twin = {regime: ratios(session, session.twin, regime).get("TPOT") for regime in REGIMES}
     gates.append(_twin_gate(group, twin))
@@ -585,15 +587,17 @@ def _absolute_table(session: Session, regime: Regime) -> list[str]:
     return lines
 
 
-def _streams_table(session: Session) -> list[str]:
+def _streams_table(session: Session, regime: Regime) -> list[str]:
+    blocks = [b for b, r in session.regimes.items() if r is regime]
     lines = [
-        f"Every measured request. A stall is a gap over {STALL_MS:g} ms between chunks.",
+        f"Streams: a stall is a gap over {STALL_MS:g} ms between chunks. The footprint is the "
+        "session's peak.",
         "",
         "| Engine | Largest gap (ms) | Stream time in stalls | Peak footprint (GB) |",
         "|---|---|---|---|",
     ]
     for spec in session.group.servers_in_order:
-        rows = [r.sent for r in session.records if r.phase == "measure" and r.engine == spec.name]
+        rows = [r.sent for r in session.measured(spec.name, blocks)]
         gaps = [b - a for s in rows for a, b in itertools.pairwise(s.chunk_ms)]
         stream = sum(s.chunk_ms[-1] - s.chunk_ms[0] for s in rows if s.chunk_ms)
         stalled = sum(g for g in gaps if g > STALL_MS)
@@ -626,6 +630,19 @@ def _same_length(session: Session) -> list[str]:
     return lines
 
 
+def _conditions(session: Session) -> str:
+    e, n = session.env, len(session.probes)
+    libraries = ", ".join(f"{k} {v}" for k, v in e.libraries.items() if k in ("mlx", "mlx-lm"))
+    charging = sum(p.power.charging is True for p in session.probes)
+    lid = sum(p.power.lid_open is True for p in session.probes)
+    return (
+        f"- Commit `{e.commit[:12]}`{' (dirty tree)' if e.dirty else ''}. {e.chip}, "
+        f"{e.cores} cores, {e.memory_gb:g} GB, macOS {e.macos}; {libraries}. At the start: "
+        f"AC {e.power.on_ac}, battery {e.power.battery_percent}%, Low Power Mode "
+        f"{e.power.low_power_mode}. Over {n} probes: charging in {charging}, lid open in {lid}."
+    )
+
+
 def _lifecycle(group: Group) -> str:
     return "servers stay loaded" if group.servers == "resident" else "one server per chunk"
 
@@ -641,6 +658,7 @@ def session_summary(session: Session) -> str:
         + f". {_lifecycle(g).capitalize()}.",
         f"- {g.prompts_per_chunk} prompts and {g.warmup_per_chunk} warm-up requests a chunk; "
         f"settle {info.settle_s:g} s; seed {g.seed}.",
+        _conditions(session),
         "",
         "## Gates",
         "",
@@ -660,7 +678,7 @@ def session_summary(session: Session) -> str:
             continue
         lines += [f"## {regime.value}", ""]
         lines += [*_ratio_table(session, regime), "", *_absolute_table(session, regime), ""]
-    lines += ["## Streams", "", *_streams_table(session), ""]
+        lines += [*_streams_table(session, regime), ""]
     if g.concurrency == 1:
         lines += [
             f"## Same completion length as `{g.baseline.name}`, prompt by prompt",

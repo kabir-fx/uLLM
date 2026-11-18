@@ -81,8 +81,11 @@ goldens-check: ## Regenerate the goldens in memory and compare them in full
 	$(UV) python scripts/make_goldens.py --check
 
 .PHONY: bench-baselines
-bench-baselines: models ## M1-T7: six B5 runs of uLLM and mlx_lm.server, about 3 h on an idle Mac
-	bench/baselines.sh
+bench-baselines: models ## M1-T7: the c1 and c8 sessions of decision 0016, on an idle Mac on AC power
+	$(UV) python -m bench.session bench/groups/m1-c1.json --settle 240 --out bench/results/m1/c1
+	$(UV) python -m bench.session bench/groups/m1-c8.json --settle 600 --out bench/results/m1/c8
+	$(UV) python -m bench.analysis bench/results/m1/c1 bench/results/m1/c8 --compare \
+		> bench/results/m1/comparison.md
 
 .PHONY: test-mlx equivalence bench-smoke sim up verify
 test-mlx: ## Tests marked mlx: need MLX (Apple Silicon); the model from M0-T7 on

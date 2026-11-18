@@ -93,7 +93,7 @@ equivalence: models ## Token-for-token equivalence against mlx-lm (needs the mod
 
 bench-smoke: models ## Short benchmark run, for before/after numbers in a pull request (not a B5 run)
 	$(UV) python -m bench.run --target ullm --launch "$(UV) ullm serve" \
-		--smoke --requests 16 --warmup 2 --repeats 1 --cooldown 0
+		--requests 16 --warmup 2 --repeats 1 --cooldown 0
 
 sim: ## Run the real engine on FakeRunner with fake clients, then check the trace (no model)
 	$(UV) ullm sim

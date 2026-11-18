@@ -76,6 +76,8 @@ class Power(Frozen):
     on_ac: bool | None
     battery_percent: int | None
     low_power_mode: bool | None
+    charging: bool | None
+    lid_open: bool | None
 
 
 class RunEnv(Frozen):

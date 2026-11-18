@@ -1,7 +1,5 @@
-"""B1 and B5: a whole benchmark run against ``ullm serve --fake`` writes a C5 directory, and a
-run that breaks B5 never starts (decision 0013)."""
+"""B1: a whole smoke run against ``ullm serve --fake`` writes a C5 directory (decision 0013)."""
 
-import gzip
 import json
 import socket
 import sys
@@ -9,9 +7,9 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from bench import analysis, conditions, schema
+from bench import analysis, schema
 from bench.run import main
-from bench.schema import Message, Power, Source, Workload, WorkloadRequest
+from bench.schema import Message, Source, Workload, WorkloadRequest
 
 from ullm.runner.fake_runner import FakeTokenizer
 
@@ -72,7 +70,6 @@ def test_a_smoke_run_writes_every_c5_file(
             "0.1",
             "--ready-timeout",
             "30",
-            "--smoke",
             "--out",
             str(out),
         ]
@@ -106,27 +103,6 @@ def test_a_smoke_run_writes_every_c5_file(
         analysis.load_run(out)
 
 
-def test_a_full_run_that_breaks_b5_never_starts(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    out = tmp_path / "run"
-    code = main(
-        [
-            "--target",
-            "nothing",
-            "--workload",
-            str(_workload(tmp_path / "w.json", 1)),
-            "--repeats",
-            "1",
-            "--out",
-            str(out),
-        ]
-    )
-    assert code == 2
-    assert not out.exists()
-    assert "1 repeats" in capsys.readouterr().err
-
-
 def test_a_launch_onto_a_busy_port_never_starts(tmp_path: Path) -> None:
     with socket.socket() as busy:
         busy.bind(("127.0.0.1", 0))
@@ -143,90 +119,12 @@ def test_a_launch_onto_a_busy_port_never_starts(tmp_path: Path) -> None:
                 f"http://127.0.0.1:{port}",
                 "--workload",
                 str(_workload(tmp_path / "w.json", 1)),
-                "--smoke",
                 "--out",
                 str(out),
             ]
         )
     assert code == 2
     assert not out.exists()
-
-
-class _SilentPowerMetrics:
-    """powermetrics that started and logged nothing, as when root was refused."""
-
-    def __init__(self, path: Path) -> None:
-        self.path = path
-
-    def stop(self) -> None:
-        return
-
-
-class _LoggingPowerMetrics(_SilentPowerMetrics):
-    """powermetrics that flushed one sample on stop."""
-
-    def stop(self) -> None:
-        self.path.write_bytes(SAMPLE)
-
-
-SAMPLE = b'<?xml version="1.0"?><plist><dict></dict></plist>\0'
-
-
-def _full_run(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, powermetrics: type[_SilentPowerMetrics]
-) -> tuple[int, Path]:
-    monkeypatch.setattr(
-        conditions, "power", lambda: Power(on_ac=True, battery_percent=100, low_power_mode=False)
-    )
-    monkeypatch.setattr(conditions, "can_sudo", lambda: True)
-    monkeypatch.setattr(conditions, "containers", lambda: 0)
-    monkeypatch.setattr(conditions, "PowerMetrics", powermetrics)
-    port = _free_port()
-    out = tmp_path / "run"
-    code = main(
-        [
-            "--target",
-            "fake",
-            "--launch",
-            f"{sys.executable} -m ullm.cli serve --fake --port {port}",
-            "--base-url",
-            f"http://127.0.0.1:{port}",
-            "--workload",
-            str(_workload(tmp_path / "w.json", 2)),
-            "--repeats",
-            "3",
-            "--warmup",
-            "1",
-            "--cooldown",
-            "0.1",
-            "--ready-timeout",
-            "30",
-            "--out",
-            str(out),
-        ]
-    )
-    return code, out
-
-
-def test_a_full_run_without_a_powermetrics_log_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    code, out = _full_run(tmp_path, monkeypatch, _SilentPowerMetrics)
-    assert code == 1
-    assert json.loads((out / schema.ENV).read_text())["powermetrics"] is False
-    assert "powermetrics" in capsys.readouterr().err
-    assert "| fake (not B5: no powermetrics log) |" in analysis.compare([analysis.load_run(out)])
-
-
-def test_a_full_run_keeps_its_powermetrics_log_gzipped(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    code, out = _full_run(tmp_path, monkeypatch, _LoggingPowerMetrics)
-    assert code == 0
-    assert gzip.decompress((out / schema.POWERMETRICS_GZ).read_bytes()) == SAMPLE
-    assert not (out / schema.POWERMETRICS).exists()
-    assert json.loads((out / schema.ENV).read_text())["powermetrics"] is True
-    assert "| fake |" in analysis.compare([analysis.load_run(out)])
 
 
 @pytest.mark.parametrize(
@@ -263,7 +161,6 @@ def test_a_run_with_a_mismatch_or_a_failure_exits_1(
             "1",
             "--ready-timeout",
             "30",
-            "--smoke",
             "--out",
             str(tmp_path / "run"),
         ]
@@ -276,7 +173,7 @@ def test_a_run_with_a_mismatch_or_a_failure_exits_1(
 def test_a_run_of_nothing_is_refused(flag: str, tmp_path: Path) -> None:
     out = tmp_path / "run"
     with pytest.raises(SystemExit) as refused:
-        main(["--target", "fake", flag, "0", "--ready-timeout", "1", "--smoke", "--out", str(out)])
+        main(["--target", "fake", flag, "0", "--ready-timeout", "1", "--out", str(out)])
     assert refused.value.code == 2
     assert not out.exists()
 
@@ -300,7 +197,6 @@ def _fake_run(tmp_path: Path, *extra: str) -> tuple[int, Path]:
             "1",
             "--ready-timeout",
             "30",
-            "--smoke",
             "--out",
             str(out),
             *extra,

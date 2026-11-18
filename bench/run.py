@@ -1,17 +1,15 @@
-"""One benchmark run, end to end, into a C5 directory (B1, B5, decision 0013).
+"""One smoke run of one target, end to end, into a C5 directory (B1, decision 0013): the
+before and after numbers of ``make bench-smoke``. Claims come from sessions (decision 0016).
 
-    uv run python -m bench.run --target ullm --launch "uv run ullm serve"
-    uv run python -m bench.run --target ullm --launch "uv run ullm serve" --smoke --requests 16
+    uv run python -m bench.run --target ullm --launch "uv run ullm serve" --requests 16
     uv run python -m bench.run --target mlx-lm --launch "uv run mlx_lm.server --model <dir>" \
         --model <dir> --extra-body '{"seed": 0}'
 
-A full run refuses to start unless B5 holds. ``--smoke`` skips that check and says so in
-config.json and summary.md.
+A run checks no B5 condition and says so in config.json and summary.md.
 """
 
 import argparse
 import asyncio
-import gzip
 import hashlib
 import json
 import sys
@@ -28,7 +26,6 @@ from bench.schema import RequestRecord, RunConfig, Sent, WorkloadRequest
 from bench.target import Target, port_in_use, ready
 
 WORKLOAD = Path("bench/workloads/a.json")
-RESULTS = Path("bench/results")
 SCRATCH = Path("bench/.scratch")
 
 
@@ -87,46 +84,18 @@ def _out_dir(args: argparse.Namespace, started: datetime) -> Path:
     if args.out is not None:
         return Path(args.out)
     stamp = started.strftime("%Y%m%d-%H%M%S")
-    return (SCRATCH if args.smoke else RESULTS) / f"{stamp}-{args.target}-c{args.concurrency}"
-
-
-def _gzip_powermetrics(out: Path) -> bool:
-    """Replace the powermetrics log with its gzip: about 32 KB a sample raw, 2 KB gzipped
-    (decision 0014). True when the log held anything."""
-    plist = out / schema.POWERMETRICS
-    if not plist.exists():
-        return False
-    data = plist.read_bytes()
-    if data:
-        (out / schema.POWERMETRICS_GZ).write_bytes(gzip.compress(data, mtime=0))
-    plist.unlink()
-    return bool(data)
+    return SCRATCH / f"{stamp}-{args.target}-c{args.concurrency}"
 
 
 def run(args: argparse.Namespace) -> int:
     workload = schema.load_workload(args.workload)
     requests = workload.requests[: args.requests] if args.requests else workload.requests
-    if not args.smoke:
-        plan = conditions.Plan(args.repeats, args.warmup, args.cooldown)
-        broken = conditions.violations(
-            conditions.power(),
-            sudo=conditions.can_sudo(),
-            containers=conditions.containers(),
-            plan=plan,
-        )
-        if broken:
-            print("refusing a full run; B5 is broken:", file=sys.stderr)
-            for problem in broken:
-                print(f"  - {problem}", file=sys.stderr)
-            print("use --smoke for a run that is not B5", file=sys.stderr)
-            return 2
     if args.launch and port_in_use(args.base_url):
         print(f"refusing to launch: something already listens at {args.base_url}", file=sys.stderr)
         return 2
     started = datetime.now(UTC)
     out = _out_dir(args, started)
     out.mkdir(parents=True)
-    powermetrics = None if args.smoke else conditions.PowerMetrics(out / schema.POWERMETRICS)
     target = None
     with (out / schema.TARGET_LOG).open("wb") as log:
         try:
@@ -138,8 +107,6 @@ def run(args: argparse.Namespace) -> int:
         finally:
             if target is not None:
                 target.stop()
-            if powermetrics is not None:
-                powermetrics.stop()
     config = RunConfig(
         target=args.target,
         base_url=args.base_url,
@@ -155,10 +122,9 @@ def run(args: argparse.Namespace) -> int:
         temperature=TEMPERATURE,
         chat_template_kwargs=workload.chat_template_kwargs,
         extra_body=args.extra_body,
-        smoke=args.smoke,
+        smoke=True,
     )
-    logged = _gzip_powermetrics(out)
-    env = conditions.environment(used_powermetrics=logged, started=started)
+    env = conditions.environment(used_powermetrics=False, started=started)
     (out / schema.CONFIG).write_text(config.model_dump_json(indent=2) + "\n")
     (out / schema.ENV).write_text(env.model_dump_json(indent=2) + "\n")
     (out / schema.RAW).write_text("".join(r.model_dump_json() + "\n" for r in records))
@@ -168,9 +134,7 @@ def run(args: argparse.Namespace) -> int:
     failed = sum(s.failed + s.prompt_mismatches for s in result.stats)
     if failed:
         print(f"{failed} measured requests failed or rendered another prompt", file=sys.stderr)
-    if not args.smoke and not logged:
-        print("powermetrics wrote no log: this run does not meet B5", file=sys.stderr)
-    return 1 if failed or (not args.smoke and not logged) else 0
+    return 1 if failed else 0
 
 
 def _positive(text: str) -> int:
@@ -213,7 +177,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--warmup", type=int, default=4, help="requests sent first, not counted")
     parser.add_argument("--cooldown", type=float, default=120.0, help="seconds between repeats")
     parser.add_argument("--ready-timeout", type=float, default=300.0)
-    parser.add_argument("--smoke", action="store_true", help="skip the B5 check; not for claims")
     parser.add_argument("--out", type=Path, help="the run directory; default a new one")
     return run(parser.parse_args(argv))
 

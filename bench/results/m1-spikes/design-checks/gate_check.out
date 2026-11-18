@@ -1,0 +1,18 @@
+=== run-20261118-141243
+  P ttft  median 0.9965  CI [0.9922, 1.0151]  n= 36 blocks=3  CI has 1: yes  |med-1|<=0.005: yes
+  P tpot  median 0.9990  CI [0.9988, 1.0014]  n= 36 blocks=3  CI has 1: yes  |med-1|<=0.005: yes
+  P e2e   median 1.0009  CI [0.9989, 1.0027]  n= 36 blocks=3  CI has 1: yes  |med-1|<=0.005: yes
+  P tok/s median 0.9922  CI [0.9336, 1.0371]  n=  3 blocks=3  CI has 1: yes  |med-1|<=0.005: NO
+  S ttft  median 0.9833  CI [0.9210, 1.0136]  n= 48 blocks=4  CI has 1: yes  |med-1|<=0.03: yes
+  S tpot  median 0.9989  CI [0.9642, 1.0571]  n= 48 blocks=4  CI has 1: yes  |med-1|<=0.03: yes
+  S e2e   median 0.9953  CI [0.9690, 1.0591]  n= 48 blocks=4  CI has 1: yes  |med-1|<=0.03: yes
+  S tok/s median 1.0224  CI [0.9068, 1.0447]  n=  4 blocks=4  CI has 1: yes  |med-1|<=0.03: yes
+=== run-20261118-163540
+  P ttft  median 0.9978  CI [0.9933, 1.0001]  n= 84 blocks=7  CI has 1: yes  |med-1|<=0.005: yes
+  P tpot  median 0.9979  CI [0.9709, 1.0001]  n= 84 blocks=7  CI has 1: yes  |med-1|<=0.005: yes
+  P e2e   median 0.9975  CI [0.9728, 1.0000]  n= 84 blocks=7  CI has 1: NO   |med-1|<=0.005: yes
+  P tok/s median 1.0048  CI [0.9897, 1.0436]  n=  7 blocks=7  CI has 1: yes  |med-1|<=0.005: yes
+  S ttft  median 1.0068  CI [0.9893, 1.0194]  n= 84 blocks=7  CI has 1: yes  |med-1|<=0.03: yes
+  S tpot  median 1.0005  CI [0.9984, 1.0016]  n= 84 blocks=7  CI has 1: yes  |med-1|<=0.03: yes
+  S e2e   median 1.0003  CI [0.9980, 1.0031]  n= 84 blocks=7  CI has 1: yes  |med-1|<=0.03: yes
+  S tok/s median 0.9973  CI [0.9943, 1.0077]  n=  7 blocks=7  CI has 1: yes  |med-1|<=0.03: yes

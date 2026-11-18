@@ -1,0 +1,72 @@
+{
+  "plan": {
+    "k": 12,
+    "cold_hot_end": 1020.0,
+    "rest1": 180,
+    "hot2_end": 1770.0,
+    "deadline": 2655.0,
+    "block_est": 125.0,
+    "samples": 2760
+  },
+  "engines": {
+    "ullm": {
+      "port": 8000,
+      "launch": "uv run --locked ullm serve --port 8000",
+      "model": null,
+      "extra": {}
+    },
+    "mlxA": {
+      "port": 8001,
+      "launch": "uv run --locked python scripts/mlx_lm_server.py --model ~/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8 --prompt-cache-size 0 --port 8001",
+      "model": "~/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8",
+      "extra": {
+        "seed": 0
+      }
+    },
+    "mlxB": {
+      "port": 8002,
+      "launch": "uv run --locked python scripts/mlx_lm_server.py --model ~/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8 --prompt-cache-size 0 --port 8002",
+      "model": "~/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8",
+      "extra": {
+        "seed": 0
+      }
+    }
+  },
+  "orders": [
+    [
+      "ullm",
+      "mlxA",
+      "mlxB"
+    ],
+    [
+      "mlxA",
+      "mlxB",
+      "ullm"
+    ],
+    [
+      "mlxB",
+      "ullm",
+      "mlxA"
+    ],
+    [
+      "ullm",
+      "mlxB",
+      "mlxA"
+    ],
+    [
+      "mlxB",
+      "mlxA",
+      "ullm"
+    ],
+    [
+      "mlxA",
+      "ullm",
+      "mlxB"
+    ]
+  ],
+  "smoke": false,
+  "started_unix": 1794999949.0721762,
+  "settle_s": 240,
+  "commit": "d90bd672318671416d454f2e4b865a3566d3a47a",
+  "can_sudo_powermetrics": true
+}

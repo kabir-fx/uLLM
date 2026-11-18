@@ -1,0 +1,69 @@
+{"t": 1794991609.966, "at_s": 0.0, "event": "state", "label": "start", "batt": "Now drawing from 'AC Power' -InternalBattery-0 (id=23199843) 41%; charging; 2:17 remaining present: true", "lpm": false, "thermal": "com.apple.system.thermalpressurelevel 0", "swap": "total = 2048.00M  used = 527.06M  free = 1520.94M  (encrypted)"}
+{"t": 1794991612.529, "at_s": 2.6, "event": "ready", "engine": "ullm"}
+{"t": 1794991612.562, "at_s": 2.6, "event": "ready", "engine": "mlxA"}
+{"t": 1794991612.581, "at_s": 2.7, "event": "ready", "engine": "mlxB"}
+{"t": 1794991623.789, "at_s": 13.9, "event": "warmed", "engine": "ullm"}
+{"t": 1794991633.984, "at_s": 24.1, "event": "warmed", "engine": "mlxA"}
+{"t": 1794991643.986, "at_s": 34.1, "event": "warmed", "engine": "mlxB"}
+{"t": 1794991644.009, "at_s": 34.1, "event": "state", "label": "after warm-up", "batt": "Now drawing from 'AC Power' -InternalBattery-0 (id=23199843) 41%; charging; 2:17 remaining present: true", "lpm": false, "thermal": "com.apple.system.thermalpressurelevel 0", "swap": "total = 2048.00M  used = 1235.62M  free = 812.38M  (encrypted)"}
+{"t": 1794991644.009, "at_s": 34.1, "event": "phase", "name": "cold_hot"}
+{"t": 1794991683.332, "at_s": 73.4, "event": "chunk", "phase": "cold_hot", "block": 0, "engine": "ullm", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 226.3, "tpot_p50": 18.76}
+{"t": 1794991720.543, "at_s": 110.6, "event": "chunk", "phase": "cold_hot", "block": 0, "engine": "mlxA", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 190.3, "tpot_p50": 14.55}
+{"t": 1794991755.283, "at_s": 145.4, "event": "chunk", "phase": "cold_hot", "block": 0, "engine": "mlxB", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 192.5, "tpot_p50": 14.93}
+{"t": 1794991784.853, "at_s": 174.9, "event": "chunk", "phase": "cold_hot", "block": 1, "engine": "mlxA", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 193.0, "tpot_p50": 14.83}
+{"t": 1794991815.52, "at_s": 205.6, "event": "chunk", "phase": "cold_hot", "block": 1, "engine": "mlxB", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 193.0, "tpot_p50": 14.77}
+{"t": 1794991868.262, "at_s": 258.3, "event": "chunk", "phase": "cold_hot", "block": 1, "engine": "ullm", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 366.6, "tpot_p50": 23.87}
+{"t": 1794991903.921, "at_s": 294.0, "event": "chunk", "phase": "cold_hot", "block": 2, "engine": "mlxB", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 204.0, "tpot_p50": 15.77}
+{"t": 1794991951.979, "at_s": 342.1, "event": "chunk", "phase": "cold_hot", "block": 2, "engine": "ullm", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 347.5, "tpot_p50": 19.64}
+{"t": 1794991987.561, "at_s": 377.6, "event": "chunk", "phase": "cold_hot", "block": 2, "engine": "mlxA", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 199.3, "tpot_p50": 15.89}
+{"t": 1794992031.205, "at_s": 421.3, "event": "chunk", "phase": "cold_hot", "block": 3, "engine": "ullm", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 219.8, "tpot_p50": 17.56}
+{"t": 1794992068.077, "at_s": 458.2, "event": "chunk", "phase": "cold_hot", "block": 3, "engine": "mlxB", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 205.5, "tpot_p50": 14.91}
+{"t": 1794992104.29, "at_s": 494.4, "event": "chunk", "phase": "cold_hot", "block": 3, "engine": "mlxA", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 198.8, "tpot_p50": 14.83}
+{"t": 1794992134.013, "at_s": 524.1, "event": "chunk", "phase": "cold_hot", "block": 4, "engine": "mlxB", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 232.8, "tpot_p50": 15.18}
+{"t": 1794992163.215, "at_s": 553.3, "event": "chunk", "phase": "cold_hot", "block": 4, "engine": "mlxA", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 213.7, "tpot_p50": 15.69}
+{"t": 1794992207.828, "at_s": 597.9, "event": "chunk", "phase": "cold_hot", "block": 4, "engine": "ullm", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 456.1, "tpot_p50": 21.89}
+{"t": 1794992249.333, "at_s": 639.4, "event": "chunk", "phase": "cold_hot", "block": 5, "engine": "mlxA", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 212.0, "tpot_p50": 15.11}
+{"t": 1794992296.98, "at_s": 687.1, "event": "chunk", "phase": "cold_hot", "block": 5, "engine": "ullm", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 251.2, "tpot_p50": 18.98}
+{"t": 1794992338.521, "at_s": 728.6, "event": "chunk", "phase": "cold_hot", "block": 5, "engine": "mlxB", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 214.2, "tpot_p50": 15.21}
+{"t": 1794992387.786, "at_s": 777.9, "event": "chunk", "phase": "cold_hot", "block": 6, "engine": "ullm", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 197.6, "tpot_p50": 17.31}
+{"t": 1794992420.515, "at_s": 810.6, "event": "chunk", "phase": "cold_hot", "block": 6, "engine": "mlxA", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 200.9, "tpot_p50": 16.3}
+{"t": 1794992453.008, "at_s": 843.1, "event": "chunk", "phase": "cold_hot", "block": 6, "engine": "mlxB", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 214.7, "tpot_p50": 16.28}
+{"t": 1794992492.729, "at_s": 882.8, "event": "chunk", "phase": "cold_hot", "block": 7, "engine": "mlxA", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 264.9, "tpot_p50": 17.41}
+{"t": 1794992528.75, "at_s": 918.8, "event": "chunk", "phase": "cold_hot", "block": 7, "engine": "mlxB", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 234.9, "tpot_p50": 15.01}
+{"t": 1794992594.444, "at_s": 984.5, "event": "chunk", "phase": "cold_hot", "block": 7, "engine": "ullm", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 281.9, "tpot_p50": 19.36}
+{"t": 1794992594.504, "at_s": 984.6, "event": "state", "label": "after cold_hot", "batt": "Now drawing from 'AC Power' -InternalBattery-0 (id=23199843) 48%; charging; 3:01 remaining present: true", "lpm": false, "thermal": "com.apple.system.thermalpressurelevel 1", "swap": "total = 5120.00M  used = 4234.38M  free = 885.62M  (encrypted)"}
+{"t": 1794992594.505, "at_s": 984.6, "event": "rest_start", "label": "rest1", "seconds": 180}
+{"t": 1794992774.56, "at_s": 1164.6, "event": "state", "label": "after rest1", "batt": "Now drawing from 'AC Power' -InternalBattery-0 (id=23199843) 50%; charging; 2:21 remaining present: true", "lpm": false, "thermal": "com.apple.system.thermalpressurelevel 0", "swap": "total = 8192.00M  used = 7313.06M  free = 878.94M  (encrypted)"}
+{"t": 1794992813.521, "at_s": 1203.6, "event": "chunk", "phase": "reload1", "block": 8, "engine": "mlxB", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 202.5, "tpot_p50": 15.42}
+{"t": 1794992872.948, "at_s": 1263.0, "event": "chunk", "phase": "reload1", "block": 8, "engine": "ullm", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 279.2, "tpot_p50": 29.02}
+{"t": 1794992912.217, "at_s": 1302.3, "event": "chunk", "phase": "reload1", "block": 8, "engine": "mlxA", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 211.3, "tpot_p50": 15.47}
+{"t": 1794992912.218, "at_s": 1302.3, "event": "phase", "name": "hot2"}
+{"t": 1794992956.243, "at_s": 1346.3, "event": "chunk", "phase": "hot2", "block": 9, "engine": "ullm", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 369.6, "tpot_p50": 19.83}
+{"t": 1794992990.317, "at_s": 1380.4, "event": "chunk", "phase": "hot2", "block": 9, "engine": "mlxB", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 220.5, "tpot_p50": 15.52}
+{"t": 1794993023.402, "at_s": 1413.5, "event": "chunk", "phase": "hot2", "block": 9, "engine": "mlxA", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 243.4, "tpot_p50": 15.69}
+{"t": 1794993065.493, "at_s": 1455.6, "event": "chunk", "phase": "hot2", "block": 10, "engine": "mlxB", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 251.6, "tpot_p50": 16.16}
+{"t": 1794993106.476, "at_s": 1496.5, "event": "chunk", "phase": "hot2", "block": 10, "engine": "mlxA", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 282.2, "tpot_p50": 15.5}
+{"t": 1794993184.634, "at_s": 1574.7, "event": "chunk", "phase": "hot2", "block": 10, "engine": "ullm", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 393.7, "tpot_p50": 30.21}
+{"t": 1794993220.861, "at_s": 1610.9, "event": "chunk", "phase": "hot2", "block": 11, "engine": "mlxA", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 236.6, "tpot_p50": 15.08}
+{"t": 1794993263.556, "at_s": 1653.6, "event": "chunk", "phase": "hot2", "block": 11, "engine": "ullm", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 312.5, "tpot_p50": 17.9}
+{"t": 1794993301.402, "at_s": 1691.5, "event": "chunk", "phase": "hot2", "block": 11, "engine": "mlxB", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 262.2, "tpot_p50": 15.22}
+{"t": 1794993301.455, "at_s": 1691.5, "event": "state", "label": "after hot2", "batt": "Now drawing from 'AC Power' -InternalBattery-0 (id=23199843) 54%; charging; 2:50 remaining present: true", "lpm": false, "thermal": "com.apple.system.thermalpressurelevel 2", "swap": "total = 7168.00M  used = 5886.25M  free = 1281.75M  (encrypted)"}
+{"t": 1794993302.487, "at_s": 1692.6, "event": "lpm", "on": true}
+{"t": 1794993302.487, "at_s": 1692.6, "event": "phase", "name": "lpm"}
+{"t": 1794993367.252, "at_s": 1757.3, "event": "chunk", "phase": "lpm", "block": 12, "engine": "ullm", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 651.6, "tpot_p50": 30.46}
+{"t": 1794993424.087, "at_s": 1814.2, "event": "chunk", "phase": "lpm", "block": 12, "engine": "mlxA", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 473.7, "tpot_p50": 25.95}
+{"t": 1794993480.03, "at_s": 1870.1, "event": "chunk", "phase": "lpm", "block": 12, "engine": "mlxB", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 471.3, "tpot_p50": 25.92}
+{"t": 1794993536.534, "at_s": 1926.6, "event": "chunk", "phase": "lpm", "block": 13, "engine": "mlxA", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 479.2, "tpot_p50": 26.18}
+{"t": 1794993591.389, "at_s": 1981.5, "event": "chunk", "phase": "lpm", "block": 13, "engine": "mlxB", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 481.1, "tpot_p50": 25.85}
+{"t": 1794993667.06, "at_s": 2057.1, "event": "chunk", "phase": "lpm", "block": 13, "engine": "ullm", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 733.2, "tpot_p50": 31.57}
+{"t": 1794993731.054, "at_s": 2121.1, "event": "chunk", "phase": "lpm", "block": 14, "engine": "mlxB", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 452.5, "tpot_p50": 25.82}
+{"t": 1794993804.946, "at_s": 2195.0, "event": "chunk", "phase": "lpm", "block": 14, "engine": "ullm", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 608.3, "tpot_p50": 29.54}
+{"t": 1794993869.013, "at_s": 2259.1, "event": "chunk", "phase": "lpm", "block": 14, "engine": "mlxA", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 486.9, "tpot_p50": 25.47}
+{"t": 1794993931.28, "at_s": 2321.3, "event": "chunk", "phase": "lpm", "block": 15, "engine": "ullm", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 666.5, "tpot_p50": 29.33}
+{"t": 1794993991.322, "at_s": 2381.4, "event": "chunk", "phase": "lpm", "block": 15, "engine": "mlxB", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 519.8, "tpot_p50": 26.84}
+{"t": 1794994048.555, "at_s": 2438.6, "event": "chunk", "phase": "lpm", "block": 15, "engine": "mlxA", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 491.0, "tpot_p50": 25.01}
+{"t": 1794994091.149, "at_s": 2481.2, "event": "chunk", "phase": "lpm", "block": 16, "engine": "mlxB", "pos": 0, "ok": 12, "failed": 0, "ttft_p50": 423.6, "tpot_p50": 22.37}
+{"t": 1794994133.525, "at_s": 2523.6, "event": "chunk", "phase": "lpm", "block": 16, "engine": "mlxA", "pos": 1, "ok": 12, "failed": 0, "ttft_p50": 413.1, "tpot_p50": 22.5}
+{"t": 1794994190.312, "at_s": 2580.4, "event": "chunk", "phase": "lpm", "block": 16, "engine": "ullm", "pos": 2, "ok": 12, "failed": 0, "ttft_p50": 637.6, "tpot_p50": 25.2}
+{"t": 1794994191.35, "at_s": 2581.4, "event": "lpm", "on": false}
+{"t": 1794994191.39, "at_s": 2581.5, "event": "state", "label": "end", "batt": "Now drawing from 'AC Power' -InternalBattery-0 (id=23199843) 65%; charging; 1:57 remaining present: true", "lpm": false, "thermal": "com.apple.system.thermalpressurelevel 0", "swap": "total = 5120.00M  used = 4746.56M  free = 373.44M  (encrypted)"}

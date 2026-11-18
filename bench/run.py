@@ -21,8 +21,8 @@ from typing import Literal
 
 import httpx2
 from bench import analysis, conditions, schema
-from bench.loadgen import COMMON_FIELDS, TEMPERATURE, closed_loop
-from bench.schema import RequestRecord, RunConfig, Sent, WorkloadRequest
+from bench.loadgen import TEMPERATURE, closed_loop
+from bench.schema import COMMON_FIELDS, RequestRecord, RunConfig, Sent, WorkloadRequest
 from bench.target import Target, port_in_use, ready
 
 WORKLOAD = Path("bench/workloads/a.json")

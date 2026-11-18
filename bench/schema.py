@@ -22,6 +22,17 @@ PROBES = "probes.jsonl"
 SESSION = "session.json"
 TWIN = "-twin"
 FIRST_PORT = 8100
+# The request fields every target gets alike (rule 7); a field one target alone gets may not
+# replace them.
+COMMON_FIELDS = (
+    "model",
+    "messages",
+    "max_tokens",
+    "temperature",
+    "stream",
+    "stream_options",
+    "chat_template_kwargs",
+)
 
 
 class Frozen(BaseModel):
@@ -146,6 +157,12 @@ class EngineSpec(Frozen):
     model: str | None = Field(description='the id to send; "{model}" is the snapshot path')
     extra_body: dict[str, JsonValue] = Field(default_factory=dict)
     footprint_gb: float = Field(gt=0, description="limit on this server's peak footprint")
+
+    @model_validator(mode="after")
+    def _no_common_field(self) -> Self:
+        if clash := sorted(self.extra_body.keys() & set(COMMON_FIELDS)):
+            raise ValueError(f"{self.name}: extra_body replaces fields every target gets: {clash}")
+        return self
 
 
 class Gates(Frozen):

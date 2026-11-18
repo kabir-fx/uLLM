@@ -8,18 +8,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 import httpx2
-from bench.schema import Sent, Usage, WorkloadRequest
+from bench.schema import COMMON_FIELDS, Sent, Usage, WorkloadRequest
 
 TEMPERATURE = 0.0
-COMMON_FIELDS = (
-    "model",
-    "messages",
-    "max_tokens",
-    "temperature",
-    "stream",
-    "stream_options",
-    "chat_template_kwargs",
-)
 
 
 @dataclass

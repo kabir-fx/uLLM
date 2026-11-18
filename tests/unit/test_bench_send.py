@@ -6,8 +6,8 @@ import json
 
 import httpx2
 import pytest
-from bench.loadgen import COMMON_FIELDS, Reply, send
-from bench.schema import Message, WorkloadRequest
+from bench.loadgen import Reply, send
+from bench.schema import COMMON_FIELDS, Message, WorkloadRequest
 
 REQUEST = WorkloadRequest(
     id="a-000",

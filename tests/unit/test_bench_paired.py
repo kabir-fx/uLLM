@@ -2,12 +2,12 @@
 (decision 0016)."""
 
 import pytest
-from bench.paired import Estimate, claimed, floor, ratio
+from bench.paired import Estimate, bootstrap, claimed, floor, ratio
 
 
 def test_the_median_pools_every_ratio_of_every_block() -> None:
     e = ratio({0: [1.0, 1.2], 1: [1.1], 2: [0.9, 1.3]}, seed=0)
-    assert e.median == pytest.approx(1.1)
+    assert e.point == pytest.approx(1.1)
     assert e.prompts == 5
     assert e.blocks == 3
 
@@ -19,9 +19,17 @@ def test_the_interval_resamples_whole_blocks() -> None:
     assert (e.low, e.high) == (1.0, 1.2)
 
 
+def test_any_statistic_gets_a_block_interval() -> None:
+    e = bootstrap({b: [float(b)] for b in range(5)}, seed=0, stat=max)
+    assert e.point == 4.0
+    assert e.high == 4.0
+    assert e.low is not None
+    assert e.low < 4.0
+
+
 def test_identical_blocks_give_an_interval_of_one_point() -> None:
     e = ratio({b: [0.98, 1.0, 1.02] for b in range(5)}, seed=0)
-    assert (e.low, e.median, e.high) == (1.0, 1.0, 1.0)
+    assert (e.low, e.point, e.high) == (1.0, 1.0, 1.0)
 
 
 def test_fewer_than_three_blocks_give_no_interval() -> None:

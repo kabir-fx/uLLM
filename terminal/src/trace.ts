@@ -8,8 +8,10 @@ export function parseFrame(text: string): Frame {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error("not a telemetry frame");
   }
-  const { v } = value as { v?: unknown };
-  if (v !== 1) throw new Error(`telemetry version ${String(v)}; this terminal reads version 1`);
+  const frame = value as Partial<Record<keyof Frame, unknown>>;
+  if (frame.v !== 1) throw new Error(`telemetry version ${String(frame.v)}; this terminal reads version 1`);
+  const numbers = [frame.seq, frame.t, frame.dropped].every((n) => typeof n === "number");
+  if (!numbers || !Array.isArray(frame.events)) throw new Error("not a telemetry frame");
   return value as Frame;
 }
 

@@ -28,7 +28,12 @@ export function replaySource(
           // Due times come from the start, so timer lateness never accumulates.
           const tick = () => {
             const elapsed = (performance.now() - wall0) * speed;
-            while (next < frames.length && frames[next]!.t - t0 <= elapsed) sink.frame(frames[next++]!);
+            try {
+              while (next < frames.length && frames[next]!.t - t0 <= elapsed) sink.frame(frames[next++]!);
+            } catch (error) {
+              sink.status({ kind: "error", message: (error as Error).message });
+              return;
+            }
             if (next === frames.length) {
               sink.status({ kind: "ended" });
               return;

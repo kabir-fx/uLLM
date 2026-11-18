@@ -2,13 +2,14 @@ import type { TelemetryStore } from "../store";
 
 export function Header({ store, label }: { store: TelemetryStore; label: string }) {
   const { hello, status, missedFrames, droppedEvents } = store;
-  // Decision 0003: fixture and sim data are labelled as simulated wherever they are shown.
-  const simulated = hello !== null && hello.source !== "engine";
+  // Decision 0003: fixture and sim data are labelled as simulated, always. Until a hello
+  // says otherwise, the data is not known to come from the engine.
+  const simulated = hello?.source !== "engine";
   return (
     <header className="header">
       <span className="brand">uLLM</span>
       {simulated && (
-        <span className="badge badge-sim" title={`source: ${hello.source}`}>
+        <span className="badge badge-sim" title={`source: ${hello?.source ?? "unknown"}`}>
           SIMULATED
         </span>
       )}

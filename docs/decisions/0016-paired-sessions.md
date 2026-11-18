@@ -10,7 +10,7 @@ The Final Approach replaces that plan: engines take turns on the same prompts in
 
 ## Evidence
 
-Two spikes in `bench/.scratch/thermal-spike/`: spike 1 (`run-20261118-141243`, before decision 0015) and spike 2 (`run-20261118-163540`, after). Every figure below was re-derived under the capped rule this record adopts, by the scripts in `bench/.scratch/thermal-spike/design-checks/`; each script's output is the `.out` file beside it. The memory figures come from the three `*_probe.py` scripts there, run on 18 November 2026 with desktop apps open. Their output was not kept, so those figures are not committed results (rule 7): the c1 and c8 sessions' `probes.jsonl` replace them. A server's footprint does not depend on other apps: MLX's cache limit and the wired limit come from the device, and `phys_footprint` counts compressed and swapped pages. Swap does depend on them, so swap figures from these probes say nothing about an idle Mac.
+Two spikes in `bench/.scratch/thermal-spike/`: spike 1 (`run-20261118-141243`, before decision 0015) and spike 2 (`run-20261118-163540`, after). Every figure below was re-derived under the capped rule this record adopts, by the scripts in `bench/.scratch/thermal-spike/design-checks/`; each script's output is the `.out` file beside it. The memory figures come from the three `*_probe.py` scripts there, run on 18 November 2026 with desktop apps open. Their output was not kept, so those figures are not committed results (rule 7). The c1 and c8 sessions' `probes.jsonl` replace them: see "Measured in the sessions". A server's footprint does not depend on other apps: MLX's cache limit and the wired limit come from the device, and `phys_footprint` counts compressed and swapped pages. Swap does depend on them, so swap figures from these probes say nothing about an idle Mac.
 
 | Fact | Measured | Consequence |
 |---|---|---|
@@ -352,8 +352,24 @@ Where the build differs from the shape above, and why:
 - The group file refuses an `extra_body` field every target gets, so a session never finds it halfway.
 - The stream-gap table sits inside each regime, so no row mixes regimes.
 - Ruff and mypy skip `bench/results/`: the committed spike scripts stay as they ran.
-- The memory probes' output was not kept; their figures above wait on the sessions' `probes.jsonl`.
+- The memory probes' output was not kept; "Measured in the sessions" gives the committed figures.
 - The committed spike files read `~` for the home directory; the scripts' paths still point at `bench/.scratch/thermal-spike/`, where they ran.
+
+## Measured in the sessions
+
+From `bench/results/m1/c1/probes.jsonl` and `bench/results/m1/c8/probes.jsonl`, on the idle Mac. Footprint and peak per engine, GB (2^30 bytes):
+
+| Session | Engine | Largest footprint | Peak |
+|---|---|---|---|
+| c1 | `mlx-lm-sequential-no-cache`, its twin | 1.57, 1.57 | 1.99, 1.98 |
+| c1 | `ullm` | 1.68 | 2.02 |
+| c1 | `mlx-lm-sequential` | 2.57 | 2.94 |
+| c8 | `mlx-lm-batched-no-cache`, its twin | 6.78, 6.77 | 6.78, 6.77 |
+| c8 | `mlx-lm-batched` | 9.23 | 9.68 |
+| c8 | `ullm` | 1.65 | 1.97 |
+| c8 | `mlx-lm-sequential-no-cache` | 1.49 | 1.93 |
+
+The four c1 servers held 7.39 GB together, loaded for the whole session, and swap never grew. The five c8 servers' largest footprints sum to 25.91 GB, over the Mac's 16 GB: loaded together they do not fit (inferred, since each ran alone). Every peak is within its limit.
 
 ## First step
 

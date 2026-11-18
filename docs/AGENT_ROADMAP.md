@@ -14,12 +14,12 @@ The single source of truth for building uLLM. Every piece that has to be built i
 |---|---|
 | Phase | M1 in progress. M0 done (gate G0 passed). M1-T1 (#11) to M1-T6 (#17) shipped |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M1-T7 (first baselines): code built and reviewed; the c8 smoke block and the two sessions wait for an idle Mac |
-| Lane A (engine) | M1-T7 on `m1/t7-baselines`: decision 0016 built (`bench/session.py`, `regimes.py`, `plan.py`, `paired.py`, the session analysis, `bench/groups/`, `make bench-baselines`), spikes committed under `bench/results/m1-spikes/`. Proof VERIFIED and review READY on the code (`.scratch/verdicts/m1-t7-baselines.md`). Left: one c8 smoke block on the idle Mac, then `make bench-baselines`, commit the results, tick the task |
+| Next task | `/ship` M1-T7, then M1-T8 (lane B) and gate G1 |
+| Lane A (engine) | M1-T7 built and measured on `m1/t7-baselines`, waiting for `/ship`. Results: `bench/results/m1/c1`, `c8` (both VALID), `comparison.md`; claims 21 and 22. Verdicts in `.scratch/verdicts/m1-t7-baselines.md` |
 | Lane B (contract-isolated) | idle. Can start M1-T8 from the fixtures in `terminal/fixtures/telemetry/` |
-| Blocked on the author | M1-T7: a green light when the Mac is idle and on AC power (the sudoers rule for `/usr/bin/powermetrics` works), and later a yes or no on deleting the five old run directories in `bench/results/m1/`; close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
+| Blocked on the author | M1-T7: a yes or no on deleting the five old, untracked run directories in `bench/results/m1/`, and where explaining uLLM's 1.167 TPOT ratio at c1 belongs (B6); close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | `/build M1-T7`: built decision 0016. The capped rule reproduces 3/5/4 and 7/2/7 on the committed spikes. A real c1 smoke block passed 64 of 64 requests, peaks 1.98 to 2.85 GB, with swap growth from open apps. Review fixes: an uncovered block was Peak, a reserved `extra_body` field crashed mid-session, four wirings had no test, Streams mixed regimes, the summary named no conditions. 0016's memory figures have no committed output until the sessions run. Noticed, not fixed: uLLM's TPOT p50 was 25.5 ms against 15.2 ms in the busy-Mac smoke block (Transition), so read the real sessions before G1 |
+| Last session | `/build M1-T7` finished: the author ran the c8 smoke block and `make bench-baselines` on the idle Mac. Both sessions VALID, 2,784 requests, swap never grew. c1: Peak 2, Sustained 19 blocks; uLLM over sequential `mlx_lm.server`, Sustained: TPOT 1.167 [1.160, 1.172], TTFT 0.866, output tok/s 0.877. c8: Peak 1, Sustained 9; uLLM at `max_num_seqs = 1` gives 0.322 of batched tok/s, sequential mlx-lm 0.362. Batched `mlx_lm.server` streams spent 22% of stream time in stalls over 100 ms and peaked at 9.68 GB with its cache. Committed results show the home directory as `~`. Noticed, not fixed: the session records absolute snapshot paths in `session.json` and the server logs |
 
 ---
 
@@ -576,7 +576,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [x] **M1-T4** API server (A1).
 - [x] **M1-T5** Tests: unit (Q1), single-request equivalence (Q3), SDK contract and 50 clients (Q4).
 - [x] **M1-T6** Benchmark harness, workload A, run conditions (B1, B2, B5).
-- [ ] **M1-T7** First baselines (B4): uLLM sequential, `mlx_lm.server` sequential and batched.
+- [x] **M1-T7** First baselines (B4): uLLM sequential, `mlx_lm.server` sequential and batched.
 - [ ] **M1-T8** `[B]` Terminal shell, ticker and feed on fixture telemetry (T1, part of T2).
 
 **Gate G1:** equivalence and SDK contract tests green in CI; baseline results committed; `curl` streams from the real model.

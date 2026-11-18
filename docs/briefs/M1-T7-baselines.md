@@ -1,6 +1,6 @@
 # M1-T7: The first baselines
 
-**State:** the code is built and reviewed. The sessions wait for your green light on an idle Mac.
+**State:** done. Type `/ship` to open the pull request.
 **Decision record:** [0016](../decisions/0016-paired-sessions.md) (the full design, for agents), with [0014](../decisions/0014-m1-baselines.md) and [0015](../decisions/0015-mlx-cache-limit.md) · **Spec:** roadmap M1-T7 (B4), and your `Fanless Mac Benchmarking - Final Approach.md`
 
 ## The goal
@@ -141,12 +141,11 @@ Test yourself: why does the baseline, and not uLLM, decide when a block is Susta
 
 ## Result
 
-**NOT DONE.** The code is built, and the proof and the review pass. The real sessions have not run.
+**DONE.** The code passed the proof and the review. Both sessions ran on your idle Mac, and both are VALID.
 
-- The verifier ran a real c1 smoke session. All 64 requests passed, and no server stayed up.
-- The capped rule gives your counts on both spikes: 3, 5, 4 and 7, 2, 7.
-- The review found 4 Required problems. The agent fixed each one with a test that failed first.
-- A block that the clock log does not cover is now Transition, not Peak.
-- The memory figures in 0016 have no committed output. The c1 and c8 sessions will give them.
-- To finish, you give an idle Mac on AC power. Then the agent runs one c8 block as a smoke session, and after that `make bench-baselines`.
-
+- c1 ran 21 blocks: 2 Peak and 19 Sustained. Every gate passed, and swap did not grow.
+- In Sustained, uLLM needs 1.167 times the time per token of sequential `mlx_lm.server`. Its first token comes at 0.866 times the time.
+- The twin agrees with the baseline within 0.7% on TPOT. So the gap of 16.7% is real.
+- c8 ran 10 blocks: 1 Peak and 9 Sustained. uLLM gives 0.322 of the batched output rate. uLLM runs one sequence at a time until M2.
+- Peak had too few blocks for an interval. So no Peak figure is a claim.
+- Batched `mlx_lm.server` used up to 9.68 GB with its prompt cache. uLLM used up to 2.02 GB.

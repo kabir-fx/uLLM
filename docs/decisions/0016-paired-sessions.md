@@ -10,7 +10,7 @@ The Final Approach replaces that plan: engines take turns on the same prompts in
 
 ## Evidence
 
-Two spikes in `bench/.scratch/thermal-spike/`: spike 1 (`run-20261118-141243`, before decision 0015) and spike 2 (`run-20261118-163540`, after). Every figure below was re-derived under the capped rule this record adopts, by the scripts in `bench/.scratch/thermal-spike/design-checks/`; each script's output is the `.out` file beside it. The memory figures come from the three `*_probe.py` scripts there, run on 18 November 2026 with desktop apps open. A server's footprint does not depend on other apps: MLX's cache limit and the wired limit come from the device, and `phys_footprint` counts compressed and swapped pages. Swap does depend on them, so swap figures from these probes say nothing about an idle Mac.
+Two spikes in `bench/.scratch/thermal-spike/`: spike 1 (`run-20261118-141243`, before decision 0015) and spike 2 (`run-20261118-163540`, after). Every figure below was re-derived under the capped rule this record adopts, by the scripts in `bench/.scratch/thermal-spike/design-checks/`; each script's output is the `.out` file beside it. The memory figures come from the three `*_probe.py` scripts there, run on 18 November 2026 with desktop apps open. Their output was not kept, so those figures are not committed results (rule 7): the c1 and c8 sessions' `probes.jsonl` replace them. A server's footprint does not depend on other apps: MLX's cache limit and the wired limit come from the device, and `phys_footprint` counts compressed and swapped pages. Swap does depend on them, so swap figures from these probes say nothing about an idle Mac.
 
 | Fact | Measured | Consequence |
 |---|---|---|
@@ -348,7 +348,11 @@ Where the build differs from the shape above, and why:
 - `paired.bootstrap` takes any statistic, so the p99 interval uses the same block bootstrap as the ratios; `ratio` is `bootstrap` with the median. `Estimate.median` is named `point`, since it holds a p99 there.
 - A started server is its own object, `Live`, so no request can go to a server that is not ready.
 - A smoke session exits 1: only a VALID session exits 0.
+- A block with a chunk that no clock sample covers is Transition: with no sample, nothing shows the clock was full.
+- The group file refuses an `extra_body` field every target gets, so a session never finds it halfway.
+- The stream-gap table sits inside each regime, so no row mixes regimes.
 - Ruff and mypy skip `bench/results/`: the committed spike scripts stay as they ran.
+- The memory probes' output was not kept; their figures above wait on the sessions' `probes.jsonl`.
 - The committed spike files read `~` for the home directory; the scripts' paths still point at `bench/.scratch/thermal-spike/`, where they ran.
 
 ## First step

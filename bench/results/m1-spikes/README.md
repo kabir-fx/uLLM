@@ -2,7 +2,8 @@
 
 The two spikes behind decision 0016, committed as run (rule 7). Each `powermetrics` log is
 gzipped; the home directory in paths reads `~`. `design-checks/` holds the scripts that
-re-derived every figure in 0016, each with its output. These scripts ran from
+re-derived 0016's figures. The three `*_probe.py` memory probes have no output here: it was not
+kept, so their figures wait on the sessions' `probes.jsonl`. These scripts ran from
 `bench/.scratch/thermal-spike/`, so their paths point there.
 
 The spike's own notes:
@@ -16,7 +17,6 @@ are in `~/phoenix/perplexity/keel/Fanless Mac Benchmarking - Recommendation.md`.
 - `sensors.py`: logs the temperature sensors once a second, no root.
 - `lpm_helper.sh`: root helper that switches Low Power Mode when the driver asks.
 - `pm.py`: turns a powermetrics plist into one small record per second.
-- `mine_m1.py`, `m1cache/`: the same summary for the runs in `bench/results/m1`.
 
 In a run folder: `raw.jsonl` (one line per request), `events.jsonl` (phases and chunk
 summaries), `sensors.jsonl`, `powermetrics.plist`, one log per server, `meta.json`.

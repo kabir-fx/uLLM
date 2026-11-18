@@ -19,16 +19,33 @@ import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 import httpx2
 from bench import analysis, conditions, schema
 from bench.loadgen import COMMON_FIELDS, TEMPERATURE, closed_loop
-from bench.schema import RequestRecord, RunConfig, WorkloadRequest
+from bench.schema import RequestRecord, RunConfig, Sent, WorkloadRequest
 from bench.target import Target, port_in_use, ready
 
 WORKLOAD = Path("bench/workloads/a.json")
 RESULTS = Path("bench/results")
 SCRATCH = Path("bench/.scratch")
+
+
+def _record(
+    sent: Sent, phase: Literal["warmup", "measure"], repeat: int, start_unix: float
+) -> RequestRecord:
+    return RequestRecord(
+        phase=phase,
+        repeat=repeat,
+        id=sent.id,
+        sent_s=sent.sent_unix - start_unix,
+        chunk_ms=sent.chunk_ms,
+        end_ms=sent.end_ms,
+        usage=sent.usage,
+        finish_reason=sent.finish_reason,
+        error=sent.error,
+    )
 
 
 async def _measure(
@@ -40,32 +57,26 @@ async def _measure(
 ) -> tuple[str, list[RequestRecord]]:
     async with httpx2.AsyncClient(base_url=args.base_url, timeout=None) as client:
         model = await ready(client, target, args.ready_timeout, args.model)
-        start = time.perf_counter()
-        records = await closed_loop(
-            client,
-            model,
-            requests[: args.warmup],
-            args.concurrency,
-            template_kwargs,
-            "warmup",
-            -1,
-            start,
-            extra_body=args.extra_body,
-        )
+        start = time.time()
+
+        async def phase(
+            batch: Sequence[WorkloadRequest], name: Literal["warmup", "measure"], repeat: int
+        ) -> list[RequestRecord]:
+            sent = await closed_loop(
+                client,
+                model,
+                batch,
+                args.concurrency,
+                template_kwargs,
+                extra_body=args.extra_body,
+            )
+            return [_record(s, name, repeat, start) for s in sent]
+
+        records = await phase(requests[: args.warmup], "warmup", -1)
         for repeat in range(args.repeats):
             if repeat:
                 await asyncio.sleep(args.cooldown)
-            records += await closed_loop(
-                client,
-                model,
-                requests,
-                args.concurrency,
-                template_kwargs,
-                "measure",
-                repeat,
-                start,
-                extra_body=args.extra_body,
-            )
+            records += await phase(requests, "measure", repeat)
         metrics = await client.get("/metrics")
         if metrics.status_code == 200:
             (out / schema.METRICS).write_text(metrics.text)

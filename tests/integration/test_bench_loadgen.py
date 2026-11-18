@@ -2,11 +2,10 @@
 (decision 0013)."""
 
 import asyncio
-import time
 
 import pytest
 from bench.loadgen import Reply, closed_loop
-from bench.schema import Message, RequestRecord, WorkloadRequest
+from bench.schema import Message, Sent, WorkloadRequest
 from tests.recording import RecordingRunner
 from tests.serving import SERVED, serving
 
@@ -29,9 +28,10 @@ def _request(i: int, content: str | None = None, max_tokens: int = 8) -> Workloa
     )
 
 
-def _peak_open(records: list[RequestRecord]) -> int:
+def _peak_open(records: list[Sent]) -> int:
     edges = sorted(
-        [(r.sent_s, 1) for r in records] + [(r.sent_s + r.end_ms / 1000, -1) for r in records],
+        [(r.sent_unix, 1) for r in records]
+        + [(r.sent_unix + r.end_ms / 1000, -1) for r in records],
         key=lambda e: (e[0], e[1]),
     )
     open_, peak = 0, 0
@@ -41,8 +41,8 @@ def _peak_open(records: list[RequestRecord]) -> int:
     return peak
 
 
-def _run(requests: list[WorkloadRequest], concurrency: int) -> list[RequestRecord]:
-    async def main() -> list[RequestRecord]:
+def _run(requests: list[WorkloadRequest], concurrency: int) -> list[Sent]:
+    async def main() -> list[Sent]:
         events: list[ev.Event] = []
         async with serving(RecordingRunner(FakeRunner(INFO, LATENCY)), events) as client:
             return await closed_loop(
@@ -51,9 +51,6 @@ def _run(requests: list[WorkloadRequest], concurrency: int) -> list[RequestRecor
                 requests,
                 concurrency,
                 KWARGS,
-                "measure",
-                0,
-                time.perf_counter(),
                 extra_body={},
             )
 
@@ -83,7 +80,7 @@ def test_exactly_concurrency_requests_are_open_at_once(concurrency: int) -> None
 
 def test_requests_are_sent_in_workload_order() -> None:
     records = _run([_request(i) for i in range(12)], concurrency=4)
-    sent = [r.sent_s for r in records]
+    sent = [r.sent_unix for r in records]
     assert sent == sorted(sent)
 
 

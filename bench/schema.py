@@ -100,6 +100,19 @@ class Usage(Frozen):
     completion_tokens: int
 
 
+class Sent(Frozen):
+    """One request as the load generator saw it. ``sent_unix`` is the wall clock, the clock
+    powermetrics stamps; chunk and end times are ms after the send, on ``perf_counter``."""
+
+    id: str
+    sent_unix: float
+    chunk_ms: tuple[float, ...]
+    end_ms: float
+    usage: Usage | None
+    finish_reason: str | None
+    error: str | None
+
+
 class RequestRecord(Frozen):
     """One line of raw.jsonl. Times are seconds from run start, chunk times ms after send."""
 

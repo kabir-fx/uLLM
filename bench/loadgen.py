@@ -6,10 +6,9 @@ import json
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Literal
 
 import httpx2
-from bench.schema import RequestRecord, Usage, WorkloadRequest
+from bench.schema import Sent, Usage, WorkloadRequest
 
 TEMPERATURE = 0.0
 COMMON_FIELDS = (
@@ -110,30 +109,25 @@ async def closed_loop(
     requests: Sequence[WorkloadRequest],
     concurrency: int,
     template_kwargs: dict[str, bool],
-    phase: Literal["warmup", "measure"],
-    repeat: int,
-    run_start: float,
     *,
     extra_body: Mapping[str, object],
-) -> list[RequestRecord]:
-    """Send every request with at most ``concurrency`` open, in order. ``run_start`` is a
-    ``time.perf_counter`` value; records are returned in workload order."""
+) -> list[Sent]:
+    """Send every request with at most ``concurrency`` open, in order. Returns them in
+    workload order."""
     queue = list(enumerate(requests))
     queue.reverse()
-    records: list[RequestRecord | None] = [None] * len(requests)
+    sent: list[Sent | None] = [None] * len(requests)
 
     async def client_loop() -> None:
         while queue:
             i, request = queue.pop()
-            sent_s = time.perf_counter() - run_start
+            sent_unix = time.time()
             reply, end_ms = await send(
                 client, model, request, template_kwargs, extra_body=extra_body
             )
-            records[i] = RequestRecord(
-                phase=phase,
-                repeat=repeat,
+            sent[i] = Sent(
                 id=request.id,
-                sent_s=sent_s,
+                sent_unix=sent_unix,
                 chunk_ms=tuple(reply.chunk_ms),
                 end_ms=end_ms,
                 usage=reply.usage,
@@ -142,4 +136,4 @@ async def closed_loop(
             )
 
     await asyncio.gather(*(client_loop() for _ in range(concurrency)))
-    return [r for r in records if r is not None]
+    return [s for s in sent if s is not None]

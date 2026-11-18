@@ -131,7 +131,7 @@ def _model_dir(group: Group) -> str | None:
 
     path = local_path(DEFAULT_MODEL)
     if path is None:
-        raise SystemExit("no local snapshot of the default model: run make models")
+        raise LookupError("no local snapshot of the default model: run make models")
     return str(path)
 
 
@@ -315,7 +315,11 @@ def run(args: argparse.Namespace) -> int:
         if not args.smoke:
             print("use --smoke for a session that is not B5", file=sys.stderr)
         return 2
-    model_dir = _model_dir(group)
+    try:
+        model_dir = _model_dir(group)
+    except LookupError as e:
+        print(f"refusing to start: {e}", file=sys.stderr)
+        return 2
     out = args.out
     out.mkdir(parents=True)
     started = time.time()

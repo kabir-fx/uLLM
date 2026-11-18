@@ -50,6 +50,39 @@ def power() -> Power:
     )
 
 
+def parse_swap(swapusage: str) -> int | None:
+    """Read ``sysctl -n vm.swapusage``: the swap in use, in bytes."""
+    used = re.search(r"used = ([\d.]+)M", swapusage)
+    return None if used is None else int(float(used.group(1)) * 2**20)
+
+
+def swap_used() -> int:
+    used = parse_swap(_out("sysctl", "-n", "vm.swapusage"))
+    if used is None:
+        raise RuntimeError("sysctl vm.swapusage gave no swap figure")
+    return used
+
+
+def parse_footprint(text: str) -> tuple[int, int] | None:
+    """Read ``footprint -f bytes --noCategories``: phys_footprint and its peak."""
+    now = re.search(r"phys_footprint: (\d+) B", text)
+    peak = re.search(r"phys_footprint_peak: (\d+) B", text)
+    return None if now is None or peak is None else (int(now.group(1)), int(peak.group(1)))
+
+
+def footprint(pgid: int) -> tuple[int, int] | None:
+    """phys_footprint and its peak summed over a process group, which counts compressed and
+    swapped pages; None when no process of the group can be read."""
+    found = [
+        parse_footprint(_out("footprint", "-f", "bytes", "--noCategories", "-p", pid))
+        for pid in _out("pgrep", "-g", str(pgid)).split()
+    ]
+    read = [f for f in found if f is not None]
+    if not read:
+        return None
+    return sum(f[0] for f in read), sum(f[1] for f in read)
+
+
 def can_sudo() -> bool:
     """True when powermetrics runs as root without a password prompt: after a fresh ``sudo -v``,
     or under a NOPASSWD sudoers rule for unattended matrices. ``sudo -n -l`` is not enough: any

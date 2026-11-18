@@ -1,6 +1,6 @@
 """B5: the run conditions a session refuses to start without (decisions 0013 and 0016)."""
 
-from bench.conditions import parse_power, violations
+from bench.conditions import parse_footprint, parse_power, parse_swap, violations
 from bench.schema import Power
 
 ON_BATTERY = """Now drawing from 'Battery Power'
@@ -66,3 +66,17 @@ def test_an_unknown_power_state_is_not_taken_as_good() -> None:
         on_ac=None, battery_percent=None, low_power_mode=None, charging=None, lid_open=None
     )
     assert len(violations(unknown, sudo=True, containers=0, powermetrics_running=False)) == 2
+
+
+def test_swap_in_use_is_read_from_sysctl() -> None:
+    assert parse_swap("total = 2048.00M  used = 740.75M  free = 1307.25M  (encrypted)") == int(
+        740.75 * 2**20
+    )
+    assert parse_swap("total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)") == 0
+    assert parse_swap("") is None
+
+
+def test_footprint_and_its_peak_are_read_in_bytes() -> None:
+    text = "    phys_footprint: 2474416 B\n    phys_footprint_peak: 3000000 B\n"
+    assert parse_footprint(text) == (2474416, 3000000)
+    assert parse_footprint("footprint: no process") is None

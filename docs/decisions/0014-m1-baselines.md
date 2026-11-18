@@ -32,11 +32,11 @@ The repeat slowdown was contention, not the engine. In the M1-T6 probe, `env.jso
 | Target | Concurrency | Launch | Request fields beyond the common ones |
 |---|---|---|---|
 | `ullm` | 1 | `ullm serve` | none |
-| `mlx-lm-sequential-no-cache` | 1 | `mlx_lm.server --model <snapshot> --prompt-cache-size 0` | `"seed": 0` |
-| `mlx-lm-sequential` | 1 | `mlx_lm.server --model <snapshot>` | `"seed": 0` |
+| `mlx-lm-sequential-no-cache` | 1 | `scripts/mlx_lm_server.py --model <snapshot> --prompt-cache-size 0` | `"seed": 0` |
+| `mlx-lm-sequential` | 1 | `scripts/mlx_lm_server.py --model <snapshot>` | `"seed": 0` |
 | `ullm` | 8 | `ullm serve` | none |
-| `mlx-lm-batched` | 8 | `mlx_lm.server --model <snapshot>` | none |
-| `mlx-lm-batched-no-cache` | 8 | `mlx_lm.server --model <snapshot> --prompt-cache-size 0` | none |
+| `mlx-lm-batched` | 8 | `scripts/mlx_lm_server.py --model <snapshot>` | none |
+| `mlx-lm-batched-no-cache` | 8 | `scripts/mlx_lm_server.py --model <snapshot> --prompt-cache-size 0` | none |
 
 - **Sequential `mlx_lm.server` is its single-request path**, selected by `"seed": 0` in each request. At temperature 0 the seed changes no token: the sampler is argmax. With the prompt cache off it gives uLLM's exact tokens, so the two compare per token on identical work. The author chose this over flags only.
 - **Batched `mlx_lm.server` is its defaults** at concurrency 8. Its replies differ from uLLM's, so their output lengths differ. Throughput counts real tokens from `usage` (rule 7), and the report states the difference.
@@ -45,6 +45,7 @@ The repeat slowdown was contention, not the engine. In the M1-T6 probe, `env.jso
 
 **Harness changes.**
 
+- `scripts/mlx_lm_server.py` starts `mlx_lm.server` with a listen queue of 2048, uvicorn's default and so the queue `ullm serve` has; macOS caps both at `kern.ipc.somaxconn`, 128. `socketserver`'s queue is 5 and `mlx_lm.server` has no flag for it. In the first matrix, connections opened after a cooldown while the server was busy were refused: `mlx-lm-batched-c8` lost 4 of 768 requests to `ConnectError` (upstream candidate 3). It changes no inference setting.
 - `bench.run --model <id>` sends that id and refuses a target whose `GET /v1/models` does not list it. The `mlx_lm.server` runs pass the pinned snapshot path, which is the model it loaded. Without it the first listed repo would be sent, and another cached model or revision could load.
 - `bench.run` replaces the `powermetrics` log with `powermetrics.plist.gz` after a run, which changes that row of decision 0013's C5 table. A sample is about 32 KB raw and 2.2 KB gzipped (the M1-T6 probe: 4.4 MB raw, 293 KB gzipped, 136 samples), so a 35-minute run commits about 4.5 MB instead of about 68 MB. The author chose this over a compact JSONL of selected fields, which would lose the raw evidence.
 - `bench.run --extra-body <json>` adds request fields for one target. It may not replace a field every target gets (`COMMON_FIELDS` in `bench/loadgen.py`). `config.json` records it as `extra_body`, and `summary.md` names it.

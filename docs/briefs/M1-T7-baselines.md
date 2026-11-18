@@ -22,14 +22,15 @@ make bench-baselines ── bench/baselines.sh
      │
      ├── 6 × bench.run (B5 check, powermetrics, 4 warm-up, 3 repeats)
      │        ├── ullm serve
-     │        └── mlx_lm.server --model <pinned snapshot>
+     │        └── scripts/mlx_lm_server.py --model <pinned snapshot>
      └── bench.analysis --compare ──▶ bench/results/m1/comparison.md
 ```
 
 1. **`bench/baselines.sh`.** It runs six runs, one after the other, with 120 s of idle between them.
 2. **`bench.run --model`.** It sends the pinned snapshot path to `mlx_lm.server`. Without it, the server can load another model from the cache.
 3. **`bench.run --extra-body`.** It adds `"seed": 0` to the requests of the sequential `mlx_lm.server` runs. A seeded request takes the single-request path of the server. At temperature 0 the seed changes no token.
-4. **`bench.analysis --compare`.** It writes the table across the six runs.
+4. **`scripts/mlx_lm_server.py`.** It starts `mlx_lm.server` with the listen queue `ullm serve` has. With its own queue of 5, macOS refused connections opened while the server was busy.
+5. **`bench.analysis --compare`.** It writes the table across the six runs.
 
 The agent measured these facts on 8 requests of workload A:
 

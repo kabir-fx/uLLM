@@ -29,7 +29,7 @@ Facts this design rests on:
 | `src/config.ts` | `?live=<url>`, `?trace=<url>` (default `telemetry/steady-chat.jsonl.gz`), `?speed=` |
 | `src/ui/` | `App`, `Header`, `Ticker`, `Feed`, `tokens.css`, `app.css` |
 
-**Store.** Frames go into the store, never into React state. Each `ingest` bumps `version`; subscribers hear at most once per `schedule` callback, which is `requestAnimationFrame` in the browser. React reads the store through `useSyncExternalStore(subscribe, getVersion)` and then reads the store's fields directly. A frame whose first event is `hello` resets the store: C2 sends `hello` first on every connection and `seq` restarts with it. A jump in `seq` adds the missing count to `missedFrames`. `dropped` adds to `droppedEvents`. The header shows both when they are not zero. Events for a request the store never saw arrive (a live connection opened mid-request) are ignored, and event types it does not know are ignored (C2 compatibility rule).
+**Store.** Frames go into the store, never into React state. Each `ingest` bumps `version`; subscribers hear at most once per `schedule` callback, which is `requestAnimationFrame` in the browser. React reads the store through `useSyncExternalStore(subscribe, getVersion)` and then reads the store's fields directly. A frame whose first event is `hello` resets the store: C2 sends `hello` first on every connection and `seq` restarts with it. A jump in `seq` adds the missing count to `missedFrames`. `dropped` adds to `droppedEvents`. The header shows both when they are not zero. Events for a request the store never saw arrive (a live connection opened mid-request) change no feed row, but still count in the ticker's samples. Event types it does not know are ignored (C2 compatibility rule). A frame without numeric `seq`, `t` and `dropped` and an `events` array is rejected; when a frame still makes the store throw, the replay stops with an error status, as the live source does.
 
 **Request states.** `req.arrived` → waiting, `req.admitted` → prefilling, a step that includes the request → running, `req.preempted` → preempted, then finished or aborted. Running starts at the prefill step, as in `ullm.telemetry.check`, so a preempted request that is prefilled again becomes running without a second first token. Tokens count one per step row, the checker's rule, and take the engine's `usage.completion_tokens` (or `completion_tokens` on abort) when the request ends.
 
@@ -48,7 +48,7 @@ Facts this design rests on:
 
 These figures are for watching. They are never a claim: claims come from `bench/` results (rule 8).
 
-**Simulated label.** The header shows a SIMULATED badge whenever `hello.source` is not `engine` (decision 0003).
+**Simulated label.** The header shows a SIMULATED badge unless a `hello` says the source is `engine` (decision 0003), so data that arrives before any `hello` is labelled too.
 
 **Checks.** `make check-ts`, and so `make ci-terminal` and the CI terminal job, now also run `vitest run` and `vite build`. The UI tests render with `react-dom/server` under Node, so no DOM library is needed. A browser test arrives with Playwright in M2-T10.
 

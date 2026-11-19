@@ -1,6 +1,6 @@
 # M2-T4: Telemetry bus, stream, recorder, measured overhead
 
-**State:** in build. You approved the design and the recommended answers.
+**State:** NOT DONE. You run `make bench-telemetry`, then the agent records the overhead.
 **Decision record:** [0023](../decisions/0023-telemetry-bus.md) (the full design, for agents) · **Spec:** roadmap O1 and C2, task M2-T4
 
 ## The goal
@@ -101,3 +101,18 @@ Only the engine thread emits events, and it reads one monotonic clock. The bus, 
 </details>
 
 ## Result
+
+NOT DONE at `cf769f8`. The code is complete. The overhead result is still missing.
+
+- Proof: VERIFIED at `cd2890d`. The verifier passed 10 of 10 claims on the real server, the sim and the real model.
+- Review: two reviewers said NOT READY at `cd2890d`. A bad `--record` path failed silently, and the process still exited 0. The fix opens the file at startup. A scoped re-check said READY at `ade2bd6`.
+- Full check: `make ci` passed at `ade2bd6`.
+- Changes against the plan: `ullm serve` stops open replies after 5 s on Ctrl+C. Without this limit, an open tab kept the server alive.
+- Not proven yet: the telemetry overhead. A smoke session ran, but it is not a claim.
+- Not seen end to end: a stalled tab with `dropped` above 0. Unit tests cover it.
+
+Read these yourself:
+
+- `src/ullm/telemetry/bus.py`, `Bus.drain`: the drop count comes from gaps in the index.
+- `src/ullm/server/app.py`, the lifespan: the shutdown order is engine, hub, then recorder.
+- `src/ullm/cli.py`, `timeout_graceful_shutdown`: an open chat reply also stops after 5 s.

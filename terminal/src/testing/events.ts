@@ -69,3 +69,14 @@ export function frames(groups: Event[][], seq = 0): Frame[] {
     events,
   }));
 }
+
+/** `states` holds one byte per block: 0 free, 1 cached, 2 shared, 3 + i owned by `owners[i]`. */
+export function snapshot(t: number, owners: string[], states: number[]): Event {
+  return {
+    type: "kv.snapshot",
+    t,
+    num_blocks: states.length,
+    owners,
+    states: btoa(String.fromCharCode(...states)),
+  };
+}

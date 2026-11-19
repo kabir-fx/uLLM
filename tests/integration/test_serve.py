@@ -133,3 +133,15 @@ def test_ullm_serve_with_telemetry_off_has_no_stream() -> None:
     finally:
         server.send_signal(signal.SIGINT)
         server.communicate(timeout=15)
+
+
+def test_ullm_serve_refuses_to_start_when_it_cannot_open_the_recording(tmp_path: Path) -> None:
+    run = subprocess.run(
+        [sys.executable, "-m", "ullm.cli", "serve", "--fake", "--port", str(_free_port())]
+        + ["--record", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert run.returncode != 0
+    assert "Is a directory" in run.stdout + run.stderr

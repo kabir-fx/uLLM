@@ -149,8 +149,8 @@ class RequestRecord(Frozen):
 
 
 class EngineSpec(Frozen):
-    """One server of a group. ``launch`` may hold ``{model}``, the pinned snapshot's path, and
-    ``{port}``; it runs through shlex, never a shell."""
+    """One server of a group. ``launch`` may hold ``{model}``, the pinned snapshot's path,
+    ``{port}`` and ``{out}``, the session directory; it runs through shlex, never a shell."""
 
     name: str
     launch: str

@@ -132,6 +132,11 @@ def _apply(
                 r.state = "aborted"
         case ev.Step():
             report.steps += 1
+            if hello is not None and len(event.rids) > hello.limits.max_num_seqs:
+                problem(
+                    f"{where}: {len(event.rids)} rows, over max_num_seqs "
+                    f"{hello.limits.max_num_seqs}"
+                )
             _apply_step(event, reqs, where, problem)
         case ev.KvSnapshot():
             if (

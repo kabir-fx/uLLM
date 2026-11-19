@@ -110,6 +110,7 @@ def _run(
     runner: Runner | None = None,
     new_detokenizer: Callable[[], Detokenizer] = FakeDetokenizer,
     inbound: "SimpleQueue[Ticket] | None" = None,
+    config: EngineConfig | None = None,
 ) -> Ran:
     recording = RecordingRunner(runner or FakeRunner(INFO, FAST, sleep=lambda s: None))
     inbound = inbound if inbound is not None else SimpleQueue()
@@ -124,7 +125,10 @@ def _run(
             ran.outputs.setdefault(rid, []).append(out)
         hook(batch, inbound)
 
-    Engine(recording, new_detokenizer, EngineConfig(), inbound, deliver, ran.events.append).run()
+    engine = Engine(
+        recording, new_detokenizer, config or EngineConfig(), inbound, deliver, ran.events.append
+    )
+    engine.run()
     return ran
 
 
@@ -208,7 +212,10 @@ def test_the_trace_starts_with_hello() -> None:
     hello = ran.events[0]
     assert isinstance(hello, ev.Hello)
     assert (hello.replica, hello.source, hello.model) == ("r1", "engine", "fake")
-    assert hello.limits == ev.Limits(max_num_seqs=1, max_prefill_tokens=256, max_model_len=256)
+    assert hello.limits == ev.Limits(max_num_seqs=16, max_prefill_tokens=256, max_model_len=256)
+    # The terminal divides capacity_tokens into unpadded kv_tokens; the slot budget counts
+    # padded slots, so it is not reported there (0020).
+    assert hello.kv == ev.KvInfo()
 
 
 def test_an_abort_of_a_waiting_request_fails_it_without_touching_the_runner() -> None:
@@ -268,7 +275,9 @@ def test_a_runner_failure_fails_only_the_requests_in_that_step() -> None:
             raise RuntimeError("the GPU fell over")
 
     runner = FakeRunner(INFO, FAST, sleep=fail_third_step)
-    ran = _run([_submit(rid="r1-0", max_tokens=5), _submit(rid="r1-1")], runner=runner)
+    submits: list[Ticket] = [_submit(rid="r1-0", max_tokens=5), _submit(rid="r1-1")]
+    # At batch size 1 the third step is r1-0's second decode while r1-1 waits.
+    ran = _run(submits, runner=runner, config=EngineConfig(max_num_seqs=1))
     assert _ends_once(ran.outputs["r1-0"]) == Failed("error")
     assert isinstance(_ends_once(ran.outputs["r1-1"]), Finished)
     assert ran.runner.adds == ran.runner.releases == 2
@@ -300,10 +309,79 @@ def test_a_bug_in_the_loop_aborts_every_live_request_in_the_trace_and_raises() -
     assert check_trace(frames_from(events, "r1")).problems == []
 
 
-@pytest.mark.parametrize("n", [0, 2, 16])
-def test_the_config_refuses_batches_until_m2_t2(n: int) -> None:
-    with pytest.raises(ValueError, match="M2-T2"):
-        EngineConfig(max_num_seqs=n)
+@pytest.mark.parametrize(
+    ("changes", "field"),
+    [
+        ({"max_num_seqs": 0}, "max_num_seqs"),
+        ({"max_num_seqs": True}, "max_num_seqs"),
+        ({"max_num_seqs": 2.0}, "max_num_seqs"),
+        ({"max_kv_slots": 0}, "max_kv_slots"),
+        ({"max_kv_slots": True}, "max_kv_slots"),
+    ],
+    ids=repr,
+)
+def test_the_config_refuses_a_malformed_limit(changes: dict[str, Any], field: str) -> None:
+    with pytest.raises(ValueError, match=field):
+        EngineConfig(**changes)
+
+
+def test_the_engine_refuses_a_slot_budget_that_a_legal_request_could_never_fit() -> None:
+    with pytest.raises(ValueError, match="max_kv_slots"):
+        Engine(
+            FakeRunner(INFO, FAST, sleep=lambda s: None),
+            FakeDetokenizer,
+            EngineConfig(max_kv_slots=INFO.max_model_len - 1),
+            SimpleQueue(),
+            lambda batch, load: None,
+            lambda event: None,
+        )
+
+
+def _decode_rows(ran: Ran) -> list[int]:
+    return [len(s.rids) for s in ran.events if isinstance(s, ev.Step) and s.kind == "decode"]
+
+
+def test_concurrent_requests_decode_in_one_batch_and_reply_as_they_would_alone() -> None:
+    submits = [_submit(rid=f"r1-{i}", prompt=(i + 1, 2), max_tokens=6) for i in range(4)]
+    batched = _run(list(submits), config=EngineConfig(max_num_seqs=4))
+    alone = _run(list(submits), config=EngineConfig(max_num_seqs=1))
+    assert max(_decode_rows(batched)) == 4
+    assert max(_decode_rows(alone)) == 1
+    for i in range(4):
+        assert isinstance(_ends_once(batched.outputs[f"r1-{i}"]), Finished)
+        assert batched.text(f"r1-{i}") == alone.text(f"r1-{i}")
+    assert batched.runner.adds == batched.runner.releases == 4
+    assert batched.report().problems == []
+
+
+def test_a_batch_never_grows_past_max_num_seqs() -> None:
+    submits: list[Ticket] = [_submit(rid=f"r1-{i}", max_tokens=8) for i in range(5)]
+    ran = _run(submits, config=EngineConfig(max_num_seqs=2))
+    hello = ran.events[0]
+    assert isinstance(hello, ev.Hello)
+    assert hello.limits.max_num_seqs == 2
+    assert max(_decode_rows(ran)) == 2
+    assert all(isinstance(_ends_once(ran.outputs[f"r1-{i}"]), Finished) for i in range(5))
+    assert ran.report().problems == []
+
+
+def test_a_failed_batched_decode_fails_every_row_and_the_waiting_request_still_finishes() -> None:
+    calls = 0
+
+    def fail_the_first_decode(seconds: float) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 4:  # three prefills, one per step, then the decode of all three
+            raise RuntimeError("the GPU fell over")
+
+    runner = FakeRunner(INFO, FAST, sleep=fail_the_first_decode)
+    submits: list[Ticket] = [_submit(rid=f"r1-{i}", max_tokens=8) for i in range(4)]
+    ran = _run(submits, runner=runner, config=EngineConfig(max_num_seqs=3))
+    for i in range(3):
+        assert ran.outputs[f"r1-{i}"][-1] == Failed("error")
+    assert isinstance(_ends_once(ran.outputs["r1-3"]), Finished)
+    assert ran.runner.adds == ran.runner.releases == 4
+    assert ran.report().problems == []
 
 
 def test_the_config_refuses_a_bound_below_one() -> None:
@@ -373,3 +451,19 @@ def test_a_duplicate_rid_is_a_bug_that_stops_the_engine_instead_of_hanging_it() 
     with pytest.raises(ValueError, match="r1-0"):
         engine.run()
     assert check_trace(frames_from(ran_events, "r1")).problems == []
+
+
+def test_a_submit_past_max_model_len_is_a_bug_that_stops_the_engine_instead_of_spinning() -> None:
+    # The client refuses it; one that gets past would never fit the slot budget (0020).
+    inbound: SimpleQueue[Ticket] = SimpleQueue()
+    inbound.put(_submit(max_tokens=INFO.max_model_len))
+    engine = Engine(
+        FakeRunner(INFO, FAST, sleep=lambda s: None),
+        FakeDetokenizer,
+        EngineConfig(max_kv_slots=INFO.max_model_len),
+        inbound,
+        lambda batch, load: None,
+        lambda event: None,
+    )
+    with pytest.raises(ValueError, match="max_model_len"):
+        engine.run()

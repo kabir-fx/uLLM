@@ -106,18 +106,17 @@ Deliver = Callable[[Sequence[tuple[str, Output]], Load], None]  # once per loop 
 
 @dataclass(frozen=True, slots=True)
 class EngineConfig:
-    max_num_seqs: int = 1
+    max_num_seqs: int = 16  # E6's starting value
+    max_kv_slots: int = 40_960  # padded KV slots, rows x the longest reservation (0020)
     max_in_flight: int = 64  # submitted and not yet ended; beyond it, Unavailable
     replica: str = "r1"
     source: Literal["engine", "sim"] = "engine"
 
     def __post_init__(self) -> None:
-        if self.max_num_seqs != 1:
-            raise ValueError(
-                f"max_num_seqs is 1 until batched decode arrives in M2-T2, got {self.max_num_seqs}"
-            )
-        if type(self.max_in_flight) is not int or self.max_in_flight < 1:
-            raise ValueError(f"max_in_flight must be an int >= 1, got {self.max_in_flight!r}")
+        for name in ("max_num_seqs", "max_kv_slots", "max_in_flight"):
+            value = getattr(self, name)
+            if type(value) is not int or value < 1:
+                raise ValueError(f"{name} must be an int >= 1, got {value!r}")
 
 
 class Engine:
@@ -133,6 +132,12 @@ class Engine:
     ) -> None:
         self._runner = runner
         self._info = runner.info()
+        if config.max_kv_slots < self._info.max_model_len:
+            # A legal request reserves up to max_model_len slots and would never be admitted.
+            raise ValueError(
+                f"max_kv_slots {config.max_kv_slots} is below max_model_len "
+                f"{self._info.max_model_len}"
+            )
         self._new_detokenizer = new_detokenizer
         self._config = config
         self._inbound = inbound
@@ -141,7 +146,7 @@ class Engine:
         self._clock = clock
         self._epoch = clock()
         self._epoch_unix_ms = int(time.time() * 1000)
-        self._scheduler = Scheduler(config.max_num_seqs)
+        self._scheduler = Scheduler(config.max_num_seqs, config.max_kv_slots)
         self._live: dict[str, Request] = {}
         self._next_seq = 0
         self._steps = 0
@@ -188,6 +193,11 @@ class Engine:
     def _arrive(self, ticket: Submit) -> None:
         if ticket.rid in self._live:
             raise ValueError(f"{ticket.rid} is already live; the client names requests uniquely")
+        if len(ticket.prompt) + ticket.max_tokens > self._info.max_model_len:
+            # The client refuses it. Past that, it would wait at the head for ever (0020).
+            raise ValueError(
+                f"{ticket.rid} needs more than max_model_len {self._info.max_model_len}"
+            )
         stop = StopCheck(
             self._new_detokenizer(), self._info.eos_token_ids, ticket.max_tokens, ticket.stop
         )

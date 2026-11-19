@@ -30,6 +30,7 @@ from ullm.core.engine import (
 )
 from ullm.core.request import Emit
 from ullm.runner.base import Detokenizer, Runner, RunnerInfo, SamplingParams
+from ullm.telemetry.bus import TelemetryClock
 
 _log = logging.getLogger(__name__)
 
@@ -75,11 +76,12 @@ class EngineClient:
         new_detokenizer: Callable[[], Detokenizer],
         config: EngineConfig,
         emit: Emit,
+        clock: TelemetryClock | None = None,
     ) -> "EngineClient":
         """Binds the client to the running loop and starts the engine thread."""
         inbound: SimpleQueue[Ticket] = SimpleQueue()
         client = cls(asyncio.get_running_loop(), runner.info(), config, inbound)
-        engine = Engine(runner, new_detokenizer, config, inbound, client._deliver, emit)
+        engine = Engine(runner, new_detokenizer, config, inbound, client._deliver, emit, clock)
         client._thread = Thread(
             target=client._run_engine, args=(engine,), name="ullm-engine", daemon=True
         )

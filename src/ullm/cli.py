@@ -108,7 +108,11 @@ def _serve(args: argparse.Namespace) -> int:
     config = ServeConfig(
         served_model=served,
         default_max_tokens=args.default_max_tokens,
-        engine=EngineConfig(max_in_flight=args.max_in_flight),
+        engine=EngineConfig(
+            max_num_seqs=args.max_num_seqs,
+            max_kv_slots=args.max_kv_slots,
+            max_in_flight=args.max_in_flight,
+        ),
     )
     # Local by default (rule 14): no option binds another address.
     uvicorn.run(create_app(runner, tokenizer, config), host="127.0.0.1", port=args.port)
@@ -123,6 +127,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--served-model-name", help="the model id clients send; default the repo")
     serve.add_argument("--default-max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
+    serve.add_argument("--max-num-seqs", type=int, default=EngineConfig().max_num_seqs)
+    serve.add_argument(
+        "--max-kv-slots",
+        type=int,
+        default=EngineConfig().max_kv_slots,
+        help="padded KV slots the batch may reserve; at least the model's max_model_len",
+    )
     serve.add_argument("--max-in-flight", type=int, default=EngineConfig().max_in_flight)
     serve.add_argument("--fake", action="store_true", help="FakeRunner and FakeTokenizer: no model")
     sim = commands.add_parser("sim", help="run the real engine on FakeRunner with fake clients")

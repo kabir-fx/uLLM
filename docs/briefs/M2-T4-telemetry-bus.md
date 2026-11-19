@@ -102,13 +102,14 @@ Only the engine thread emits events, and it reads one monotonic clock. The bus, 
 
 ## Result
 
-NOT DONE at `cf769f8`. The code is complete. The overhead result is still missing.
+DONE. Proof VERIFIED at `cd2890d`, review READY at `ade2bd6`. The change used 4 agent runs.
 
-- Proof: VERIFIED at `cd2890d`. The verifier passed 10 of 10 claims on the real server, the sim and the real model.
+- Proof: the verifier passed 10 of 10 claims on the real server, the sim and the real model.
 - Review: two reviewers said NOT READY at `cd2890d`. A bad `--record` path failed silently, and the process still exited 0. The fix opens the file at startup. A scoped re-check said READY at `ade2bd6`.
 - Full check: `make ci` passed at `ade2bd6`.
+- Overhead: the paired session in `bench/results/m2/telemetry/` is VALID. In 8 Sustained blocks, output tokens per second with telemetry on is 0.993 times off [0.981, 1.017]. TPOT is 1.002 times [0.977, 1.014]. Both are within the twin's noise. Peak had 1 block, so it gives no figure. Claims row 25.
 - Changes against the plan: `ullm serve` stops open replies after 5 s on Ctrl+C. Without this limit, an open tab kept the server alive.
-- Not proven yet: the telemetry overhead. A smoke session ran, but it is not a claim.
+- Not measured: the cost of an open terminal tab. The session's only reader was the recorder.
 - Not seen end to end: a stalled tab with `dropped` above 0. Unit tests cover it.
 
 Read these yourself:

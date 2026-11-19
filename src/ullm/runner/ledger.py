@@ -73,7 +73,7 @@ class SeqLedger:
                 omitted = sorted(
                     s
                     for s, live in self._seqs.items()
-                    if live and live.decoding and s not in growth
+                    if live is not None and live.decoding and s not in growth
                 )
                 if omitted:
                     raise ValueError(

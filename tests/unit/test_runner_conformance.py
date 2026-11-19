@@ -197,13 +197,12 @@ def test_after_a_failed_step_only_release_is_legal(built: tuple[Runner, Breakabl
     runner.execute(PrefillPlan(seq=1, token_ids=(5, 6), start=0))
 
 
-def test_a_failed_batch_fails_every_sequence_in_it() -> None:
-    sleep = Breakable(lambda seconds: None)
-    runner = FakeRunner(INFO, NO_LATENCY, sleep=sleep)
+def test_a_failed_batch_fails_every_sequence_in_it(built: tuple[Runner, Breakable]) -> None:
+    runner, breakable = built
     for seq in (1, 2, 3):
         runner.add(seq, GREEDY)
         runner.execute(PrefillPlan(seq=seq, token_ids=(5,), start=0))
-    sleep.armed = True
+    breakable.armed = True
     with pytest.raises(RuntimeError, match="injected"):
         runner.execute(DecodePlan(seqs=(1, 2), token_ids=(5, 5)))
     for seq in (1, 2):

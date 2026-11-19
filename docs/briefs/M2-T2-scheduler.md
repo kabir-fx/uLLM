@@ -1,6 +1,6 @@
 # M2-T2: Scheduler with continuous batching
 
-**State:** in build. You chose the recommended answer to each of the four questions. Read the Result when `/build` reports.
+**State:** DONE at `5502b38`. Read the Result, then run `/ship`.
 **Decision record:** [0020](../decisions/0020-continuous-batching-admission.md) (the full design, for agents) · **Spec:** roadmap E6, task M2-T2
 
 ## The goal
@@ -35,6 +35,7 @@ One slot costs 114,688 bytes on the Qwen3 models. The agent read this from the m
 ## What you get at the end
 
 - `ullm serve --max-num-seqs N --max-kv-slots S` serves up to N requests in one batch. The default N is 16.
+- The M1 benchmark groups start uLLM with `--max-num-seqs 1`. Thus a rerun gives the M1 sequential baseline again.
 - `make sim` runs 50 clients through batched steps and checks the trace.
 - Unit tests prove the two limits, the FCFS order with no skipping, and the refusal of a small budget.
 - An engine test proves that a failed batch fails each request in it, and that the waiting requests still finish.
@@ -94,3 +95,24 @@ A legal request can reserve up to `max_model_len` slots. With a smaller budget, 
 
 ## Result
 
+**State:** DONE. The proof is VERIFIED at `cc03978`. The review is READY at `5502b38`, after the fixes. `make ci` passed at `5502b38`.
+
+**Proof.** The verifier agent exercised nine claims on the real engine and on `ullm serve`. On the real model, 8 concurrent chats finished, and `/health` showed 8 running. The verifier broke the slot check on a copy, and its check found 930 over-budget admissions. It also broke the FCFS head rule, and its check found the skip.
+
+**Changes against the plan.**
+- The review found that the M1 benchmark groups started uLLM with no flags. A rerun would batch, so the groups now pin `--max-num-seqs 1`.
+- The review found that the serve test did not prove `--max-num-seqs`. A new test does, and a mutant now fails it.
+- The review found that a `Submit` past `max_model_len` made the loop spin. The engine now stops on it as a bug.
+- `hello` now leaves `kv.capacity_tokens` null. The terminal divides it into unpadded tokens, and the budget counts padded slots.
+- Decision 0020 now says that rounding to 256 slots is not counted. Its memory figures are labelled as arithmetic.
+
+**Measured with `make bench-smoke`, on battery.**
+- At concurrency 8, the base gave 54.4 tok/s with a TTFT p50 of 16,617 ms. The branch gave 184.3 tok/s with a TTFT p50 of 327 ms.
+- At concurrency 1, the base gave 58.8, 56.8 and 53.3 tok/s. The branch gave 54.7, 54.0 and 53.9 tok/s. The ranges overlap, and the base fell from run to run.
+
+**Not proven.** Batched greedy output against mlx-lm is not proven. M2-T3 does that. `check_trace` checks the row cap but not the slot budget.
+
+**Read these yourself.**
+- `src/ullm/core/scheduler.py:65`: the admission rule. Look at the longest reservation and the two limits.
+- `src/ullm/core/engine.py:135`: the refusal of a small budget. Look at the guard in `_arrive` too.
+- `bench/groups/m1-c8.json:18`: the pinned batch size for the M1 rerun.

@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M2 in progress: M2-T1 shipped as #21. M1 done (gate G1 passed). M0 done |
+| Phase | M2 in progress: M2-T2 built on `m2/t2-scheduler`, not yet shipped. M2-T1 shipped as #21. M1 done (gate G1 passed). M0 done |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M2-T2 scheduler (E6). For M2-T2: padding makes every row as long as the longest, so one prompt near `max_model_len` (40,960) at batch 8 needs about 37.6 GB of KV (inferred from the shape), and a failed batch fails every row in it; an admission limit on padded KV slots (batch size × longest row) belongs in M2-T2 before `max_num_seqs` goes above 1 |
-| Lane A (engine) | M2-T1 (decision 0019): `BatchKV` in `src/ullm/runner/kv/batch.py`; `MLXRunner` decodes the running batch in one forward; `ContiguousKV` deleted; `SeqLedger` adds the two phase rules |
+| Next task | `/ship` M2-T2, then M2-T3 batching tests (Q2, Q3). For M2-T3: `ullm serve` now batches by default (`max_num_seqs` 16), so concurrent greedy replies are not yet held to rule 1; the engine-level equivalence test pins `max_num_seqs=1`. `check_trace` checks the row cap but not the slot budget (decision 0020) |
+| Lane A (engine) | M2-T2 (decision 0020): `Scheduler` admits the waiting head only while rows ≤ `max_num_seqs` and rows × the longest reservation (`prompt + max_tokens`) ≤ `max_kv_slots` (40,960, never below `max_model_len`); FCFS, no skipping. `ullm serve --max-num-seqs --max-kv-slots`. M1 bench groups pin `--max-num-seqs 1`. M2-T1 (decision 0019): `BatchKV`, batched decode in `MLXRunner` |
 | Lane B (contract-isolated) | idle. M1-T8 shipped as #19 (decision 0017): `pnpm -C terminal dev` replays `steady-chat` at http://127.0.0.1:5173; `?trace=`, `?live=`, `?speed=` |
 | Blocked on the author | M1-T7 leftovers: a yes or no on deleting the five old, untracked run directories in `bench/results/m1/`, and where explaining uLLM's 1.167 TPOT ratio at c1 belongs (B6); close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | `/build M2-T1`. `make ci` green. Equivalence at batch size 1 still exact (8 passed; the verifier also ran it at 128 tokens). `make bench-smoke`, both on battery: base `229304b` 52.4 tok/s, TPOT p50 17.7 ms; after `ab2db89` 54.5 tok/s, 17.5 ms (an earlier base run on AC gave 28.7 ms and is not comparable). Batched greedy output differs from batch-size-1 output at near-ties (margins 0.0, 0.125, 0.25 seen), as 0019 expects; M2-T3 sets the threshold. A mask that ignored padding survived the plan-order test and was caught only by comparison with batch-size-1 output, so M2-T3's batched equivalence is the end-to-end guard for the mask. Noticed, not fixed: one run of `pytest tests/integration` had 1 failure and 13 errors that did not reproduce on rerun (97 passed) |
+| Last session | `/build M2-T2`. `make ci` green at `5502b38`. Verifier VERIFIED (9 claims, both scheduler breaks caught); two reviewers NOT READY at `cc03978`, every Required finding fixed after. `make bench-smoke` on battery, workload A, 16 requests: c1 base `fc3152d` 58.8, 56.8, 53.3 tok/s against the branch 54.7, 54.0, 53.9 (overlapping, the base drifting down run to run); c8 base 54.4 tok/s, TTFT p50 16,617 ms against the branch 184.3 tok/s, TTFT p50 327 ms, TPOT p50 30.5 ms. Noticed, not fixed: `docs/CLAIMS.md` row 22 cites `engine.py (max_num_seqs)` for M1's value of 1, which the file no longer shows; a bad `--max-kv-slots` with the real model is reported only after the model loads, with a traceback |
 
 ---
 
@@ -584,7 +584,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 #### M2 Continuous batching and terminal v1
 
 - [x] **M2-T1** `[design]` Contiguous batch KV (E7).
-- [ ] **M2-T2** Scheduler: continuous batching, admission limits, FCFS (E6).
+- [x] **M2-T2** Scheduler: continuous batching, admission limits, FCFS (E6).
 - [ ] **M2-T3** Batching tests: equivalence at batch 1, 2, 4, 8; scheduler properties (Q2, Q3).
 - [ ] **M2-T4** Telemetry bus, stream, recorder, measured overhead (O1).
 - [ ] **M2-T5** Prometheus metrics (O2).

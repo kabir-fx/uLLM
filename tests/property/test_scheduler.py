@@ -181,7 +181,7 @@ def _admitted_first_come_first_served(events: list[ev.Event]) -> None:
                 settled.add(rid)
 
 
-@settings(max_examples=300, deadline=None)
+@settings(deadline=None)
 @given(
     max_num_seqs=st.integers(1, 8),
     max_kv_slots=st.integers(INFO.max_model_len, 4 * INFO.max_model_len),

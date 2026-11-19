@@ -41,7 +41,10 @@ def test_greedy_tokens_through_the_engine_equal_mlx_lm(
     events: list[ev.Event] = []
 
     async def main() -> list[tuple[str, list[Output]]]:
-        engine = EngineClient.start(recording, tokenizer.detokenizer, EngineConfig(), events.append)
+        # Every request arrives at once; batch size 1 keeps this rule 1 without a near-tie
+        # allowance. Batched equivalence is M2-T3's (decision 0020).
+        config = EngineConfig(max_num_seqs=1)
+        engine = EngineClient.start(recording, tokenizer.detokenizer, config, events.append)
         streams = [
             engine.submit(tuple(case["prompt_ids"]), GREEDY, max_tokens=TOKENS) for case in cases
         ]

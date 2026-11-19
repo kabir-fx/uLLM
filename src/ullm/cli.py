@@ -6,7 +6,7 @@ import asyncio
 import random
 import sys
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
 
 import uvicorn
@@ -19,6 +19,7 @@ from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, FakeTokenizer, 
 from ullm.server.app import DEFAULT_MAX_TOKENS, ServeConfig, create_app
 from ullm.telemetry import events as ev
 from ullm.telemetry import trace
+from ullm.telemetry.bus import Bus, Hub, TelemetryClock
 from ullm.telemetry.check import check_trace
 
 SIM_INFO = RunnerInfo(
@@ -57,28 +58,34 @@ async def _client(engine: EngineClient, rng: random.Random, disconnect: float) -
     return outcome
 
 
-async def _sim(clients: int, seed: int, disconnect: float) -> tuple[list[ev.Event], Counter[str]]:
-    events: list[ev.Event] = []
+async def _sim(clients: int, seed: int, disconnect: float) -> tuple[list[ev.Frame], Counter[str]]:
+    clock, bus = TelemetryClock.start(), Bus()
+    hub = Hub(bus, clock, SIM_CONFIG.replica)
+    frames_task = asyncio.create_task(_collect(hub.subscribe()))
+    hub_task = asyncio.create_task(hub.run())
     engine = EngineClient.start(
-        FakeRunner(SIM_INFO, SIM_LATENCY),
-        FakeDetokenizer,
-        SIM_CONFIG,
-        events.append,
+        FakeRunner(SIM_INFO, SIM_LATENCY), FakeDetokenizer, SIM_CONFIG, bus.emit, clock
     )
     outcomes = await asyncio.gather(
         *(_client(engine, random.Random(f"{seed}-{i}"), disconnect) for i in range(clients))
     )
-    await engine.close()  # the engine thread has exited, so events is complete
-    return events, Counter(outcomes)
+    await engine.close()  # the engine thread has exited, so the bus holds every event
+    hub.close()
+    await hub_task
+    return await frames_task, Counter(outcomes)
+
+
+async def _collect(frames: AsyncIterator[ev.Frame]) -> list[ev.Frame]:
+    return [frame async for frame in frames]
 
 
 def _run_sim(args: argparse.Namespace) -> int:
-    events, outcomes = asyncio.run(_sim(args.clients, args.seed, args.disconnect))
-    frames = trace.frames_from(events, SIM_CONFIG.replica)
+    frames, outcomes = asyncio.run(_sim(args.clients, args.seed, args.disconnect))
     if args.trace:
         trace.write(args.trace, frames)
     report = check_trace(frames)
-    print(f"{args.clients} clients, {report.steps} steps, {len(events)} events")
+    events = sum(len(frame.events) for frame in frames)
+    print(f"{args.clients} clients, {report.steps} steps, {events} events")
     for outcome, n in sorted(outcomes.items()):
         print(f"  {n:4d}  {outcome}")
     # A refusal past max_in_flight is the bound working; the trace check covers the rest.

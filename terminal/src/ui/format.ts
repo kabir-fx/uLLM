@@ -8,3 +8,7 @@ export function ms(value: number | null | undefined): string {
 export function int(value: number | null | undefined): string {
   return value === null || value === undefined ? NONE : Math.round(value).toLocaleString("en-US");
 }
+
+export function percent(share: number | null | undefined): string {
+  return share === null || share === undefined ? NONE : `${Math.round(share * 100)}%`;
+}

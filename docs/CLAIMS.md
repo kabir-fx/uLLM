@@ -35,3 +35,5 @@ Every claim uLLM makes, in the README, the write-up or the author's resume, has 
 - Evidence is something a stranger can open: a test name, a `bench/results/` run directory, a CI run, a script.
 - Reproduce is a command. If it needs a particular machine or condition, say so in the row.
 - When evidence changes (a rerun, a new commit), update the row in the same pull request.
+| 23 | With 10 golden prompts at once and `max_num_seqs` 2, 4 and 8, every greedy token uLLM's batched engine emits is in mlx-lm's top 2 for uLLM's own prefix and within 0.25 logprob of mlx-lm's best; at batch size 1 the tokens are exactly mlx-lm's | `tests/equivalence/test_engine_equivalence.py`; decision 0021 | `make equivalence`; full length: `ULLM_GOLDEN_TOKENS=128 uv run pytest -m mlx tests/equivalence/test_engine_equivalence.py` (*verify*) | M2 |
+| 24 | Over random arrivals, aborts, `max_num_seqs` and `max_kv_slots`, the engine ends every request once, admits first come first served, never holds more rows or padded KV slots than its limits, and leaks no sequence | `tests/property/test_scheduler.py`; decision 0021 | `uv run pytest tests/property/test_scheduler.py` | M2 |

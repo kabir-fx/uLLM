@@ -1,5 +1,5 @@
-"""MLXRunner beyond the shared conformance tests (decision 0008): what it refuses in M1,
-how it samples, what ``load_mlx`` reports, and what its cache and tokenizer accept."""
+"""MLXRunner beyond the shared conformance tests (decisions 0008 and 0019): how it batches
+and samples, what ``load_mlx`` reports, and what its tokenizer accepts."""
 
 import dataclasses
 from types import SimpleNamespace
@@ -66,18 +66,32 @@ def test_without_a_seed_each_sequence_draws_its_own(
     assert _generate(runner, 100, unseeded) != _generate(runner, 101, unseeded)
 
 
-def test_batched_decode_is_refused_without_failing_the_sequences(
+def _batched(runner: "MLXRunner", orders: list[tuple[int, ...]]) -> dict[int, list[int]]:
+    """Four prompts of different lengths, prefilled one by one, then one decode per plan
+    order; each sequence's tokens."""
+    prompts = {201: PROMPT, 202: PROMPT[:9], 203: (9707, 11, 1879), 204: PROMPT[3:]}
+    got: dict[int, list[int]] = {}
+    for seq, prompt in prompts.items():
+        runner.add(seq, GREEDY)
+        got[seq] = list(runner.execute(PrefillPlan(seq=seq, token_ids=prompt, start=0)).tokens)
+    for order in orders:
+        step = runner.execute(DecodePlan(seqs=order, token_ids=tuple(got[s][-1] for s in order)))
+        for seq, token in zip(order, step.tokens, strict=True):
+            got[seq].append(token)
+    for seq in prompts:
+        runner.release(seq)
+    return got
+
+
+def test_a_batch_gives_each_sequence_its_tokens_in_plan_order_whatever_the_order(
     mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
 ) -> None:
     runner, _ = mlx_loaded
-    for seq in (101, 102):
-        runner.add(seq, GREEDY)
-        runner.execute(PrefillPlan(seq=seq, token_ids=(9707, 11), start=0))
-    with pytest.raises(ValueError, match="M2-T1"):
-        runner.execute(DecodePlan(seqs=(101, 102), token_ids=(11, 11)))
-    for seq in (101, 102):
-        runner.execute(DecodePlan(seqs=(seq,), token_ids=(11,)))
-        runner.release(seq)
+    forward = (201, 202, 203, 204)
+    shuffled = [(204, 202, 201, 203), (203, 204, 202, 201), (201, 203, 204, 202)]
+    in_order = _batched(runner, [forward] * 12)
+    assert _batched(runner, [*shuffled * 4]) == in_order
+    assert all(len(tokens) == 13 for tokens in in_order.values())
 
 
 def test_greedy_picks_the_argmax_of_log_probabilities_not_of_logits() -> None:
@@ -230,18 +244,6 @@ def test_a_long_request_leaves_little_freed_memory_held_for_reuse(
         token = runner.execute(DecodePlan(seqs=(1,), token_ids=token)).tokens
     runner.release(1)
     assert mx.get_cache_memory() < 512 * 2**20
-
-
-def test_the_cache_asks_for_no_mask_on_one_query_and_causal_otherwise() -> None:
-    from ullm.runner.kv.contiguous import ContiguousKV
-
-    kv = ContiguousKV()
-    assert kv.make_mask(1) is None
-    assert kv.make_mask(5) == "causal"
-    with pytest.raises(ValueError, match="causal"):
-        kv.make_mask(5, window_size=4)
-    with pytest.raises(ValueError, match="causal"):
-        kv.make_mask(5, return_array=True)
 
 
 @pytest.mark.parametrize(

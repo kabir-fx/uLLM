@@ -6,7 +6,7 @@ MLX arrays, so other threads may call it.
 
 import secrets
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 import mlx.core as mx
@@ -25,13 +25,14 @@ from ullm.runner.base import (
     TemplateMessage,
 )
 from ullm.runner.detokenizer import ByteDetokenizer
-from ullm.runner.kv.contiguous import ContiguousKV
+from ullm.runner.kv.batch import BatchKV
 from ullm.runner.ledger import SeqLedger
 from ullm.runner.sampler import SampleRow, sample
 
-# MLX keeps freed buffers for reuse up to its memory limit by default. ContiguousKV frees a
-# smaller K and V every step and never reuses them, so the default held 9 GB after 12
-# requests and swapped (decision 0015).
+# MLX keeps freed buffers for reuse up to its memory limit by default. The concatenating
+# cache before BatchKV freed a smaller K and V every step and never reused them, so the
+# default held 9 GB after 12 requests and swapped (decision 0015). Each repack still frees
+# buffers of a size that does not recur (decision 0019).
 CACHE_LIMIT = 256 * 2**20
 
 
@@ -130,7 +131,10 @@ class MLXRunner:
         self.model = model  # an mlx-lm model module: model(inputs, cache=[one per layer])
         self._info = info
         self._ledger = SeqLedger(info)
-        self._caches: dict[SeqId, list[ContiguousKV]] = {}
+        # Each sequence's KV is in exactly one place: its own BatchKV until its first
+        # decode, then a row of _batch (decision 0019). A failed one may have none.
+        self._prefilling: dict[SeqId, BatchKV] = {}
+        self._batch: BatchKV | None = None
         self._sampling: dict[SeqId, tuple[SamplingParams, int]] = {}
 
     def info(self) -> RunnerInfo:
@@ -138,34 +142,30 @@ class MLXRunner:
 
     def add(self, seq: SeqId, sampling: SamplingParams) -> None:
         self._ledger.add(seq)
-        self._caches[seq] = [ContiguousKV() for _ in self.model.layers]
+        self._prefilling[seq] = BatchKV.empty(seq, len(self.model.layers))
         seed = secrets.randbits(64) if sampling.seed is None else sampling.seed
         self._sampling[seq] = (sampling, seed)
 
     def release(self, seq: SeqId) -> None:
         self._ledger.release(seq)
-        del self._caches[seq]
         del self._sampling[seq]
+        if self._prefilling.pop(seq, None) is None and self._batch and seq in self._batch.seqs:
+            rest = [(self._batch, s) for s in self._batch.seqs if s != seq]
+            self._batch = BatchKV.pack(rest) if rest else None
 
     def execute(self, plan: StepPlan) -> StepResult:
-        if isinstance(plan, DecodePlan) and len(plan.seqs) > 1:
-            raise ValueError("batched decode needs one batch KV cache (E7, M2-T1)")
         with self._ledger.step(plan):
             began = time.perf_counter()
-            seq, chunks, sampled_at = _forwards(plan, self._ledger.held)
-            inputs = [mx.array(chunk)[None] for chunk in chunks]
-            cache = self._caches[seq]
-            forward_began = time.perf_counter()
-            for x in inputs:
-                logits = self.model(x, cache=cache)
-            if sampled_at is not None:
-                params, seed = self._sampling[seq]
-                sampled = sample(logits[:, -1, :], [SampleRow(params, seed, sampled_at)])
-                mx.eval(sampled)
-            else:
-                mx.eval([(kv.keys, kv.values) for kv in cache])
-            forward_done = time.perf_counter()
-            tokens = tuple(cast(list[int], sampled.tolist())) if sampled_at is not None else ()
+            match plan:
+                case PrefillPlan():
+                    tokens, forward_began, forward_done = self._prefill(plan)
+                case DecodePlan():
+                    try:
+                        tokens, forward_began, forward_done = self._decode(plan)
+                    except BaseException:
+                        # The ledger fails every sequence in the plan, which is every row.
+                        self._batch = None
+                        raise
         done = time.perf_counter()
         return StepResult(
             tokens=tokens,
@@ -173,21 +173,46 @@ class MLXRunner:
             total_ms=(done - began) * 1000,
         )
 
+    def _prefill(self, plan: PrefillPlan) -> tuple[tuple[int, ...], float, float]:
+        """A sampled prefill runs all but its last token, then the last token alone, as
+        mlx-lm's ``generate_step`` does: one ``[1, L]`` forward picks different greedy
+        tokens at near-ties (decision 0008)."""
+        ids = plan.token_ids
+        chunks = [ids[:-1], ids[-1:]] if plan.sample and len(ids) > 1 else [ids]
+        inputs = [mx.array(chunk)[None] for chunk in chunks]
+        cache = self._prefilling[plan.seq].layers
+        forward_began = time.perf_counter()
+        for x in inputs:
+            logits = self.model(x, cache=cache)
+        if not plan.sample:
+            mx.eval([(kv.keys, kv.values) for kv in cache])
+            return (), forward_began, time.perf_counter()
+        params, seed = self._sampling[plan.seq]
+        sampled = sample(logits[:, -1, :], [SampleRow(params, seed, plan.start + len(ids))])
+        mx.eval(sampled)
+        forward_done = time.perf_counter()
+        return tuple(cast(list[int], sampled.tolist())), forward_began, forward_done
 
-def _forwards(
-    plan: StepPlan, held: Callable[[SeqId], int]
-) -> tuple[SeqId, list[tuple[int, ...]], int | None]:
-    """The sequence, the token chunks to run in order, and the position of the token
-    sampled after the last chunk, or None when the step samples nothing.
-
-    A sampled prefill runs all but its last token, then the last token alone, as
-    mlx-lm's ``generate_step`` does: one ``[1, L]`` forward picks different greedy
-    tokens at near-ties (decision 0008).
-    """
-    match plan:
-        case PrefillPlan(seq=seq, token_ids=ids, start=start, sample=True) if len(ids) > 1:
-            return seq, [ids[:-1], ids[-1:]], start + len(ids)
-        case PrefillPlan(seq=seq, token_ids=ids, start=start, sample=sample):
-            return seq, [ids], start + len(ids) if sample else None
-        case DecodePlan(seqs=seqs, token_ids=ids):
-            return seqs[0], [ids], held(seqs[0]) + 1
+    def _decode(self, plan: DecodePlan) -> tuple[tuple[int, ...], float, float]:
+        joiners = [seq for seq in plan.seqs if seq in self._prefilling]
+        if joiners:
+            rows = [(self._batch, s) for s in self._batch.seqs] if self._batch is not None else []
+            rows += [(self._prefilling[seq], seq) for seq in joiners]
+            self._batch = BatchKV.pack(rows)
+            for seq in joiners:
+                del self._prefilling[seq]
+        batch = self._batch
+        if batch is None:
+            raise AssertionError("a valid decode names at least one sequence")
+        fed = dict(zip(plan.seqs, plan.token_ids, strict=True))
+        x = mx.array([[fed[seq]] for seq in batch.seqs])
+        settings = [
+            SampleRow(*self._sampling[seq], self._ledger.held(seq) + 1) for seq in batch.seqs
+        ]
+        forward_began = time.perf_counter()
+        logits = self.model(x, cache=batch.layers)
+        sampled = sample(logits[:, -1, :], settings)
+        mx.eval(sampled)
+        forward_done = time.perf_counter()
+        by_row = cast(list[int], sampled.tolist())
+        return tuple(by_row[batch.row(seq)] for seq in plan.seqs), forward_began, forward_done

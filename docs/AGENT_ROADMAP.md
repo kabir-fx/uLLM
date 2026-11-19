@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M1 done (gate G1 passed; #20 aligned `/gate` with keel, decision 0018). M0 done (gate G0 passed). M2 not started |
+| Phase | M2 in progress: M2-T1 shipped as #21. M1 done (gate G1 passed). M0 done |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M2-T1 `[design]` contiguous batch KV (E7): `/architect` first |
-| Lane A (engine) | idle. M1-T7 shipped as #18: results in `bench/results/m1/c1`, `c8` (both VALID), `comparison.md`; claims 21 and 22 |
+| Next task | M2-T2 scheduler (E6). For M2-T2: padding makes every row as long as the longest, so one prompt near `max_model_len` (40,960) at batch 8 needs about 37.6 GB of KV (inferred from the shape), and a failed batch fails every row in it; an admission limit on padded KV slots (batch size × longest row) belongs in M2-T2 before `max_num_seqs` goes above 1 |
+| Lane A (engine) | M2-T1 (decision 0019): `BatchKV` in `src/ullm/runner/kv/batch.py`; `MLXRunner` decodes the running batch in one forward; `ContiguousKV` deleted; `SeqLedger` adds the two phase rules |
 | Lane B (contract-isolated) | idle. M1-T8 shipped as #19 (decision 0017): `pnpm -C terminal dev` replays `steady-chat` at http://127.0.0.1:5173; `?trace=`, `?live=`, `?speed=` |
 | Blocked on the author | M1-T7 leftovers: a yes or no on deleting the five old, untracked run directories in `bench/results/m1/`, and where explaining uLLM's 1.167 TPOT ratio at c1 belongs (B6); close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | `/gate M1` and `/ship` as #20: gate G1 passed. Equivalence green in CI (`main` run 44380228891 at `6eb6f14`, mlx job: `tests/equivalence` 8 passed); SDK contract and 50 clients green in the same run (core job: 443 passed, 5 skipped for MLX on Linux); baselines committed in `bench/results/m1/c1`, `c8` (both VALID) and `comparison.md`; `curl` streamed from `ullm serve` on Qwen3-0.6B-bf16 (HTTP 200, 27 `data:` events, `[DONE]`). All eight tasks ticked, their pull requests green on all four checks, decisions 0008 to 0017 present. The first run failed one implied item: 7 of 8 pull requests had code or test commits after their verdict commit. The author chose to align `/gate` with keel's `verdicts.md` (decision 0018): 52 of those 54 commits are named under "Covered since", as fixes with before and after evidence or as recording the result. #11's other two (a test, a docstring) pass as an exception the author approved, recorded in 0018: its review reached READY at its head `3dcd616`, after both. `/gate` now finds pull requests by branch, since only #18 has its task ID in the title. Noticed, not fixed: the decisions index has no rows for 0011, 0016 and 0017; `ullm serve` replies start with `<think>` (thinking is on by default when serving; F4 turns it off only for goldens, evals and benchmarks); an empty `m1/gate-g1` branch is checked out in the main checkout |
+| Last session | `/build M2-T1`. `make ci` green. Equivalence at batch size 1 still exact (8 passed; the verifier also ran it at 128 tokens). `make bench-smoke`, both on battery: base `229304b` 52.4 tok/s, TPOT p50 17.7 ms; after `ab2db89` 54.5 tok/s, 17.5 ms (an earlier base run on AC gave 28.7 ms and is not comparable). Batched greedy output differs from batch-size-1 output at near-ties (margins 0.0, 0.125, 0.25 seen), as 0019 expects; M2-T3 sets the threshold. A mask that ignored padding survived the plan-order test and was caught only by comparison with batch-size-1 output, so M2-T3's batched equivalence is the end-to-end guard for the mask. Noticed, not fixed: one run of `pytest tests/integration` had 1 failure and 13 errors that did not reproduce on rerun (97 passed) |
 
 ---
 
@@ -353,7 +353,7 @@ Freeze these early. Lanes depend on them and nothing else.
 - *Metrics:* waiting queue length, batch size per step, step time by kind, tokens per step.
 - *Proof:* every request finishes, FCFS order holds, nothing leaks after a run, equivalence at batch 1, 2, 4, 8 (Q3).
 
-**E7 Contiguous batch KV.** Our own per-layer cache for the running batch: K and V as `[B, H, T, D]`, left-padded, with per-row offsets for RoPE and a mask built with `create_causal_mask(..., left_padding=...)`. A request joins after its prefill (its KV is merged in) and leaves when it finishes (its row is dropped and common left padding trimmed). Membership changes copy; steps append. This is the KV for M2 and the reference that E9 is measured against.
+**E7 Contiguous batch KV.** Our own per-layer cache for the running batch: K and V as `[B, H, T, D]`, left-padded, with per-row offsets for RoPE and a mask built with `create_causal_mask(..., left_padding=...)`. A request joins at its first decode (its KV is copied in) and leaves when it is released (the batch is repacked without its row, so no left padding is common to every row). Membership changes copy; steps write in place (decision 0019). This is the KV for M2 and the reference that E9 is measured against.
 
 **E8 Block manager** (logical, MLX-free).
 
@@ -583,7 +583,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 
 #### M2 Continuous batching and terminal v1
 
-- [ ] **M2-T1** `[design]` Contiguous batch KV (E7).
+- [x] **M2-T1** `[design]` Contiguous batch KV (E7).
 - [ ] **M2-T2** Scheduler: continuous batching, admission limits, FCFS (E6).
 - [ ] **M2-T3** Batching tests: equivalence at batch 1, 2, 4, 8; scheduler properties (Q2, Q3).
 - [ ] **M2-T4** Telemetry bus, stream, recorder, measured overhead (O1).

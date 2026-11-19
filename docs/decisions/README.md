@@ -19,6 +19,7 @@ One short file per design decision, numbered in order (roadmap 3.3). A decision 
 | [0014](0014-m1-baselines.md) | The M1 baselines: `mlx_lm.server` sequential through its single-request path (`"seed": 0`) and batched at its defaults, prompt cache on and off; `bench.run --model` and `--extra-body`; the repeat slowdown was CPU contention | M1-T7 |
 | [0015](0015-mlx-cache-limit.md) | A 256 MB limit on MLX's cache of freed buffers, set by `load_mlx`: without it `ContiguousKV`'s unreusable buffers held 9 GB after 12 requests and the machine swapped | M1-T7 |
 | [0018](0018-gate-verdict-coverage.md) | `/gate` accepts a commit after the verdicts when keel's `verdicts.md` covers it: listed under "Covered since" with before and after evidence, or re-checked READY | gate G1 |
+| [0019](0019-contiguous-batch-kv.md) | Contiguous batch KV: one left-padded `BatchKV` for the running batch, written in place, repacked on each join and leave; a decode names every decoding sequence and a prefill comes before the first decode | M2-T1 |
 
 ## Template
 

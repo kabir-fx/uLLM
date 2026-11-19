@@ -1,7 +1,7 @@
 # M2-T7: Step chart, batch strip and requests table
 
 **State:** DONE at `2babb83`. Type `/ship` to open the pull request.
-**Decision record:** [0021](../decisions/0021-core-panels.md) (the full design, for agents) · **Spec:** roadmap M2-T7 (T2)
+**Decision record:** [0022](../decisions/0022-core-panels.md) (the full design, for agents) · **Spec:** roadmap M2-T7 (T2)
 
 ## The goal
 
@@ -53,7 +53,7 @@ This slice opens M2-T9 and M2-T10 for Lane B.
 
 ## Choices the agent made
 
-You can still change these before `/ship`. Decision 0021 gives the reasons.
+You can still change these before `/ship`. Decision 0022 gives the reasons.
 
 - The agent draws the step chart with Canvas 2D and adds no chart library. You chose this from the agent's recommendation.
 - Under the candles, two bar graphs show tokens per second. One counts processed tokens and one counts sampled tokens. You asked for both.
@@ -96,9 +96,9 @@ The strip shows hundreds of steps, and many requests start and end in that time.
 **What proof and review found:**
 
 - The agent told the verifier that the tab counts always equal the rows in the feed. That is false past 200 requests. The feed shows the newest 200 arrivals, and the table shows every request that the store keeps. A new test now covers more than 200 requests.
-- A comment said that React renders the canvas one time. React renders the panel again on each update, but it keeps the same canvas element. The comment and decision 0021 now say this.
+- A comment said that React renders the canvas one time. React renders the panel again on each update, but it keeps the same canvas element. The comment and decision 0022 now say this.
 - Three tests did not fail when the reviewer changed the code. Now each of the three changes makes a test fail.
-- Decision 0021 gave the prefill median as 523. The correct median is 510.5.
+- Decision 0022 gave the prefill median as 523. The correct median is 510.5.
 
 **What the verifier saw:** all 46 candles of `steady-chat` match the trace. When the verifier deleted one line in `timeline.ts`, 14 candles did not match. The strip has 400 cells of 400. The canvases change while the replay runs and stop when it ends.
 

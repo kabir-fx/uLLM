@@ -1,4 +1,4 @@
-# 0021: The step chart, batch strip and requests table
+# 0022: The step chart, batch strip and requests table
 
 **Status:** accepted · **Task:** M2-T7 (T2)
 

@@ -1,6 +1,6 @@
 # 0008: Runner protocol v1, MLXRunner and FakeRunner
 
-**Status:** accepted · **Task:** M1-T1 `[design]`
+**Status:** accepted; invariant 2 amended by [0019](0019-contiguous-batch-kv.md) (a batch decodes together; a prefill comes before the first decode), and `MLXRunner` decodes batches since M2-T1 · **Task:** M1-T1 `[design]`
 
 ## Context
 

@@ -353,7 +353,7 @@ Freeze these early. Lanes depend on them and nothing else.
 - *Metrics:* waiting queue length, batch size per step, step time by kind, tokens per step.
 - *Proof:* every request finishes, FCFS order holds, nothing leaks after a run, equivalence at batch 1, 2, 4, 8 (Q3).
 
-**E7 Contiguous batch KV.** Our own per-layer cache for the running batch: K and V as `[B, H, T, D]`, left-padded, with per-row offsets for RoPE and a mask built with `create_causal_mask(..., left_padding=...)`. A request joins after its prefill (its KV is merged in) and leaves when it finishes (its row is dropped and common left padding trimmed). Membership changes copy; steps append. This is the KV for M2 and the reference that E9 is measured against.
+**E7 Contiguous batch KV.** Our own per-layer cache for the running batch: K and V as `[B, H, T, D]`, left-padded, with per-row offsets for RoPE and a mask built with `create_causal_mask(..., left_padding=...)`. A request joins at its first decode (its KV is copied in) and leaves when it is released (the batch is repacked without its row, so no left padding is common to every row). Membership changes copy; steps write in place (decision 0019). This is the KV for M2 and the reference that E9 is measured against.
 
 **E8 Block manager** (logical, MLX-free).
 

@@ -1,6 +1,6 @@
 # M2-T7: Step chart, batch strip and requests table
 
-**State:** in build. You do nothing now.
+**State:** DONE at `2babb83`. Type `/ship` to open the pull request.
 **Decision record:** [0021](../decisions/0021-core-panels.md) (the full design, for agents) · **Spec:** roadmap M2-T7 (T2)
 
 ## The goal
@@ -88,3 +88,28 @@ The strip shows hundreds of steps, and many requests start and end in that time.
 </details>
 
 ## Result
+
+**State:** DONE. The review was NOT READY at `d8b4d99`, and the fix commits up to `1d6b91f` close every Required finding. The proof was NOT VERIFIED at `d8b4d99` for claim 3 as the agent wrote it. You accepted the corrected claim, and `2babb83` tests it. `make ci` passes at `2babb83`. This change used 2 agent runs.
+
+**Against the plan:** the build followed the plan. You chose two bar graphs, so the chart has three panes.
+
+**What proof and review found:**
+
+- The agent told the verifier that the tab counts always equal the rows in the feed. That is false past 200 requests. The feed shows the newest 200 arrivals, and the table shows every request that the store keeps. A new test now covers more than 200 requests.
+- A comment said that React renders the canvas one time. React renders the panel again on each update, but it keeps the same canvas element. The comment and decision 0021 now say this.
+- Three tests did not fail when the reviewer changed the code. Now each of the three changes makes a test fail.
+- Decision 0021 gave the prefill median as 523. The correct median is 510.5.
+
+**What the verifier saw:** all 46 candles of `steady-chat` match the trace. When the verifier deleted one line in `timeline.ts`, 14 candles did not match. The strip has 400 cells of 400. The canvases change while the replay runs and stop when it ends.
+
+**What is not proven:**
+
+- A window resize, and screens with a `devicePixelRatio` other than 1.
+- The live stream. M2-T4 brings `/telemetry/stream`.
+- The frame rate. M2-T10 brings Playwright and the budget.
+
+**Read these yourself:**
+
+- `terminal/src/strip.ts:21-44`: the reuse of lanes and the empty column between two requests.
+- `terminal/src/store.ts:191-210`: the decoding of `kv.snapshot`, and blocks set to null at the end.
+- `terminal/src/ui/StoreCanvas.tsx:13-43`: the loop on `requestAnimationFrame`, the resize, and the stable `draw`.

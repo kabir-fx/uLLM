@@ -193,6 +193,11 @@ class Engine:
     def _arrive(self, ticket: Submit) -> None:
         if ticket.rid in self._live:
             raise ValueError(f"{ticket.rid} is already live; the client names requests uniquely")
+        if len(ticket.prompt) + ticket.max_tokens > self._info.max_model_len:
+            # The client refuses it. Past that, it would wait at the head for ever (0020).
+            raise ValueError(
+                f"{ticket.rid} needs more than max_model_len {self._info.max_model_len}"
+            )
         stop = StopCheck(
             self._new_detokenizer(), self._info.eos_token_ids, ticket.max_tokens, ticket.stop
         )

@@ -127,7 +127,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--served-model-name", help="the model id clients send; default the repo")
     serve.add_argument("--default-max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
-    serve.add_argument("--max-num-seqs", type=int, default=EngineConfig().max_num_seqs)
+    serve.add_argument(
+        "--max-num-seqs",
+        type=int,
+        default=EngineConfig().max_num_seqs,
+        help="requests in one decode batch",
+    )
     serve.add_argument(
         "--max-kv-slots",
         type=int,

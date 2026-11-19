@@ -105,7 +105,7 @@ class Request:
 
     @property
     def kv_reservation(self) -> int:
-        """The most slots this request's KV row can ever hold (decision 0020)."""
+        """An upper bound on the slots this request's KV row can hold (decision 0020)."""
         return len(self.prompt) + self._ticket.max_tokens
 
     def admit(self, t: float) -> None:

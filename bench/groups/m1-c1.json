@@ -17,7 +17,7 @@
   "engines": [
     {
       "name": "ullm",
-      "launch": "uv run --locked ullm serve --port {port}",
+      "launch": "uv run --locked ullm serve --port {port} --max-num-seqs 1",
       "model": null,
       "extra_body": {},
       "footprint_gb": 3

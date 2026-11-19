@@ -1,6 +1,6 @@
 # M2-T3: Batching tests
 
-**State:** in build. Read "How it works", then wait for the Result.
+**State:** DONE at `c73fad4`. Read the Result, then run `/ship`.
 **Decision record:** [0021](../decisions/0021-batched-equivalence.md) (the full design, for agents) · **Spec:** roadmap Q2 and Q3, task M2-T3
 
 ## The goal
@@ -95,3 +95,26 @@ Test yourself: why is the gap exactly 0 on a prefix where uLLM matches mlx-lm?
 On that prefix, mlx-lm reads the same tokens that its own `generate_step` reads, in the same order. Thus it does the same arithmetic, and its best token is uLLM's token.
 
 </details>
+
+## Result
+
+**State:** DONE. The proof is VERIFIED at `461d2b3`. The review is READY at `c73fad4`, after the fixes. `make ci` passed at `817a5bd`.
+
+**Proof.** One reviewer agent exercised six claims on a copy of the repo. All six passed.
+- `make equivalence` passed, and each batch size reached its row count.
+- A tie-break mutant in the sampler failed batch size 1.
+- The padding mask mutant failed batch sizes 2, 4 and 8. The RoPE mutant failed with gaps above 10.
+- At 128 tokens, the engine test passed.
+- Six scheduler and engine mutants failed the property test in 30 of 30 runs.
+
+**Changes against the plan.**
+- The review found that rule 1, Q3 and R-2 in the roadmap still gave the old rule. They now cite decision 0021.
+- The review found claims 23 and 24 below the table in `docs/CLAIMS.md`. They are now rows of the table.
+- The property test first fixed its own example count. It now uses the Hypothesis profile of the repo.
+
+**Not proven.** Batched replies over HTTP are not tested. The server test sends one request at a time. A near-tie that passes at batch sizes above 1 leaves no record.
+
+**Read these yourself.**
+- `tests/equivalence/test_engine_equivalence.py:39`: the scorer. Look at the feed order and the top-2 count.
+- `tests/property/test_scheduler.py:95`: the limit checks of the wrapper runner.
+- `docs/AGENT_ROADMAP.md:91`: rule 1 with the new text for batch sizes above 1.

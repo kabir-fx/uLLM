@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M2 in progress: M2-T2 shipped as #22, M2-T1 as #21. M1 done (gate G1 passed). M0 done |
+| Phase | M2 in progress: M2-T3 built on `m2/t3-batching-tests`, not yet shipped. M2-T2 shipped as #22, M2-T1 as #21. M1 done (gate G1 passed). M0 done |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | M2-T3 batching tests (Q2, Q3). For M2-T3: `ullm serve` now batches by default (`max_num_seqs` 16), so concurrent greedy replies are not yet held to rule 1; the engine-level equivalence test pins `max_num_seqs=1`. `check_trace` checks the row cap but not the slot budget (decision 0020) |
-| Lane A (engine) | M2-T2 (decision 0020): `Scheduler` admits the waiting head only while rows ≤ `max_num_seqs` and rows × the longest reservation (`prompt + max_tokens`) ≤ `max_kv_slots` (40,960, never below `max_model_len`); FCFS, no skipping. `ullm serve --max-num-seqs --max-kv-slots`. M1 bench groups pin `--max-num-seqs 1`. M2-T1 (decision 0019): `BatchKV`, batched decode in `MLXRunner` |
+| Next task | `/ship` M2-T3, then M2-T4 telemetry bus, stream, recorder, measured overhead (O1). Batched replies are held to rule 1 at the engine (decision 0021); the server equivalence test still sends one request at a time. `check_trace` checks the row cap but not the slot budget (decision 0020); the scheduler property test checks it at the runner |
+| Lane A (engine) | M2-T3 (decision 0021): engine equivalence at `max_num_seqs` 1, 2, 4, 8; batch 1 exact, above 1 every token in mlx-lm's top 2 and within 0.25 logprob on uLLM's own prefix; `tests/property/test_scheduler.py` drives `Engine` on `FakeRunner` with Hypothesis. M2-T2 (decision 0020): `Scheduler` admits the waiting head only while rows ≤ `max_num_seqs` and rows × the longest reservation (`prompt + max_tokens`) ≤ `max_kv_slots` (40,960, never below `max_model_len`); FCFS, no skipping. `ullm serve --max-num-seqs --max-kv-slots`. M1 bench groups pin `--max-num-seqs 1`. M2-T1 (decision 0019): `BatchKV`, batched decode in `MLXRunner` |
 | Lane B (contract-isolated) | idle. M1-T8 shipped as #19 (decision 0017): `pnpm -C terminal dev` replays `steady-chat` at http://127.0.0.1:5173; `?trace=`, `?live=`, `?speed=` |
 | Blocked on the author | M1-T7 leftovers: a yes or no on deleting the five old, untracked run directories in `bench/results/m1/`, and where explaining uLLM's 1.167 TPOT ratio at c1 belongs (B6); close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | `/build M2-T2`. `make ci` green at `5502b38`. Verifier VERIFIED (9 claims, both scheduler breaks caught); two reviewers NOT READY at `cc03978`, every Required finding fixed after. `make bench-smoke` on battery, workload A, 16 requests: c1 base `fc3152d` 58.8, 56.8, 53.3 tok/s against the branch 54.7, 54.0, 53.9 (overlapping, the base drifting down run to run); c8 base 54.4 tok/s, TTFT p50 16,617 ms against the branch 184.3 tok/s, TTFT p50 327 ms, TPOT p50 30.5 ms. Noticed, not fixed: `docs/CLAIMS.md` row 22 cites `engine.py (max_num_seqs)` for M1's value of 1, which the file no longer shows; a bad `--max-kv-slots` with the real model is reported only after the model loads, with a traceback |
+| Last session | `/build M2-T3`. Measured batched divergence on the M4 (decision 0021); the author chose the every-token, top-2, 0.25 rule. `make ci` green at `817a5bd` (5 min 23 s on battery at 25%). One reviewer: claims VERIFIED and NOT READY at `461d2b3` on three doc findings, fixed in `c73fad4`. No `make bench-smoke`: tests and docs only. Noticed, not fixed: QUALITY.md's 71 s for `make ci` is not comparable with battery runs; a passing batched near-tie leaves no record outside the decision |
 
 ---
 
@@ -585,7 +585,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 
 - [x] **M2-T1** `[design]` Contiguous batch KV (E7).
 - [x] **M2-T2** Scheduler: continuous batching, admission limits, FCFS (E6).
-- [ ] **M2-T3** Batching tests: equivalence at batch 1, 2, 4, 8; scheduler properties (Q2, Q3).
+- [x] **M2-T3** Batching tests: equivalence at batch 1, 2, 4, 8; scheduler properties (Q2, Q3).
 - [ ] **M2-T4** Telemetry bus, stream, recorder, measured overhead (O1).
 - [ ] **M2-T5** Prometheus metrics (O2).
 - [ ] **M2-T6** Benchmark sweep on workload A at concurrency 1–16 against the baselines, with an explanation of every gap (B3, B6).

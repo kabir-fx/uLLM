@@ -1,5 +1,6 @@
-import type { Frame, Hello, Step } from "./contracts/telemetry";
+import type { Frame, Hello, KvSnapshot, Step } from "./contracts/telemetry";
 import { Ring } from "./ring";
+import { foldStep, type Second } from "./timeline";
 
 export type RequestState = "waiting" | "prefilling" | "running" | "preempted" | "finished" | "aborted";
 
@@ -12,6 +13,15 @@ export interface RequestRow {
   /** Sampled so far, counted from steps; the engine's own count once the request ends. */
   tokens: number;
   ttftMs: number | null;
+  cachedTokens: number | null;
+  firstTokenT: number | null;
+  /** The end of the newest step that sampled a token for this request. */
+  lastTokenT: number | null;
+  endT: number | null;
+  /** The engine's TPOT, known once the request finishes. */
+  tpotMs: number | null;
+  /** Blocks this request owns alone in the newest `kv.snapshot`; null before one, or once it ended. */
+  blocks: number | null;
 }
 
 export type SourceStatus =
@@ -30,6 +40,10 @@ export interface Sample {
 export const FEED_ROWS = 200;
 const STEP_SAMPLES = 4096;
 const REQUEST_SAMPLES = 4096;
+const STEPS = 1024;
+const SECONDS = 600;
+/** `BLOCK_OWNED_BASE` in `ullm/telemetry/events.py`: state byte 3 + i means owned by `owners[i]` alone. */
+const OWNED_BASE = 3;
 
 /**
  * Everything the terminal shows, folded from telemetry frames. Events never reach React
@@ -39,7 +53,6 @@ const REQUEST_SAMPLES = 4096;
 export class TelemetryStore {
   hello: Hello | null = null;
   status: SourceStatus = { kind: "connecting" };
-  lastStep: Step | null = null;
   /** The newest frame's `t`: the ticker's windows end here, so replay speed changes nothing. */
   nowT = 0;
   missedFrames = 0;
@@ -48,6 +61,8 @@ export class TelemetryStore {
   readonly sampled = new Ring<Sample>(STEP_SAMPLES);
   readonly ttfts = new Ring<Sample>(REQUEST_SAMPLES);
   readonly tpots = new Ring<Sample>(REQUEST_SAMPLES);
+  readonly steps = new Ring<Step>(STEPS);
+  readonly seconds = new Ring<Second>(SECONDS);
   version = 0;
 
   private readonly requests = new Map<string, RequestRow>();
@@ -76,8 +91,17 @@ export class TelemetryStore {
     this.changed();
   }
 
+  get lastStep(): Step | null {
+    return this.steps.newest() ?? null;
+  }
+
   request(rid: string): RequestRow | undefined {
     return this.requests.get(rid);
+  }
+
+  /** Every request kept, oldest arrival first. */
+  rows(): IterableIterator<RequestRow> {
+    return this.requests.values();
   }
 
   /** Newest arrival first, at most `FEED_ROWS` rows. */
@@ -106,51 +130,83 @@ export class TelemetryStore {
           maxTokens: event.max_tokens,
           tokens: 0,
           ttftMs: null,
+          cachedTokens: null,
+          firstTokenT: null,
+          lastTokenT: null,
+          endT: null,
+          tpotMs: null,
+          blocks: null,
         });
         return;
       case "req.admitted":
-        this.update(event.rid, (r) => (r.state = "prefilling"));
+        this.update(event.rid, (r) => {
+          r.state = "prefilling";
+          r.cachedTokens = event.cached_tokens;
+        });
         return;
       case "req.first_token":
         this.ttfts.push({ t: event.t, value: event.ttft_ms });
-        this.update(event.rid, (r) => (r.ttftMs = event.ttft_ms));
+        this.update(event.rid, (r) => {
+          r.ttftMs = event.ttft_ms;
+          r.firstTokenT = event.t;
+        });
         return;
       case "req.preempted":
         this.update(event.rid, (r) => (r.state = "preempted"));
         return;
       case "req.finished":
         if (event.timings.tpot_ms !== null) this.tpots.push({ t: event.t, value: event.timings.tpot_ms });
-        this.end(event.rid, "finished", event.usage.completion_tokens);
+        this.update(event.rid, (r) => (r.tpotMs = event.timings.tpot_ms));
+        this.end(event.rid, "finished", event.usage.completion_tokens, event.t);
         return;
       case "req.aborted":
-        this.end(event.rid, "aborted", event.completion_tokens);
+        this.end(event.rid, "aborted", event.completion_tokens, event.t);
         return;
       case "step":
         this.applyStep(event);
         return;
+      case "kv.snapshot":
+        this.applySnapshot(event);
+        return;
       default:
-        // kv.snapshot and router.decision have no panel yet; unknown types are ignored (C2).
+        // router.decision has no panel yet; unknown types are ignored (C2).
         return;
     }
   }
 
   private applyStep(step: Step): void {
-    this.lastStep = step;
+    this.steps.push(step);
+    foldStep(this.seconds, step);
     // One token per row: a prefill samples its first token, a decode row its next one.
     this.sampled.push({ t: step.t, value: step.rids.length });
     for (const rid of step.rids) {
       this.update(rid, (r) => {
         r.tokens += 1;
         r.state = "running";
+        r.lastTokenT = step.t;
       });
     }
   }
 
-  private end(rid: string, state: "finished" | "aborted", tokens: number): void {
+  private applySnapshot(snapshot: KvSnapshot): void {
+    const owned = new Array<number>(snapshot.owners.length).fill(0);
+    for (const byte of atob(snapshot.states)) {
+      const owner = byte.charCodeAt(0) - OWNED_BASE;
+      if (owner >= 0) owned[owner]! += 1;
+    }
+    const index = new Map(snapshot.owners.map((rid, i) => [rid, i]));
+    for (const row of this.requests.values()) {
+      if (row.endT === null) row.blocks = owned[index.get(row.rid) ?? -1] ?? 0;
+    }
+  }
+
+  private end(rid: string, state: "finished" | "aborted", tokens: number, t: number): void {
     const row = this.requests.get(rid);
     if (row === undefined) return;
     row.state = state;
     row.tokens = tokens;
+    row.endT = t;
+    row.blocks = null;
     this.ended.push(rid);
     if (this.ended.length > FEED_ROWS) this.requests.delete(this.ended.shift()!);
   }
@@ -162,7 +218,8 @@ export class TelemetryStore {
 
   private reset(): void {
     this.hello = null;
-    this.lastStep = null;
+    this.steps.clear();
+    this.seconds.clear();
     this.nowT = 0;
     this.missedFrames = 0;
     this.droppedEvents = 0;

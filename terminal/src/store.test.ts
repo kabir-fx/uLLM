@@ -170,3 +170,75 @@ describe("TelemetryStore notifications", () => {
     expect(calls).toBe(0);
   });
 });
+
+describe("TelemetryStore steps", () => {
+  it("keeps each step and folds it into its second", () => {
+    const store = storeOf(
+      ev.frames([
+        [ev.hello(), ev.step(100, "prefill", ["a"], { ms: 80 })],
+        [ev.step(900, "decode", ["a"], { ms: 20 }), ev.step(1_100, "decode", ["a"], { ms: 25 })],
+      ]),
+    );
+    expect([...store.steps].map((s) => s.t)).toEqual([100, 900, 1_100]);
+    expect([...store.seconds].map((s) => [s.second, s.high, s.steps])).toEqual([
+      [0, 80, 2],
+      [1, 25, 1],
+    ]);
+  });
+
+  it("forgets the steps and the seconds at hello", () => {
+    const store = storeOf([
+      ...ev.frames([[ev.hello(), ev.step(100, "decode", ["a"])]]),
+      ...ev.frames([[ev.hello()]]),
+    ]);
+    expect(store.steps.length).toBe(0);
+    expect(store.seconds.length).toBe(0);
+  });
+});
+
+describe("TelemetryStore request timings", () => {
+  it("records the cached tokens, the token times and the engine's TPOT", () => {
+    const store = storeOf(
+      ev.frames([
+        [ev.hello(), ev.arrived(1, "a"), { ...ev.admitted(2, "a"), cached_tokens: 64 } as ev.Event],
+        [ev.step(10, "prefill", ["a"]), ev.firstToken(10, "a", 9)],
+        [ev.step(30, "decode", ["a"]), ev.step(50, "decode", ["a"])],
+      ]),
+    );
+    expect(store.request("a")).toMatchObject({ cachedTokens: 64, firstTokenT: 10, lastTokenT: 50, endT: null });
+    store.ingest(ev.frames([[ev.finished(60, "a", 3, 21)]], 3)[0]!);
+    expect(store.request("a")).toMatchObject({ endT: 60, tpotMs: 21 });
+  });
+
+  it("records when an aborted request ended", () => {
+    const store = storeOf(
+      ev.frames([[ev.hello(), ev.arrived(1, "a")], [{ type: "req.aborted", t: 7, rid: "a", reason: "shutdown", completion_tokens: 0 }]]),
+    );
+    expect(store.request("a")?.endT).toBe(7);
+  });
+});
+
+describe("TelemetryStore blocks", () => {
+  it("counts the blocks each request owns alone in the newest snapshot", () => {
+    const store = storeOf(
+      ev.frames([
+        [ev.hello(), ev.arrived(1, "a"), ev.arrived(1, "b"), ev.arrived(1, "c")],
+        [ev.snapshot(2, ["a", "b"], [3, 3, 4, 2, 1, 0, 3])],
+      ]),
+    );
+    expect(["a", "b", "c"].map((rid) => store.request(rid)?.blocks)).toEqual([3, 1, 0]);
+    store.ingest(ev.frames([[ev.snapshot(3, ["b"], [3, 3, 0])]], 2)[0]!);
+    expect(["a", "b"].map((rid) => store.request(rid)?.blocks)).toEqual([0, 2]);
+  });
+
+  it("knows no blocks before a snapshot, nor after a request ends", () => {
+    const store = storeOf(ev.frames([[ev.hello(), ev.arrived(1, "a"), ev.arrived(1, "b")]]));
+    expect(store.request("a")?.blocks).toBeNull();
+    store.ingest(ev.frames([[ev.snapshot(2, ["a"], [3]), ev.finished(3, "a", 1, null)]], 1)[0]!);
+    expect(store.request("a")?.blocks).toBeNull();
+    expect(store.request("b")?.blocks).toBe(0);
+    store.ingest(ev.frames([[ev.snapshot(4, ["b"], [3, 0])]], 2)[0]!);
+    expect(store.request("a")?.blocks).toBeNull();
+    expect(store.request("b")?.blocks).toBe(1);
+  });
+});

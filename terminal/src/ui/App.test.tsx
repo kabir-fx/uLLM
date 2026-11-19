@@ -22,6 +22,13 @@ describe("App", () => {
     expect(html).toContain('data-state="aborted"');
   });
 
+  it("lays out the step chart, the batch strip and the requests table beside the feed", async () => {
+    const html = renderToStaticMarkup(<App store={await fixtureStore("steady-chat.jsonl.gz")} label="steady" />);
+    expect(html).toMatch(/<section class="panel chart"[^>]*aria-label="step chart"[\s\S]*?<canvas/);
+    expect(html).toMatch(/<section class="panel strip"[^>]*aria-label="batch strip"[\s\S]*?<canvas/);
+    expect(html).toMatch(/aria-label="requests"[\s\S]*data-tab="finished"[^>]*>finished.*?74/);
+  });
+
   it("labels sim data as simulated", () => {
     const store = new TelemetryStore(() => {});
     store.ingest(ev.frames([[ev.hello({ source: "sim" })]])[0]!);

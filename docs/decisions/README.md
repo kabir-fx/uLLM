@@ -22,6 +22,7 @@ One short file per design decision, numbered in order (roadmap 3.3). A decision 
 | [0019](0019-contiguous-batch-kv.md) | Contiguous batch KV: one left-padded `BatchKV` for the running batch, written in place, repacked on each join and leave; a decode names every decoding sequence and a prefill comes before the first decode | M2-T1 |
 | [0020](0020-continuous-batching-admission.md) | Continuous batching: `max_num_seqs` 16 by default; admit the waiting head only while rows × the longest reservation (`prompt + max_tokens`) stays within `max_kv_slots` (40,960, never below `max_model_len`); FCFS, no skipping | M2-T2 |
 | [0021](0021-batched-equivalence.md) | Batched equivalence: batch size 1 exact; at 2, 4 and 8 mlx-lm scores every uLLM token on uLLM's own prefix, which must be in its top 2 and within 0.25 logprob; scheduler properties on the real `Engine` with `FakeRunner` | M2-T3 |
+| [0022](0022-core-panels.md) | The step chart, batch strip and requests table: own Canvas 2D on `requestAnimationFrame`, no chart library; per-second candles with processed and sampled token bars; strip lanes reused by later requests; a windowed table with fixed 20 px rows | M2-T7 |
 
 ## Template
 

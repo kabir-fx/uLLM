@@ -12,14 +12,14 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M2 in progress: M2-T3 shipped as #23, M2-T2 as #22, M2-T1 as #21. M1 done (gate G1 passed). M0 done |
+| Phase | M2 in progress: M2-T7 shipped as #24, M2-T3 as #23, M2-T2 as #22, M2-T1 as #21. M1 done (gate G1 passed). M0 done |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
 | Next task | M2-T4 telemetry bus, stream, recorder, measured overhead (O1). Batched replies are held to rule 1 at the engine (decision 0021); the server equivalence test still sends one request at a time. `check_trace` checks the row cap but not the slot budget (decision 0020); the scheduler property test checks it at the runner |
 | Lane A (engine) | M2-T3 (decision 0021): engine equivalence at `max_num_seqs` 1, 2, 4, 8; batch 1 exact, above 1 every token in mlx-lm's top 2 and within 0.25 logprob on uLLM's own prefix; `tests/property/test_scheduler.py` drives `Engine` on `FakeRunner` with Hypothesis. M2-T2 (decision 0020): `Scheduler` admits the waiting head only while rows ≤ `max_num_seqs` and rows × the longest reservation (`prompt + max_tokens`) ≤ `max_kv_slots` (40,960, never below `max_model_len`); FCFS, no skipping. `ullm serve --max-num-seqs --max-kv-slots`. M1 bench groups pin `--max-num-seqs 1`. M2-T1 (decision 0019): `BatchKV`, batched decode in `MLXRunner` |
-| Lane B (contract-isolated) | idle. M1-T8 shipped as #19 (decision 0017): `pnpm -C terminal dev` replays `steady-chat` at http://127.0.0.1:5173; `?trace=`, `?live=`, `?speed=` |
+| Lane B (contract-isolated) | M2-T7 shipped as #24 (decision 0022): step chart (candles per second, processed and sampled tok/s bars), batch strip (lanes), requests table (four tabs, windowed rows), all own Canvas 2D or DOM, no new dependency. Next for Lane B: M2-T8 or M2-T9. M1-T8 shipped as #19 (decision 0017) |
 | Blocked on the author | M1-T7 leftovers: a yes or no on deleting the five old, untracked run directories in `bench/results/m1/`, and where explaining uLLM's 1.167 TPOT ratio at c1 belongs (B6); close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |
 | Open pipeline gaps | 1. `enforce_admins` is off on `main`, so an admin can merge past a red required check. Fix, on the host: `gh api -X POST repos/kabir-fx/uLLM/branches/main/protection/enforce_admins`. 2. CI does not run the suppression ratchet in `QUALITY.md`; the bar-guard job that would show new suppressions was declined. 3. The pre-push hook runs only in a clone that ran `git config core.hooksPath scripts/git-hooks` |
-| Last session | `/build M2-T3`. Measured batched divergence on the M4 (decision 0021); the author chose the every-token, top-2, 0.25 rule. `make ci` green at `817a5bd` (5 min 23 s on battery at 25%). One reviewer: claims VERIFIED and NOT READY at `461d2b3` on three doc findings, fixed in `c73fad4`. No `make bench-smoke`: tests and docs only. Noticed, not fixed: QUALITY.md's 71 s for `make ci` is not comparable with battery runs; a passing batched near-tie leaves no record outside the decision |
+| Last session | Lane B: `/build M2-T7`. `make ci` green at `2babb83`. Verifier: claims 1, 2, 4-7 passed in headless Chrome (46 of 46 candles match the trace; a one-line break gave 14 mismatches; 400 of 400 strip cells); claim 3 as briefed (tab sum equals the feed) failed past 200 requests, a misstated claim the author accepted corrected (tabs cover every kept request). One reviewer NOT READY at `d8b4d99`: a comment that contradicted the code and three tests without teeth, all fixed after. Noticed, not fixed: the ticker KV tile reads 168-223% on `prefix-pressure` (`kv_tokens` counts shared prefix tokens per request); after a preemption a real M3 re-admission could report a cache hit above 100% (inferred). Lane A: `/build M2-T3`. Measured batched divergence on the M4 (decision 0021); the author chose the every-token, top-2, 0.25 rule. `make ci` green at `817a5bd` (5 min 23 s on battery at 25%). One reviewer: claims VERIFIED and NOT READY at `461d2b3` on three doc findings, fixed in `c73fad4`. No `make bench-smoke`: tests and docs only. Noticed, not fixed: QUALITY.md's 71 s for `make ci` is not comparable with battery runs; a passing batched near-tie leaves no record outside the decision |
 
 ---
 
@@ -429,7 +429,7 @@ The spike measures, on the real model, decode step time against batch size and c
 
 ### 6.6 Terminal
 
-Stack: Vite, React, TypeScript (strict), pnpm, Vitest, Playwright. Canvas 2D for the batch strip and KV grid. A canvas chart library for time series: lightweight-charts fits the look (check its attribution requirement) or uPlot. A virtualised table for requests. Look: dark, dense, tabular numerals, a monospace face for figures. It uses the layout grammar of trading terminals with its own identity; never copy a product's branding, colours or assets.
+Stack: Vite, React, TypeScript (strict), pnpm, Vitest, Playwright. Canvas 2D for the step chart, the batch strip and the KV grid, with no chart library (decision 0022). A virtualised table for requests. Look: dark, dense, tabular numerals, a monospace face for figures. It uses the layout grammar of trading terminals with its own identity; never copy a product's branding, colours or assets.
 
 **T1 Shell, store and sources.** The dense grid layout and design tokens. An external store with ring buffers; telemetry never passes through React state per event. Canvases draw on `requestAnimationFrame`; React renders layout and controls. A `TelemetrySource` interface with two implementations: live SSE and replay from a trace file.
 
@@ -437,7 +437,7 @@ Stack: Vite, React, TypeScript (strict), pnpm, Vitest, Playwright. Canvas 2D for
 
 - Stats ticker: tokens per second, TTFT p50/p99, TPOT, batch size against its cap, queue depth, KV used.
 - Request feed: id, state pill (waiting, prefilling, running, preempted, finished), tokens, TTFT.
-- Step chart: one candle per second of engine step latency (open, high, low, close; a long wick is a stall), with bars underneath for tokens per second, prefill and decode coloured differently.
+- Step chart: one candle per second of engine step latency (open, high, low, close; a long wick is a stall), with two bar graphs underneath, processed and sampled tokens per second, prefill and decode coloured differently.
 - Batch strip: rows are requests, columns are engine steps, each cell a prefill or a decode token. Shows requests joining and leaving, and the prefill stall.
 - Requests table with tabs (Running, Waiting, Finished, Preempted): prompt tokens, generated tokens, TTFT, TPOT, blocks, cache-hit %, age.
 
@@ -589,7 +589,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [ ] **M2-T4** Telemetry bus, stream, recorder, measured overhead (O1).
 - [ ] **M2-T5** Prometheus metrics (O2).
 - [ ] **M2-T6** Benchmark sweep on workload A at concurrency 1–16 against the baselines, with an explanation of every gap (B3, B6).
-- [ ] **M2-T7** `[B]` Step chart, batch strip, requests table (T2).
+- [x] **M2-T7** `[B]` Step chart, batch strip, requests table (T2).
 - [ ] **M2-T8** `[B]` Load launcher and playground (T3).
 - [ ] **M2-T9** `[B]` Replay mode and the hosted build (T4, DEP3).
 - [ ] **M2-T10** `[B]` Terminal quality gates (T7).

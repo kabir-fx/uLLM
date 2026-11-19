@@ -107,6 +107,7 @@ Deliver = Callable[[Sequence[tuple[str, Output]], Load], None]  # once per loop 
 @dataclass(frozen=True, slots=True)
 class EngineConfig:
     max_num_seqs: int = 1
+    max_kv_slots: int = 40_960  # padded KV slots, rows x the longest reservation (0020)
     max_in_flight: int = 64  # submitted and not yet ended; beyond it, Unavailable
     replica: str = "r1"
     source: Literal["engine", "sim"] = "engine"
@@ -141,7 +142,7 @@ class Engine:
         self._clock = clock
         self._epoch = clock()
         self._epoch_unix_ms = int(time.time() * 1000)
-        self._scheduler = Scheduler(config.max_num_seqs)
+        self._scheduler = Scheduler(config.max_num_seqs, config.max_kv_slots)
         self._live: dict[str, Request] = {}
         self._next_seq = 0
         self._steps = 0

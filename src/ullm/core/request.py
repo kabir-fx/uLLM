@@ -103,6 +103,11 @@ class Request:
         """Tokens in the runner's KV: the last sampled token is fed by the next decode."""
         return self.prefilled + max(len(self._output) - 1, 0)
 
+    @property
+    def kv_reservation(self) -> int:
+        """The most slots this request's KV row can ever hold (decision 0020)."""
+        return len(self.prompt) + self._ticket.max_tokens
+
     def admit(self, t: float) -> None:
         self._move(_S.PREFILLING)
         self._admitted = t

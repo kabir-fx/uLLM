@@ -1,4 +1,5 @@
-"""E6 at ``max_num_seqs = 1``: FCFS admission, one prefill per step, then decode."""
+"""E6 (decisions 0010 and 0020): FCFS admission within ``max_num_seqs`` and the padded KV
+slot budget, one prefill per step, else one decode of every running request."""
 
 import pytest
 
@@ -13,19 +14,30 @@ from ullm.telemetry import events as ev
 GREEDY = SamplingParams(temperature=0.0, top_p=1.0, top_k=0, seed=None)
 
 
-def _request(seq: int, events: list[ev.Event] | None = None) -> Request:
-    ticket = Submit(rid=f"r1-{seq}", prompt=(seq, 1), sampling=GREEDY, max_tokens=8, stop=())
-    stop = StopCheck(FakeDetokenizer(), frozenset(), 8, ())
+BIG = 1 << 20  # a slot budget that never binds
+
+
+def _scheduler(max_num_seqs: int = 1, max_kv_slots: int = BIG) -> Scheduler:
+    return Scheduler(max_num_seqs=max_num_seqs, max_kv_slots=max_kv_slots)
+
+
+def _request(
+    seq: int, events: list[ev.Event] | None = None, prompt_len: int = 2, max_tokens: int = 8
+) -> Request:
+    """Reserves ``prompt_len + max_tokens`` slots."""
+    prompt = (seq, *([1] * (prompt_len - 1)))
+    ticket = Submit(rid=f"r1-{seq}", prompt=prompt, sampling=GREEDY, max_tokens=max_tokens, stop=())
+    stop = StopCheck(FakeDetokenizer(), frozenset(), max_tokens, ())
     sink = events if events is not None else []
     return Request(ticket, seq=seq, stop=stop, emit=sink.append, t=0.0)
 
 
 def test_nothing_to_do_gives_none() -> None:
-    assert Scheduler(max_num_seqs=1).schedule(0.0) is None
+    assert _scheduler().schedule(0.0) is None
 
 
 def test_the_oldest_waiting_request_is_admitted_and_prefilled_first() -> None:
-    scheduler = Scheduler(max_num_seqs=1)
+    scheduler = _scheduler()
     a, b = _request(0), _request(1)
     scheduler.add(a)
     scheduler.add(b)
@@ -40,7 +52,7 @@ def test_the_oldest_waiting_request_is_admitted_and_prefilled_first() -> None:
 
 
 def test_a_running_request_decodes_while_the_next_waits_for_room() -> None:
-    scheduler = Scheduler(max_num_seqs=1)
+    scheduler = _scheduler()
     a, b = _request(0), _request(1)
     scheduler.add(a)
     scheduler.add(b)
@@ -55,7 +67,7 @@ def test_a_running_request_decodes_while_the_next_waits_for_room() -> None:
 
 
 def test_removing_the_running_request_admits_the_next() -> None:
-    scheduler = Scheduler(max_num_seqs=1)
+    scheduler = _scheduler()
     a, b = _request(0), _request(1)
     scheduler.add(a)
     scheduler.add(b)
@@ -68,7 +80,7 @@ def test_removing_the_running_request_admits_the_next() -> None:
 
 
 def test_a_removed_waiting_request_is_never_admitted() -> None:
-    scheduler = Scheduler(max_num_seqs=1)
+    scheduler = _scheduler()
     a, b, c = _request(0), _request(1), _request(2)
     for req in (a, b, c):
         scheduler.add(req)
@@ -83,11 +95,11 @@ def test_a_removed_waiting_request_is_never_admitted() -> None:
 
 def test_removing_an_unknown_request_raises() -> None:
     with pytest.raises(ValueError, match="r1-0"):
-        Scheduler(max_num_seqs=1).remove(_request(0))
+        _scheduler().remove(_request(0))
 
 
 def test_admission_is_first_come_first_served() -> None:
-    scheduler = Scheduler(max_num_seqs=1)
+    scheduler = _scheduler()
     reqs = [_request(i) for i in range(5)]
     for req in reqs:
         scheduler.add(req)
@@ -97,3 +109,95 @@ def test_admission_is_first_come_first_served() -> None:
         order.append(step.admitted.seq)
         scheduler.remove(step.admitted)
     assert order == [0, 1, 2, 3, 4]
+
+
+def _admit_and_prefill(scheduler: Scheduler, token: int) -> Request:
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is not None
+    step.admitted.append(token, 0.0)
+    return step.admitted
+
+
+def test_requests_join_one_per_step_up_to_max_num_seqs_then_decode_together() -> None:
+    scheduler = _scheduler(max_num_seqs=2)
+    a, b, c = _request(0), _request(1), _request(2)
+    for req in (a, b, c):
+        scheduler.add(req)
+    assert _admit_and_prefill(scheduler, 5) is a
+    assert _admit_and_prefill(scheduler, 6) is b
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is None
+    assert step.rows == (a, b)
+    assert step.plan == DecodePlan(seqs=(0, 1), token_ids=(5, 6))
+    assert c.state is RequestState.WAITING
+    assert (scheduler.waiting, scheduler.running) == (1, 2)
+
+
+def test_a_new_request_prefills_alone_while_the_running_ones_wait_a_step() -> None:
+    scheduler = _scheduler(max_num_seqs=4)
+    a, b = _request(0), _request(1)
+    scheduler.add(a)
+    _admit_and_prefill(scheduler, 5)
+    scheduler.add(b)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is b
+    assert step.rows == (b,)
+    assert step.plan == PrefillPlan(seq=1, token_ids=(1, 1), start=0)
+
+
+def test_the_head_waits_while_its_reservation_would_overfill_the_batch() -> None:
+    scheduler = _scheduler(max_num_seqs=4, max_kv_slots=39)
+    a = _request(0, prompt_len=2, max_tokens=8)  # reserves 10
+    b = _request(1, prompt_len=4, max_tokens=16)  # reserves 20: 2 rows x 20 > 39
+    scheduler.add(a)
+    scheduler.add(b)
+    _admit_and_prefill(scheduler, 5)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is None
+    assert step.rows == (a,)
+    scheduler.remove(a)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is b
+
+
+def test_a_batch_that_fills_the_budget_exactly_admits() -> None:
+    scheduler = _scheduler(max_num_seqs=4, max_kv_slots=40)
+    scheduler.add(_request(0, prompt_len=2, max_tokens=8))
+    scheduler.add(_request(1, prompt_len=4, max_tokens=16))
+    _admit_and_prefill(scheduler, 5)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is not None
+    assert step.admitted.seq == 1
+
+
+def test_a_short_request_counts_at_the_longest_reservation_in_the_batch() -> None:
+    scheduler = _scheduler(max_num_seqs=4, max_kv_slots=39)
+    long = _request(0, prompt_len=4, max_tokens=16)  # reserves 20
+    short = _request(1, prompt_len=1, max_tokens=1)  # reserves 2, padded to 20
+    scheduler.add(long)
+    scheduler.add(short)
+    _admit_and_prefill(scheduler, 5)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is None
+    assert short.state is RequestState.WAITING
+
+
+def test_no_request_skips_ahead_of_a_head_that_does_not_fit() -> None:
+    scheduler = _scheduler(max_num_seqs=4, max_kv_slots=40)
+    a = _request(0, prompt_len=2, max_tokens=8)  # reserves 10
+    head = _request(1, prompt_len=10, max_tokens=20)  # reserves 30: 2 x 30 > 40
+    behind = _request(2, prompt_len=1, max_tokens=1)  # reserves 2: 2 x 10 would fit
+    for req in (a, head, behind):
+        scheduler.add(req)
+    _admit_and_prefill(scheduler, 5)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is None
+    assert (head.state, behind.state) == (RequestState.WAITING, RequestState.WAITING)

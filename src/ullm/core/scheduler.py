@@ -19,8 +19,9 @@ class Scheduled:
 
 
 class Scheduler:
-    def __init__(self, max_num_seqs: int) -> None:
+    def __init__(self, max_num_seqs: int, max_kv_slots: int) -> None:
         self._max_num_seqs = max_num_seqs
+        self._max_kv_slots = max_kv_slots
         self._waiting: deque[Request] = deque()
         self._running: list[Request] = []  # admitted: prefilling or running
 
@@ -44,8 +45,11 @@ class Scheduler:
             raise ValueError(f"{req.rid} is not scheduled")
 
     def schedule(self, t: float) -> Scheduled | None:
-        """One prefill for the oldest waiting request that fits, else one decode (DEC-7)."""
-        if self._waiting and len(self._running) < self._max_num_seqs:
+        """One prefill for the oldest waiting request if it fits, else one decode (DEC-7).
+
+        A head that does not fit admits nobody, so no request skips ahead of it.
+        """
+        if self._waiting and self._fits(self._waiting[0]):
             req = self._waiting.popleft()
             req.admit(t)
             self._running.append(req)
@@ -57,3 +61,10 @@ class Scheduler:
             )
             return Scheduled(plan=plan, rows=rows, admitted=None)
         return None
+
+    def _fits(self, req: Request) -> bool:
+        """Every row is padded to the longest, and nothing preempts a row until M3, so the
+        batch is held to rows x the longest reservation (decision 0020)."""
+        rows = len(self._running) + 1
+        longest = max(r.kv_reservation for r in (*self._running, req))
+        return rows <= self._max_num_seqs and rows * longest <= self._max_kv_slots

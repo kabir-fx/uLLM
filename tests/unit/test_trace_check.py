@@ -156,3 +156,13 @@ def test_frames_from_groups_events_by_window_in_order() -> None:
     assert [f.seq for f in grouped] == [0, 1]
     assert [f.events for f in grouped] == [[HELLO, a, b], [c]]
     assert all(e.t <= f.t for f in grouped for e in f.events)
+
+
+def test_a_step_with_more_rows_than_max_num_seqs_is_caught() -> None:
+    rids = [f"r{i}" for i in range(HELLO.limits.max_num_seqs + 1)]
+    events: list[ev.Event] = []
+    for rid in rids:
+        events += [arrived(1, rid), admitted(1, rid), step(2, "prefill", rid), first(2, rid)]
+    events.append(step(3, "decode", *rids))
+    found = problems(*events, complete=False)
+    assert any("max_num_seqs" in p for p in found), found

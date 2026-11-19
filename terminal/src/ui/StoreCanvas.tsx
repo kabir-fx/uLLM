@@ -5,9 +5,9 @@ import type { Palette, Pen } from "./draw";
 export type Draw = (pen: Pen, store: TelemetryStore, width: number, height: number, palette: Palette) => void;
 
 /**
- * React renders the canvas once. A loop on `requestAnimationFrame` redraws it when the store's
- * version or the canvas size changed, so telemetry never re-renders it through React (T1).
- * `draw` must be stable, a module-level function, or the loop restarts on every render.
+ * React keeps one canvas element and never draws on it. A loop on `requestAnimationFrame` draws
+ * when the store's version or the canvas size changed (T1). `draw` must be stable, a
+ * module-level function, or the loop restarts each time the panel re-renders.
  */
 export function StoreCanvas({ store, draw }: { store: TelemetryStore; draw: Draw }) {
   const ref = useRef<HTMLCanvasElement>(null);

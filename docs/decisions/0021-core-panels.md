@@ -9,7 +9,7 @@ T2 adds three panels to the shell from decision 0017: a step chart (one candle p
 Facts this design rests on:
 
 - lightweight-charts 5.3.0 (Apache-2.0) requires the attribution notice and a link to tradingview.com on the page that shows the chart (its `README.md`, line 128, on unpkg). uPlot 1.6.32 has no candlestick series.
-- In `steady-chat`, a prefill step processes 523 tokens (median) and samples 1; a decode step processes and samples one per row, up to 8. On one y-axis for processed tokens, the decode bars are a thin base under the prefill bars (seen in a screenshot of the build).
+- In `steady-chat`, a prefill step processes 510.5 tokens (median of 74) and samples 1; a decode step processes and samples one per row, up to 8. On one y-axis for processed tokens, the decode bars are a thin base under the prefill bars (seen in a screenshot of the build).
 - `step.t` is the step's end, after `mx.eval` (C2). The engine's TPOT is `(t_last − t_first) / (n − 1)` (`ullm/core/request.py:157`).
 - `kv.snapshot.states` is base64, one byte per block; byte `3 + i` is a block owned by `owners[i]` alone, and shared blocks (byte 2) name no owner (`ullm/telemetry/events.py`, `BLOCK_OWNED_BASE`).
 
@@ -23,7 +23,7 @@ Facts this design rests on:
 | `src/strip.ts` | `stripModel(steps, columns)`: cells by column and lane |
 | `src/table.ts` | `TABS`, `tableRows(store, tab)`, `tabCounts(store)` |
 | `src/ui/draw.ts` | `drawStepChart`, `drawStrip`, against `Pen`, the subset of `CanvasRenderingContext2D` they use |
-| `src/ui/StoreCanvas.tsx` | One canvas, rendered once by React, redrawn on `requestAnimationFrame` when `store.version` or its size changed |
+| `src/ui/StoreCanvas.tsx` | One canvas element that React keeps across renders, drawn by a loop on `requestAnimationFrame` when `store.version` or its size changed |
 | `src/ui/Panels.tsx` | `StepChart` and `BatchStrip`: a heading with a colour key, and a `StoreCanvas` |
 | `src/ui/RequestsTable.tsx`, `src/ui/window.ts` | The tabs and the windowed table, `visibleRange` and `ROW_HEIGHT` (20 px) |
 

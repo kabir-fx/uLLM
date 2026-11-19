@@ -1,6 +1,6 @@
 # M2-T1: Contiguous batch KV
 
-**State:** approved; the author took the recommended answer to each open question. Built by `/build M2-T1`.
+**State:** approved. The author took the recommended answer to each open question. Built by `/build M2-T1`.
 **Decision record:** [0019](../decisions/0019-contiguous-batch-kv.md) (the full design, for agents) · **Spec:** roadmap E7, task M2-T1
 
 ## The goal
@@ -117,3 +117,37 @@ The forward pass runs its matrix operations at a different shape. In bf16, that 
 </details>
 
 ## Result
+
+**State: DONE.** Proof VERIFIED and review READY at `ab2db89`. The fix commit `fd75b65` is covered: its test fails without the fix and passes with it. `make ci` is green at `fd75b65`.
+
+**Against the plan.** The build follows decision 0019 with no change to the design. Two small additions:
+- `BatchKV` keeps a host copy of its padding, so `pack` never reads from the GPU.
+- Capacity rounds up past the length to a multiple of 256. Thus the step after a repack has a free slot.
+
+**What proof and review found.**
+- Two reviewers found the same gap: the test of a failed batch ran only on `FakeRunner`. It now runs on both runners.
+- Before the fix, deleting `MLXRunner`'s reset of the batch after a failed decode left every test green.
+- After the fix, the same deletion fails the test with `KeyError` at `mlx_runner.py:208`.
+
+**Not proven here.**
+- Batched output against mlx-lm at batch sizes 2, 4 and 8. That is M2-T3.
+- A mask that ignores padding survives the plan-order test. Only a comparison with batch-size-1 output caught it (the verifier's mutant). Thus M2-T3's batched equivalence is the end-to-end guard for the mask. The property test checks the mask values, and the plug-point test checks that the model uses them.
+- Temperature sampling inside a batch.
+
+**Measured.** `make bench-smoke`, both runs on battery:
+
+| Run | Commit | Output tok/s | TPOT p50 (ms) |
+|---|---|---|---|
+| Before | `229304b` | 52.4 | 17.7 |
+| After | `ab2db89` | 54.5 | 17.5 |
+
+The near-tie margins at batch sizes above 1 were 0.0, 0.125 and 0.25.
+
+**Passes to later slices.**
+- M2-T2 should limit padded KV slots before `max_num_seqs` goes above 1. One prompt near 40,960 tokens at batch 8 needs about 37.6 GB of KV (inferred).
+- M2-T3 sets the near-tie threshold for batched equivalence.
+
+**Read these yourself.**
+- `src/ullm/runner/mlx_runner.py:196`: the join packs the batch, and only then are the joiners removed from `_prefilling`. Tokens return in plan order.
+- `src/ullm/runner/kv/batch.py:93`: `pack` right-aligns each row and computes the pads.
+- `src/ullm/runner/ledger.py:60`: the two new rules run before any forward.

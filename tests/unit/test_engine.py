@@ -446,3 +446,19 @@ def test_a_duplicate_rid_is_a_bug_that_stops_the_engine_instead_of_hanging_it() 
     with pytest.raises(ValueError, match="r1-0"):
         engine.run()
     assert check_trace(frames_from(ran_events, "r1")).problems == []
+
+
+def test_a_submit_past_max_model_len_is_a_bug_that_stops_the_engine_instead_of_spinning() -> None:
+    # The client refuses it; one that gets past would never fit the slot budget (0020).
+    inbound: SimpleQueue[Ticket] = SimpleQueue()
+    inbound.put(_submit(max_tokens=INFO.max_model_len))
+    engine = Engine(
+        FakeRunner(INFO, FAST, sleep=lambda s: None),
+        FakeDetokenizer,
+        EngineConfig(max_kv_slots=INFO.max_model_len),
+        inbound,
+        lambda batch, load: None,
+        lambda event: None,
+    )
+    with pytest.raises(ValueError, match="max_model_len"):
+        engine.run()

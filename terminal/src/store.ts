@@ -99,6 +99,11 @@ export class TelemetryStore {
     return this.requests.get(rid);
   }
 
+  /** Every request kept, oldest arrival first. */
+  rows(): IterableIterator<RequestRow> {
+    return this.requests.values();
+  }
+
   /** Newest arrival first, at most `FEED_ROWS` rows. */
   feed(): RequestRow[] {
     return [...this.requests.values()].reverse().slice(0, FEED_ROWS);

@@ -237,5 +237,8 @@ describe("TelemetryStore blocks", () => {
     store.ingest(ev.frames([[ev.snapshot(2, ["a"], [3]), ev.finished(3, "a", 1, null)]], 1)[0]!);
     expect(store.request("a")?.blocks).toBeNull();
     expect(store.request("b")?.blocks).toBe(0);
+    store.ingest(ev.frames([[ev.snapshot(4, ["b"], [3, 0])]], 2)[0]!);
+    expect(store.request("a")?.blocks).toBeNull();
+    expect(store.request("b")?.blocks).toBe(1);
   });
 });

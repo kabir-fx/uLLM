@@ -41,9 +41,9 @@ describe("RequestsTable", () => {
     const groups: ev.Event[][] = [[ev.hello()]];
     for (let i = 0; i < 500; i++) groups.push([ev.arrived(i, `r${i}`), ev.admitted(i, `r${i}`)]);
     const html = renderToStaticMarkup(<RequestsTable store={storeWith(groups)} />);
-    expect(rows(html)).toBeGreaterThan(10);
-    expect(rows(html)).toBeLessThan(60);
     expect(html).toContain('data-row="r0"');
-    expect(html).toMatch(/<tr style="height:\d+px" aria-hidden="true">/);
+    // 600 px of view at 20 px a row, plus 5 rows of overscan: rows 0 to 34 render, 465 rows of spacer follow.
+    expect(rows(html)).toBe(35);
+    expect(html).toContain('<tr style="height:9300px" aria-hidden="true">');
   });
 });

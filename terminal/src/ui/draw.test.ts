@@ -70,6 +70,13 @@ describe("drawStepChart", () => {
     expect(byColor(pen, "fall")).toHaveLength(2);
   });
 
+  it("colours a candle that closed where it opened as fallen", () => {
+    const pen = recorder();
+    drawStepChart(pen, seconds(second(1, [10, 30, 5, 10])), W, H, palette);
+    expect(byColor(pen, "rise")).toHaveLength(0);
+    expect(byColor(pen, "fall")).toHaveLength(2);
+  });
+
   it("scales the candles so the highest wick in view reaches the top of its pane", () => {
     const pen = recorder();
     drawStepChart(pen, seconds(second(1, [10, 40, 0, 20]), second(2, [10, 80, 0, 20])), W, H, palette);

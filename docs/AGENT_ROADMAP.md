@@ -12,9 +12,9 @@ The single source of truth for building uLLM. Every piece that has to be built i
 
 | | |
 |---|---|
-| Phase | M2 in progress: M2-T1 built on `m2/t1-contiguous-batch-kv`, proof VERIFIED and review READY, not yet shipped. M1 done (gate G1 passed). M0 done |
+| Phase | M2 in progress: M2-T1 shipped as #21. M1 done (gate G1 passed). M0 done |
 | Remote | `https://github.com/kabir-fx/uLLM.git`, public. `main` is protected: the four CI jobs are required and the branch must be up to date; no force-push or deletion. Task pull requests stack and merge bottom-up with merge commits (decision 0001) |
-| Next task | `/ship` M2-T1. Then M2-T2 scheduler (E6). For M2-T2: padding makes every row as long as the longest, so one prompt near `max_model_len` (40,960) at batch 8 needs about 37.6 GB of KV (inferred from the shape), and a failed batch fails every row in it; an admission limit on padded KV slots (batch size × longest row) belongs in M2-T2 before `max_num_seqs` goes above 1 |
+| Next task | M2-T2 scheduler (E6). For M2-T2: padding makes every row as long as the longest, so one prompt near `max_model_len` (40,960) at batch 8 needs about 37.6 GB of KV (inferred from the shape), and a failed batch fails every row in it; an admission limit on padded KV slots (batch size × longest row) belongs in M2-T2 before `max_num_seqs` goes above 1 |
 | Lane A (engine) | M2-T1 (decision 0019): `BatchKV` in `src/ullm/runner/kv/batch.py`; `MLXRunner` decodes the running batch in one forward; `ContiguousKV` deleted; `SeqLedger` adds the two phase rules |
 | Lane B (contract-isolated) | idle. M1-T8 shipped as #19 (decision 0017): `pnpm -C terminal dev` replays `steady-chat` at http://127.0.0.1:5173; `?trace=`, `?live=`, `?speed=` |
 | Blocked on the author | M1-T7 leftovers: a yes or no on deleting the five old, untracked run directories in `bench/results/m1/`, and where explaining uLLM's 1.167 TPOT ratio at c1 belongs (B6); close pipeline gap 1 (`enforce_admins`); three optional M1-T1 follow-ups to accept or decline: equivalence at 128 tokens in CI (about 17 s more, and `test_goldens.py` shares the setting), a test that `release` frees KV memory, and `load_mlx` resolving the pinned snapshot locally (needs `huggingface_hub` in engine code) |

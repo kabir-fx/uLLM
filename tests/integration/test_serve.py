@@ -156,3 +156,16 @@ def test_ullm_serve_refuses_to_start_when_it_cannot_open_the_recording(tmp_path:
     )
     assert run.returncode != 0
     assert "Is a directory" in run.stdout + run.stderr
+
+
+def test_ullm_serve_refuses_a_recording_with_telemetry_off(tmp_path: Path) -> None:
+    run = subprocess.run(
+        [
+            *(sys.executable, "-m", "ullm.cli", "serve", "--fake"),
+            *("--telemetry", "off", "--record", str(tmp_path / "x.jsonl.gz")),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert (run.returncode, "--record needs --telemetry on" in run.stderr) == (2, True)

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx2
 import jsonschema
+import pytest
 from fastapi import FastAPI
 from tests.serving import SERVED, serving_app
 
@@ -132,3 +133,21 @@ def test_a_recording_holds_the_whole_run_and_passes_the_trace_checker(tmp_path: 
     assert check_trace(frames).problems == []
     finished = [e for f in frames for e in f.events if isinstance(e, ev.ReqFinished)]
     assert len(finished) == 4
+
+
+def test_engine_events_and_frames_share_the_apps_telemetry_epoch() -> None:
+    app = _app()
+
+    async def main() -> None:
+        await asyncio.sleep(0.3)  # the epoch starts with the app, not with the engine
+        async with serving_app(app) as client, client.stream("GET", "/telemetry/stream") as r:
+            first = ev.Frame.model_validate_json(await anext(_data_lines(r)))
+            assert first.events[0].t >= 300
+
+    _run(main)
+
+
+def test_an_app_given_its_own_emit_cannot_also_record(tmp_path: Path) -> None:
+    config = ServeConfig(served_model=SERVED, record=tmp_path / "x.jsonl.gz")
+    with pytest.raises(ValueError, match="record needs"):
+        create_app(FakeRunner(INFO, FAST), FakeTokenizer(), config, lambda e: None)

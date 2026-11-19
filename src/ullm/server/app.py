@@ -83,10 +83,12 @@ def create_app(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         nonlocal engine
         tasks: list[asyncio.Task[None]] = []
+        if hub is not None and config.record is not None:
+            config.record.parent.mkdir(parents=True, exist_ok=True)
+            raw = config.record.open("wb")
+            tasks.append(asyncio.create_task(trace.record(hub.subscribe(), raw)))
         if hub is not None:
             tasks.append(asyncio.create_task(hub.run()))
-            if config.record is not None:
-                tasks.append(asyncio.create_task(trace.record(hub.subscribe(), config.record)))
         engine = EngineClient.start(
             runner, tokenizer.detokenizer, config.engine, emit or bus.emit, clock
         )

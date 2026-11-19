@@ -27,7 +27,7 @@ def test_a_recording_reads_back_as_the_frames_and_matches_a_trace_written_at_onc
     tmp_path: Path,
 ) -> None:
     recorded, written = tmp_path / "recorded.jsonl.gz", tmp_path / "written.jsonl.gz"
-    asyncio.run(trace.record(_frames(), recorded))
+    asyncio.run(trace.record(_frames(), recorded.open("wb")))
     trace.write(written, FRAMES)
     assert list(trace.iter_frames(recorded)) == FRAMES
     assert trace.read_text(recorded) == trace.read_text(written)

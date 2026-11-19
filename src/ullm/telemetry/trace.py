@@ -10,6 +10,7 @@ their decompressed text, never by file bytes.
 import gzip
 from collections.abc import AsyncIterable, Iterable, Iterator, Sequence
 from pathlib import Path
+from typing import BinaryIO
 
 from ullm.telemetry.events import Event, Frame
 
@@ -26,11 +27,11 @@ def write(path: Path, frames: Iterable[Frame]) -> None:
         gz.write(dumps(frames).encode())
 
 
-async def record(frames: AsyncIterable[Frame], path: Path) -> None:
-    """Writes each frame as it comes. The file is whole only once ``frames`` ends; a process
+async def record(frames: AsyncIterable[Frame], raw: BinaryIO) -> None:
+    """Writes each frame as it comes, and closes ``raw``. The caller opens it, so a bad path
+    fails before the run starts. The file is whole only once ``frames`` ends; a process
     killed before then leaves it without its gzip trailer (decision 0023)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as gz:
+    with raw, gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as gz:
         async for frame in frames:
             gz.write((frame.model_dump_json() + "\n").encode())
 

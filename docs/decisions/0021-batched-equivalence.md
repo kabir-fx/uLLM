@@ -58,7 +58,7 @@ At 32 tokens its gaps stay inside the real runs' range. What tells it apart: at 
 
 - Rule 1 now reads, for batch sizes above 1: every token within mlx-lm's top 2 and 0.25 logprob, on uLLM's own prefix. Batch size 1 is unchanged.
 - The rank condition is what catches the padding-mask mutant at 32 tokens, on one token of one prompt. `tests/property/test_batch_kv.py` checks the mask values themselves.
-- `make equivalence` runs the engine test four times: about 38 s for all four at 32 tokens on the M4, 100 s at 128.
+- `make equivalence` runs the engine test four times: about 38 s for all four at 32 tokens on the M4 on battery; at 128 tokens, 100 s in one run and 56 s in another, both on battery.
 - The server equivalence test still sends one request at a time. What batching changes is below the engine, and the engine test covers it.
 - `check_trace` still does not check the slot budget: `hello` has no field for it (decision 0020). The property test checks it at the runner.
 - M3's variants (blocks against contiguous, prefix cache, preemption) set their own thresholds the same way: measure first.

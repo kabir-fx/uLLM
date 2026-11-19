@@ -88,7 +88,7 @@ Where any of them differs from this file, this file wins. Known differences are 
 
 Non-negotiable. If a task seems to require breaking one, stop and raise it.
 
-1. **Correctness anchor.** With greedy decoding, uLLM's token IDs equal mlx-lm's reference for: one request; many concurrent requests; batch sizes 1, 2, 4, 8; prefix cache on and off; block-based and contiguous KV; a forced preemption. A divergence fails the test unless the logged top-2 logit margin at the first differing position is under the documented near-tie threshold (decision 0012: none for one machine at batch size 1). Never loosen the test to make it pass.
+1. **Correctness anchor.** With greedy decoding, uLLM's token IDs equal mlx-lm's reference for: one request; many concurrent requests; batch sizes 1, 2, 4, 8; prefix cache on and off; block-based and contiguous KV; a forced preemption. A divergence fails the test unless the logged top-2 logit margin at the first differing position is under the documented near-tie threshold (decision 0012: none for one machine at batch size 1). Above batch size 1, every token must instead be in mlx-lm's top 2 and within 0.25 logprob of its best, scored by mlx-lm on uLLM's own prefix (decision 0021). Never loosen the test to make it pass.
 2. **One owner.** Only the engine thread touches MLX, the scheduler and KV state. No locks in `core`. Threads communicate through queues only.
 3. **`ullm.core` never imports `mlx`.** A test enforces it.
 4. **MLX is lazy.** Call `mx.eval` at the end of each step. Never record a timing before it.
@@ -489,7 +489,7 @@ Tests ask whether the code is correct: pass or fail, the same every run. Evals a
 
 **Q2 Property tests.** Block manager, as a stateful machine over random sequences of allocate, share, append, preempt, free and evict, checking after every operation: no block is owned twice; ref counts never go negative; free + used + cached equals the total; a block with ref count ≥ 1 is never free or evicted; freed blocks are reusable. Scheduler on `FakeRunner`: every request finishes; FCFS order holds; nothing leaks.
 
-**Q3 Output equivalence.** The correctness anchor in rule 1. The same prompts go through mlx-lm and through uLLM with greedy decoding, on the same machine in the same session; token IDs must match. Committed goldens are not a strict cross-machine reference (decision 0006). Variants: one request, many at once, batch sizes, prefix cache on and off, block-based against contiguous, a forced preemption. On a mismatch, log the top-2 margin; a near-tie under the threshold of decision 0012 is recorded, anything else fails.
+**Q3 Output equivalence.** The correctness anchor in rule 1. The same prompts go through mlx-lm and through uLLM with greedy decoding, on the same machine in the same session; token IDs must match. Committed goldens are not a strict cross-machine reference (decision 0006). Variants: one request, many at once, batch sizes, prefix cache on and off, block-based against contiguous, a forced preemption. On a mismatch, log the top-2 margin; a near-tie under the threshold of decision 0012 is recorded, anything else fails. Batch sizes above 1 score every token on uLLM's own prefix instead (decision 0021).
 
 **Q4 Integration.** The OpenAI SDK contract test, 50 concurrent clients, the router chaos test, an MCP client test.
 
@@ -699,7 +699,7 @@ Not doing: a custom Metal kernel, a CUDA port, multi-GPU, fine-tuning, paid clou
 | # | Risk | Response |
 |---|---|---|
 | R-1 | Block-based KV with a per-step gather makes decode several times slower (section 4) | E9 spike before building; three candidates; decision rule; the logical layer is unaffected |
-| R-2 | Batched bf16 arithmetic flips near-tied greedy picks | Measured: exact ties at 6 of 495 golden positions, and divergence at near-ties across machines (decision 0006). Compare against mlx-lm on the same machine; log the top-2 margin against a documented threshold. Never loosen the test |
+| R-2 | Batched bf16 arithmetic flips near-tied greedy picks | Measured: exact ties at 6 of 495 golden positions, and divergence at near-ties across machines (decision 0006). Compare against mlx-lm on the same machine; log the top-2 margin against a documented threshold. Measured for batching (decision 0021): every flip at margin 0.25 or less, uLLM's token always mlx-lm's second. Never loosen the test |
 | R-3 | The mlx-lm baseline already batches, so there is no easy win | DEC-8. The value is a measured, explained gap |
 | R-4 | MLX may not run usefully on hosted macOS CI runners | Measured (decision 0005): MLX runs on the runner's paravirtualized GPU. Core tests still run on Linux with `FakeRunner`. If golden output diverges on the runner, CI compares against mlx-lm run on the same runner. Fallback: a local pre-push gate, then a self-hosted runner |
 | R-5 | A fanless laptop throttles and distorts results | B5 run conditions |

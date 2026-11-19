@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Frame } from "./contracts/telemetry";
-import { TelemetryStore } from "./store";
+import { FEED_ROWS, TelemetryStore } from "./store";
 import { tabCounts, tableRows } from "./table";
 import * as ev from "./testing/events";
 import { fixtureFrames } from "./testing/fixtures";
@@ -86,6 +86,16 @@ describe("tableRows", () => {
   it("covers every request of a fixture in exactly one tab", async () => {
     const store = storeOf(await fixtureFrames("prefix-pressure.jsonl.gz"));
     const counts = tabCounts(store);
-    expect(counts.running + counts.waiting + counts.finished + counts.preempted).toBe(store.feed().length);
+    expect(counts.running + counts.waiting + counts.finished + counts.preempted).toBe([...store.rows()].length);
+  });
+
+  it("lists every request in flight and the newest ended ones, beyond the feed's rows", () => {
+    const groups: ev.Event[][] = [[ev.hello()]];
+    for (let i = 0; i < FEED_ROWS + 30; i++) groups.push([ev.arrived(i, `done${i}`), ev.finished(i, `done${i}`, 1, null)]);
+    for (let i = 0; i < 40; i++) groups.push([ev.arrived(1_000 + i, `live${i}`)]);
+    const store = storeOf(ev.frames(groups));
+    expect(store.feed()).toHaveLength(FEED_ROWS);
+    expect(tabCounts(store)).toEqual({ running: 0, waiting: 40, finished: FEED_ROWS, preempted: 0 });
+    expect(tableRows(store, "finished")[0]?.rid).toBe(`done${FEED_ROWS + 29}`);
   });
 });

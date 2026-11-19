@@ -11,8 +11,13 @@ body {
 
 .shell {
   display: grid;
-  grid-template-rows: auto auto 1fr;
-  grid-template-areas: "header" "ticker" "feed";
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(220px, 40vh) minmax(0, 1fr);
+  grid-template-areas:
+    "header header"
+    "ticker ticker"
+    "chart strip"
+    "feed requests";
   gap: var(--gap);
   height: 100vh;
   background: var(--line);
@@ -20,8 +25,104 @@ body {
 
 .header,
 .ticker,
-.feed {
+.feed,
+.panel,
+.requests {
   background: var(--panel);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chart {
+  grid-area: chart;
+}
+
+.strip {
+  grid-area: strip;
+}
+
+h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: var(--pad);
+  font-size: var(--size);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dim);
+  font-weight: 400;
+}
+
+.swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+}
+
+.swatch-prefill { background: var(--prefill); }
+.swatch-decode { background: var(--decode); }
+.swatch-rise { background: var(--rise); }
+.swatch-fall { background: var(--fall); }
+
+canvas {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  margin: 0 10px 8px;
+  width: calc(100% - 20px);
+}
+
+.requests {
+  grid-area: requests;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+
+.tabs button {
+  padding: 4px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* ROW_HEIGHT in window.ts: 19 px of line and a 1 px border. */
+.scroll th,
+.scroll td {
+  padding: 0 10px;
+  line-height: 19px;
+  white-space: nowrap;
 }
 
 .header {

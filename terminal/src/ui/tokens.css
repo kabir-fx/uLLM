@@ -15,6 +15,10 @@
   --state-preempted: #ff9e64;
   --state-finished: #6fcf97;
   --state-aborted: #ff6b6b;
+  --prefill: #f0b35a;
+  --decode: #5fb3ff;
+  --rise: #ff6b6b;
+  --fall: #6fcf97;
   --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --size: 12px;

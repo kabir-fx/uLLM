@@ -16,7 +16,7 @@ from ullm.core.engine import Delta, EngineConfig, Failed, Finished
 from ullm.models import DEFAULT_MODEL, MODELS
 from ullm.runner.base import Runner, RunnerInfo, SamplingParams, Tokenizer
 from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, FakeTokenizer, Latency
-from ullm.server.app import DEFAULT_MAX_TOKENS, ServeConfig, create_app
+from ullm.server.app import DEFAULT_MAX_TOKENS, GRACEFUL_SHUTDOWN_S, ServeConfig, create_app
 from ullm.telemetry import events as ev
 from ullm.telemetry import trace
 from ullm.telemetry.bus import Bus, Hub, TelemetryClock
@@ -120,10 +120,21 @@ def _serve(args: argparse.Namespace) -> int:
             max_kv_slots=args.max_kv_slots,
             max_in_flight=args.max_in_flight,
         ),
+        record=args.record,
     )
+    emit = _drop if args.telemetry == "off" else None
     # Local by default (rule 14): no option binds another address.
-    uvicorn.run(create_app(runner, tokenizer, config), host="127.0.0.1", port=args.port)
+    uvicorn.run(
+        create_app(runner, tokenizer, config, emit),
+        host="127.0.0.1",
+        port=args.port,
+        timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,
+    )
     return 0
+
+
+def _drop(event: ev.Event) -> None:
+    """``--telemetry off``: M1's behaviour, the base for the overhead (decision 0023)."""
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -148,12 +159,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     serve.add_argument("--max-in-flight", type=int, default=EngineConfig().max_in_flight)
     serve.add_argument("--fake", action="store_true", help="FakeRunner and FakeTokenizer: no model")
+    serve.add_argument("--telemetry", choices=["on", "off"], default="on")
+    serve.add_argument("--record", type=Path, help="write the run's telemetry to this .jsonl.gz")
     sim = commands.add_parser("sim", help="run the real engine on FakeRunner with fake clients")
     sim.add_argument("--clients", type=int, default=50)
     sim.add_argument("--seed", type=int, default=0)
     sim.add_argument("--disconnect", type=float, default=0.2, help="share that leave early")
     sim.add_argument("--trace", type=Path, help="also write the frames to this .jsonl.gz")
     args = parser.parse_args(argv)
+    if args.command == "serve" and args.record and args.telemetry == "off":
+        parser.error("--record needs --telemetry on")
     return _serve(args) if args.command == "serve" else _run_sim(args)
 
 

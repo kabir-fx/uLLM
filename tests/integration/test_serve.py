@@ -44,6 +44,17 @@ def _serve(*args: str) -> tuple[subprocess.Popen[str], str]:
             time.sleep(0.05)
 
 
+def _stop(server: "subprocess.Popen[str]", timeout_s: float) -> str:
+    """SIGINT, then wait; a server that does not stop is killed, so a failure leaks nothing."""
+    server.send_signal(signal.SIGINT)
+    try:
+        return server.communicate(timeout=timeout_s)[0]
+    except subprocess.TimeoutExpired:
+        server.kill()
+        server.communicate()
+        raise
+
+
 def _chat(base: str, max_tokens: int) -> httpx2.Response:
     return httpx2.post(
         f"{base}/v1/chat/completions",
@@ -65,8 +76,7 @@ def test_ullm_serve_fake_answers_then_stops_on_interrupt() -> None:
         reply = _chat(base, 3).json()
         assert reply["usage"]["completion_tokens"] == 3
     finally:
-        server.send_signal(signal.SIGINT)
-        out = server.communicate(timeout=15)[0]
+        out = _stop(server, 15)
     assert server.returncode == 0, out
 
 
@@ -116,8 +126,7 @@ def test_an_open_tab_does_not_keep_ullm_serve_from_stopping_and_closing_its_reco
         assert first_frame.wait(10)
         assert _chat(base, 3).status_code == 200
     finally:
-        server.send_signal(signal.SIGINT)
-        out = server.communicate(timeout=GRACEFUL_SHUTDOWN_S + 10)[0]
+        out = _stop(server, GRACEFUL_SHUTDOWN_S + 10)
     assert server.returncode == 0, out
     frames = list(iter_frames(path))
     assert check_trace(frames).problems == []
@@ -131,8 +140,7 @@ def test_ullm_serve_with_telemetry_off_has_no_stream() -> None:
     try:
         assert httpx2.get(f"{base}/telemetry/stream").status_code == 404
     finally:
-        server.send_signal(signal.SIGINT)
-        server.communicate(timeout=15)
+        _stop(server, 15)
 
 
 def test_ullm_serve_refuses_to_start_when_it_cannot_open_the_recording(tmp_path: Path) -> None:
@@ -161,7 +169,7 @@ def test_ullm_serve_refuses_to_start_when_it_cannot_open_the_recording(tmp_path:
 def test_ullm_serve_refuses_a_recording_with_telemetry_off(tmp_path: Path) -> None:
     run = subprocess.run(
         [
-            *(sys.executable, "-m", "ullm.cli", "serve", "--fake"),
+            *(sys.executable, "-m", "ullm.cli", "serve", "--fake", "--port", str(_free_port())),
             *("--telemetry", "off", "--record", str(tmp_path / "x.jsonl.gz")),
         ],
         capture_output=True,

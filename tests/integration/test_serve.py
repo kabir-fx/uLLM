@@ -53,7 +53,7 @@ def test_ullm_serve_fake_answers_then_stops_on_interrupt() -> None:
     assert server.returncode == 0, out
 
 
-def test_ullm_serve_passes_its_admission_limits_to_the_engine() -> None:
+def test_ullm_serve_passes_max_kv_slots_to_the_engine() -> None:
     # The fake model's max_model_len is 4096, so the engine refuses this budget at startup.
     limits = ["--max-num-seqs", "4", "--max-kv-slots", "4095"]
     run = subprocess.run(
@@ -64,3 +64,14 @@ def test_ullm_serve_passes_its_admission_limits_to_the_engine() -> None:
     )
     assert run.returncode != 0
     assert "max_kv_slots 4095 is below max_model_len 4096" in run.stdout + run.stderr
+
+
+def test_ullm_serve_passes_max_num_seqs_to_the_engine() -> None:
+    run = subprocess.run(
+        [sys.executable, "-m", "ullm.cli", "serve", "--fake", "--max-num-seqs", "0"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert run.returncode != 0
+    assert "max_num_seqs must be an int >= 1, got 0" in run.stdout + run.stderr

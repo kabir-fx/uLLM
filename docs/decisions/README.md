@@ -21,6 +21,7 @@ One short file per design decision, numbered in order (roadmap 3.3). A decision 
 | [0018](0018-gate-verdict-coverage.md) | `/gate` accepts a commit after the verdicts when keel's `verdicts.md` covers it: listed under "Covered since" with before and after evidence, or re-checked READY | gate G1 |
 | [0019](0019-contiguous-batch-kv.md) | Contiguous batch KV: one left-padded `BatchKV` for the running batch, written in place, repacked on each join and leave; a decode names every decoding sequence and a prefill comes before the first decode | M2-T1 |
 | [0020](0020-continuous-batching-admission.md) | Continuous batching: `max_num_seqs` 16 by default; admit the waiting head only while rows × the longest reservation (`prompt + max_tokens`) stays within `max_kv_slots` (40,960, never below `max_model_len`); FCFS, no skipping | M2-T2 |
+| [0021](0021-core-panels.md) | The step chart, batch strip and requests table: own Canvas 2D on `requestAnimationFrame`, no chart library; per-second candles with processed and sampled token bars; strip lanes reused by later requests; a windowed table with fixed 20 px rows | M2-T7 |
 
 ## Template
 

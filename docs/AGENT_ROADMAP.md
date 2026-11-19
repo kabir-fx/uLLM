@@ -429,7 +429,7 @@ The spike measures, on the real model, decode step time against batch size and c
 
 ### 6.6 Terminal
 
-Stack: Vite, React, TypeScript (strict), pnpm, Vitest, Playwright. Canvas 2D for the batch strip and KV grid. A canvas chart library for time series: lightweight-charts fits the look (check its attribution requirement) or uPlot. A virtualised table for requests. Look: dark, dense, tabular numerals, a monospace face for figures. It uses the layout grammar of trading terminals with its own identity; never copy a product's branding, colours or assets.
+Stack: Vite, React, TypeScript (strict), pnpm, Vitest, Playwright. Canvas 2D for the step chart, the batch strip and the KV grid, with no chart library (decision 0021). A virtualised table for requests. Look: dark, dense, tabular numerals, a monospace face for figures. It uses the layout grammar of trading terminals with its own identity; never copy a product's branding, colours or assets.
 
 **T1 Shell, store and sources.** The dense grid layout and design tokens. An external store with ring buffers; telemetry never passes through React state per event. Canvases draw on `requestAnimationFrame`; React renders layout and controls. A `TelemetrySource` interface with two implementations: live SSE and replay from a trace file.
 
@@ -437,7 +437,7 @@ Stack: Vite, React, TypeScript (strict), pnpm, Vitest, Playwright. Canvas 2D for
 
 - Stats ticker: tokens per second, TTFT p50/p99, TPOT, batch size against its cap, queue depth, KV used.
 - Request feed: id, state pill (waiting, prefilling, running, preempted, finished), tokens, TTFT.
-- Step chart: one candle per second of engine step latency (open, high, low, close; a long wick is a stall), with bars underneath for tokens per second, prefill and decode coloured differently.
+- Step chart: one candle per second of engine step latency (open, high, low, close; a long wick is a stall), with two bar graphs underneath, processed and sampled tokens per second, prefill and decode coloured differently.
 - Batch strip: rows are requests, columns are engine steps, each cell a prefill or a decode token. Shows requests joining and leaving, and the prefill stall.
 - Requests table with tabs (Running, Waiting, Finished, Preempted): prompt tokens, generated tokens, TTFT, TPOT, blocks, cache-hit %, age.
 

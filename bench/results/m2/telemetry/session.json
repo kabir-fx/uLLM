@@ -1,0 +1,14 @@
+{
+  "served_models": {
+    "ullm-off": "mlx-community/Qwen3-0.6B-bf16",
+    "ullm-off-twin": "mlx-community/Qwen3-0.6B-bf16",
+    "ullm-on": "mlx-community/Qwen3-0.6B-bf16"
+  },
+  "smoke": false,
+  "settle_s": 600.0,
+  "started_unix": 1795114284.9623182,
+  "ended_unix": 1795115837.741499,
+  "blocks_planned": 10,
+  "blocks_run": 10,
+  "ended": "completed"
+}

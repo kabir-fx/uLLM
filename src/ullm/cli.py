@@ -6,7 +6,7 @@ import asyncio
 import random
 import sys
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
 
 import uvicorn
@@ -16,9 +16,10 @@ from ullm.core.engine import Delta, EngineConfig, Failed, Finished
 from ullm.models import DEFAULT_MODEL, MODELS
 from ullm.runner.base import Runner, RunnerInfo, SamplingParams, Tokenizer
 from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, FakeTokenizer, Latency
-from ullm.server.app import DEFAULT_MAX_TOKENS, ServeConfig, create_app
+from ullm.server.app import DEFAULT_MAX_TOKENS, GRACEFUL_SHUTDOWN_S, ServeConfig, create_app
 from ullm.telemetry import events as ev
 from ullm.telemetry import trace
+from ullm.telemetry.bus import Bus, Hub, TelemetryClock
 from ullm.telemetry.check import check_trace
 
 SIM_INFO = RunnerInfo(
@@ -57,28 +58,34 @@ async def _client(engine: EngineClient, rng: random.Random, disconnect: float) -
     return outcome
 
 
-async def _sim(clients: int, seed: int, disconnect: float) -> tuple[list[ev.Event], Counter[str]]:
-    events: list[ev.Event] = []
+async def _sim(clients: int, seed: int, disconnect: float) -> tuple[list[ev.Frame], Counter[str]]:
+    clock, bus = TelemetryClock.start(), Bus()
+    hub = Hub(bus, clock, SIM_CONFIG.replica)
+    frames_task = asyncio.create_task(_collect(hub.subscribe()))
+    hub_task = asyncio.create_task(hub.run())
     engine = EngineClient.start(
-        FakeRunner(SIM_INFO, SIM_LATENCY),
-        FakeDetokenizer,
-        SIM_CONFIG,
-        events.append,
+        FakeRunner(SIM_INFO, SIM_LATENCY), FakeDetokenizer, SIM_CONFIG, bus.emit, clock
     )
     outcomes = await asyncio.gather(
         *(_client(engine, random.Random(f"{seed}-{i}"), disconnect) for i in range(clients))
     )
-    await engine.close()  # the engine thread has exited, so events is complete
-    return events, Counter(outcomes)
+    await engine.close()  # the engine thread has exited, so the bus holds every event
+    hub.close()
+    await hub_task
+    return await frames_task, Counter(outcomes)
+
+
+async def _collect(frames: AsyncIterator[ev.Frame]) -> list[ev.Frame]:
+    return [frame async for frame in frames]
 
 
 def _run_sim(args: argparse.Namespace) -> int:
-    events, outcomes = asyncio.run(_sim(args.clients, args.seed, args.disconnect))
-    frames = trace.frames_from(events, SIM_CONFIG.replica)
+    frames, outcomes = asyncio.run(_sim(args.clients, args.seed, args.disconnect))
     if args.trace:
         trace.write(args.trace, frames)
     report = check_trace(frames)
-    print(f"{args.clients} clients, {report.steps} steps, {len(events)} events")
+    events = sum(len(frame.events) for frame in frames)
+    print(f"{args.clients} clients, {report.steps} steps, {events} events")
     for outcome, n in sorted(outcomes.items()):
         print(f"  {n:4d}  {outcome}")
     # A refusal past max_in_flight is the bound working; the trace check covers the rest.
@@ -113,10 +120,21 @@ def _serve(args: argparse.Namespace) -> int:
             max_kv_slots=args.max_kv_slots,
             max_in_flight=args.max_in_flight,
         ),
+        record=args.record,
     )
+    emit = _drop if args.telemetry == "off" else None
     # Local by default (rule 14): no option binds another address.
-    uvicorn.run(create_app(runner, tokenizer, config), host="127.0.0.1", port=args.port)
+    uvicorn.run(
+        create_app(runner, tokenizer, config, emit),
+        host="127.0.0.1",
+        port=args.port,
+        timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,
+    )
     return 0
+
+
+def _drop(event: ev.Event) -> None:
+    """``--telemetry off``: M1's behaviour, the base for the overhead (decision 0023)."""
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -141,12 +159,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     serve.add_argument("--max-in-flight", type=int, default=EngineConfig().max_in_flight)
     serve.add_argument("--fake", action="store_true", help="FakeRunner and FakeTokenizer: no model")
+    serve.add_argument("--telemetry", choices=["on", "off"], default="on")
+    serve.add_argument("--record", type=Path, help="write the run's telemetry to this .jsonl.gz")
     sim = commands.add_parser("sim", help="run the real engine on FakeRunner with fake clients")
     sim.add_argument("--clients", type=int, default=50)
     sim.add_argument("--seed", type=int, default=0)
     sim.add_argument("--disconnect", type=float, default=0.2, help="share that leave early")
     sim.add_argument("--trace", type=Path, help="also write the frames to this .jsonl.gz")
     args = parser.parse_args(argv)
+    if args.command == "serve" and args.record and args.telemetry == "off":
+        parser.error("--record needs --telemetry on")
     return _serve(args) if args.command == "serve" else _run_sim(args)
 
 

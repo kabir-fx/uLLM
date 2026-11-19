@@ -1,11 +1,14 @@
-"""A1: the OpenAI-compatible HTTP server over ``EngineClient`` (decision 0011)."""
+"""A1: the OpenAI-compatible HTTP server over ``EngineClient`` (decision 0011), and O1's
+``/telemetry/stream`` (decision 0023)."""
 
+import asyncio
 import json
 import logging
 import time
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Literal
 
 import anyio
@@ -34,7 +37,8 @@ from ullm.server.schemas import (
     ModelList,
     Usage,
 )
-from ullm.telemetry import events as ev
+from ullm.telemetry import trace
+from ullm.telemetry.bus import Bus, Hub, TelemetryClock
 
 _log = logging.getLogger(__name__)
 
@@ -45,6 +49,9 @@ MAX_LOGGED_FIELDS = 32  # unknown field names logged per process; client-chosen,
 LOCAL_HOSTS = ("127.0.0.1", "localhost")  # a DNS-rebound page arrives under its own name
 DEFAULT_MAX_TOKENS = 512  # mlx_lm.server's default, so baselines match
 TERMINAL_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
+# uvicorn waits for every open response before the lifespan's exit, and a telemetry stream
+# never ends by itself. Past this, it cancels them, so the recording still gets closed.
+GRACEFUL_SHUTDOWN_S = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,27 +59,44 @@ class ServeConfig:
     served_model: str  # the id a client sends as `model`
     default_max_tokens: int = DEFAULT_MAX_TOKENS
     engine: EngineConfig = field(default_factory=EngineConfig)
-
-
-def _drop(event: ev.Event) -> None:
-    """Telemetry has no reader until O1 (M2-T4)."""
+    record: Path | None = None  # write the run's telemetry to this .jsonl.gz
+    telemetry_keepalive_s: float = 10.0
 
 
 def create_app(
-    runner: Runner, tokenizer: Tokenizer, config: ServeConfig, emit: Emit = _drop
+    runner: Runner, tokenizer: Tokenizer, config: ServeConfig, emit: Emit | None = None
 ) -> FastAPI:
+    """With ``emit``, the engine's events go there and nothing streams them; without, the app
+    runs its own bus and serves ``/telemetry/stream``."""
     info = runner.info()
     max_body = max_body_bytes(tokenizer.token_bytes(), info.max_model_len)
     created = int(time.time())
     logged_fields: set[str] = set()
     engine: EngineClient | None = None
 
+    clock, bus = TelemetryClock.start(), Bus()
+    hub = None if emit is not None else Hub(bus, clock, config.engine.replica)
+    if config.record is not None and hub is None:
+        raise ValueError("record needs the app's own telemetry: pass no emit")
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         nonlocal engine
-        engine = EngineClient.start(runner, tokenizer.detokenizer, config.engine, emit)
+        tasks: list[asyncio.Task[None]] = []
+        if hub is not None and config.record is not None:
+            config.record.parent.mkdir(parents=True, exist_ok=True)
+            raw = config.record.open("wb")
+            tasks.append(asyncio.create_task(trace.record(hub.subscribe(), raw)))
+        if hub is not None:
+            tasks.append(asyncio.create_task(hub.run()))
+        engine = EngineClient.start(
+            runner, tokenizer.detokenizer, config.engine, emit or bus.emit, clock
+        )
         yield
         await engine.close()
+        if hub is not None:
+            hub.close()
+        await asyncio.gather(*tasks)
 
     def running() -> EngineClient:
         if engine is None:
@@ -101,6 +125,13 @@ def create_app(
     async def health() -> Response:
         state = running().health()
         return JSONResponse(asdict(state), status_code=200 if state.alive else 503)
+
+    if hub is not None:
+        app.state.hub = hub
+
+        @app.get("/telemetry/stream")
+        async def telemetry_stream() -> Response:
+            return _TelemetryStream(hub, config.telemetry_keepalive_s)
 
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request) -> Response:
@@ -307,6 +338,46 @@ class _Reply(Response):
 
 def _usage(done: Finished) -> Usage:
     return Usage.of(prompt_tokens=done.prompt_tokens, completion_tokens=done.completion_tokens)
+
+
+class _TelemetryStream(Response):
+    """One tab's frames as SSE, until the tab leaves or the hub closes. Its subscription
+    lives exactly as long as the reply."""
+
+    def __init__(self, hub: Hub, keepalive_s: float) -> None:
+        super().__init__()
+        self._hub = hub
+        self._keepalive_s = keepalive_s
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    (b"content-type", b"text/event-stream; charset=utf-8"),
+                    (b"cache-control", b"no-cache"),
+                ],
+            }
+        )
+        async with self._hub.subscribe() as frames, anyio.create_task_group() as tasks:
+
+            async def watch() -> None:
+                while (await receive())["type"] != "http.disconnect":
+                    pass
+                tasks.cancel_scope.cancel()
+
+            tasks.start_soon(watch)
+            while True:
+                body = b": keepalive\n\n"
+                with anyio.move_on_after(self._keepalive_s):
+                    frame = await anext(frames, None)
+                    if frame is None:
+                        break
+                    body = f"data: {frame.model_dump_json()}\n\n".encode()
+                await send({"type": "http.response.body", "body": body, "more_body": True})
+            await send({"type": "http.response.body", "body": b"", "more_body": False})
+            tasks.cancel_scope.cancel()
 
 
 class _EchoRequestId:

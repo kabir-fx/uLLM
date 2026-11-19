@@ -6,7 +6,6 @@ loop turn hands everything it produced to ``deliver`` in one call.
 """
 
 import logging
-import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from importlib.metadata import version
@@ -25,6 +24,7 @@ from ullm.runner.base import (
     require_ints,
 )
 from ullm.telemetry import events as ev
+from ullm.telemetry.bus import TelemetryClock
 
 _log = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ class Engine:
         inbound: "SimpleQueue[Ticket]",
         deliver: Deliver,
         emit: Emit,
-        clock: Callable[[], float] = time.monotonic,
+        clock: TelemetryClock | None = None,
     ) -> None:
         self._runner = runner
         self._info = runner.info()
@@ -143,9 +143,7 @@ class Engine:
         self._inbound = inbound
         self._deliver = deliver
         self._emit = emit
-        self._clock = clock
-        self._epoch = clock()
-        self._epoch_unix_ms = int(time.time() * 1000)
+        self._clock = clock or TelemetryClock.start()
         self._scheduler = Scheduler(config.max_num_seqs, config.max_kv_slots)
         self._live: dict[str, Request] = {}
         self._next_seq = 0
@@ -279,7 +277,7 @@ class Engine:
             source=self._config.source,
             version=version("ullm"),
             commit=None,
-            epoch_unix_ms=self._epoch_unix_ms,
+            epoch_unix_ms=self._clock.epoch_unix_ms,
             limits=ev.Limits(
                 max_num_seqs=self._config.max_num_seqs,
                 # One step prefills one whole prompt (DEC-7) until chunked prefill (E13).
@@ -291,4 +289,4 @@ class Engine:
         )
 
     def _now(self) -> float:
-        return (self._clock() - self._epoch) * 1000
+        return self._clock.now_ms()

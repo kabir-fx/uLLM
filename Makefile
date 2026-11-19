@@ -89,6 +89,10 @@ bench-baselines: models ## M1-T7: the c1 and c8 sessions of decision 0016, on an
 	$(UV) python -m bench.analysis bench/results/m1/c1 bench/results/m1/c8 --compare \
 		> bench/results/m1/comparison.md
 
+.PHONY: bench-telemetry
+bench-telemetry: models ## M2-T4: telemetry on against off at c8 (decision 0023), on an idle Mac on AC power
+	$(UV) python -m bench.session bench/groups/m2-telemetry.json --settle 600 --out bench/results/m2/telemetry
+
 .PHONY: test-mlx equivalence bench-smoke sim up verify
 test-mlx: ## Tests marked mlx: need MLX (Apple Silicon); the model from M0-T7 on
 	$(UV) pytest -m mlx

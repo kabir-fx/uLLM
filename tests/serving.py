@@ -6,11 +6,12 @@ from contextlib import asynccontextmanager
 
 import httpx2
 import uvicorn
+from fastapi import FastAPI
 from tests.recording import RecordingRunner
 
 from ullm.runner.base import Tokenizer
 from ullm.runner.fake_runner import FakeTokenizer
-from ullm.server.app import ServeConfig, create_app
+from ullm.server.app import GRACEFUL_SHUTDOWN_S, ServeConfig, create_app
 from ullm.telemetry import events as ev
 
 SERVED = "fake-model"
@@ -22,7 +23,21 @@ async def serving(
 ) -> AsyncIterator[httpx2.AsyncClient]:
     config = ServeConfig(served_model=SERVED)
     app = create_app(runner, tokenizer or FakeTokenizer(), config, events.append)
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning"))
+    async with serving_app(app) as client:
+        yield client
+
+
+@asynccontextmanager
+async def serving_app(app: FastAPI) -> AsyncIterator[httpx2.AsyncClient]:
+    server = uvicorn.Server(
+        uvicorn.Config(
+            app,
+            host="127.0.0.1",
+            port=0,
+            log_level="warning",
+            timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_S,
+        )
+    )
     task = asyncio.create_task(server.serve())
     while not server.started:
         await asyncio.sleep(0.01)

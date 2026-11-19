@@ -24,6 +24,7 @@ from ullm.core.engine import (
 from ullm.runner.base import Detokenizer, Runner, RunnerInfo, SamplingParams
 from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, Latency
 from ullm.telemetry import events as ev
+from ullm.telemetry.bus import TelemetryClock
 from ullm.telemetry.check import TraceReport, check_trace
 from ullm.telemetry.trace import frames_from
 
@@ -467,3 +468,23 @@ def test_a_submit_past_max_model_len_is_a_bug_that_stops_the_engine_instead_of_s
     )
     with pytest.raises(ValueError, match="max_model_len"):
         engine.run()
+
+
+def test_events_are_timed_on_the_clock_it_is_given() -> None:
+    now = [50.0]
+    clock = TelemetryClock(epoch=40.0, epoch_unix_ms=1_700_000_000_000, monotonic=lambda: now[0])
+    events: list[ev.Event] = []
+    inbound: SimpleQueue[Ticket] = SimpleQueue()
+    inbound.put(Shutdown())
+    Engine(
+        FakeRunner(INFO, FAST, sleep=lambda s: None),
+        FakeDetokenizer,
+        EngineConfig(),
+        inbound,
+        lambda batch, load: None,
+        events.append,
+        clock,
+    ).run()
+    hello = events[0]
+    assert isinstance(hello, ev.Hello)
+    assert (hello.t, hello.epoch_unix_ms) == (10_000.0, 1_700_000_000_000)

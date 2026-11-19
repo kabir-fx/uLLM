@@ -31,3 +31,10 @@ def test_the_m1_groups_rerun_ullm_at_batch_size_1_as_committed(name: str) -> Non
     group = Group.model_validate_json(path.read_text())
     [ullm] = [e for e in group.engines if e.name == "ullm"]
     assert ullm.launch.split()[-2:] == ["--max-num-seqs", "1"]
+
+
+@pytest.mark.parametrize(
+    "path", sorted((Path(__file__).parents[2] / "bench/groups").glob("*.json")), ids=str
+)
+def test_every_committed_group_is_valid(path: Path) -> None:
+    Group.model_validate_json(path.read_text())

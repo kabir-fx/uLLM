@@ -31,6 +31,8 @@ from bench.schema import (
 from bench.session import main
 
 from ullm.runner.fake_runner import FakeTokenizer
+from ullm.telemetry.check import check_trace
+from ullm.telemetry.trace import iter_frames
 
 GOOD = Power(on_ac=True, battery_percent=100, low_power_mode=False, charging=False, lid_open=True)
 MB = 2**20
@@ -529,3 +531,20 @@ def test_a_missing_model_snapshot_refuses_the_session(
     )
     assert code == 2
     assert not out.exists()
+
+
+def test_a_launch_may_write_into_the_session_directory(tmp_path: Path, machine: int) -> None:
+    group = _group(tmp_path / "group.json", "per_chunk")
+    spec = json.loads(group.read_text())
+    spec["engines"][0]["launch"] += " --record {out}/other.jsonl.gz"
+    group.write_text(json.dumps(spec))
+    out = tmp_path / "a session"
+    main(
+        [
+            str(group),
+            *("--workload", str(_workload(tmp_path / "w.json", 5))),
+            *("--settle", "0", "--ready-timeout", "30", "--blocks", "1", "--out", str(out)),
+        ]
+    )
+    frames = list(iter_frames(out / "other.jsonl.gz"))
+    assert check_trace(frames).problems == []

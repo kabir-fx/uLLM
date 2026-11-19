@@ -1,0 +1,28 @@
+{
+  "name": "m2-telemetry",
+  "concurrency": 8,
+  "servers": "per_chunk",
+  "prompts_per_chunk": 24,
+  "warmup_per_chunk": 8,
+  "seed": 0,
+  "baseline": {
+    "name": "ullm-off",
+    "launch": "uv run --locked ullm serve --port {port} --max-num-seqs 8 --telemetry off",
+    "model": null,
+    "extra_body": {},
+    "footprint_gb": 8
+  },
+  "engines": [
+    {
+      "name": "ullm-on",
+      "launch": "uv run --locked ullm serve --port {port} --max-num-seqs 8 --record {out}/ullm-on.jsonl.gz",
+      "model": null,
+      "extra_body": {},
+      "footprint_gb": 8
+    }
+  ],
+  "gates": {
+    "twin_tpot_peak": 0.005,
+    "twin_tpot_sustained": 0.03
+  }
+}

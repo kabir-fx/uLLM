@@ -286,7 +286,7 @@ class Engine:
                 max_prefill_tokens=self._info.max_model_len,
                 max_model_len=self._info.max_model_len,
             ),
-            kv=ev.KvInfo(capacity_tokens=self._config.max_kv_slots),
+            kv=ev.KvInfo(),
             machine=None,
         )
 

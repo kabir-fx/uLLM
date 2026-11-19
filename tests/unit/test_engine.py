@@ -213,7 +213,9 @@ def test_the_trace_starts_with_hello() -> None:
     assert isinstance(hello, ev.Hello)
     assert (hello.replica, hello.source, hello.model) == ("r1", "engine", "fake")
     assert hello.limits == ev.Limits(max_num_seqs=16, max_prefill_tokens=256, max_model_len=256)
-    assert hello.kv == ev.KvInfo(capacity_tokens=40_960)
+    # The terminal divides capacity_tokens into unpadded kv_tokens; the slot budget counts
+    # padded slots, so it is not reported there (0020).
+    assert hello.kv == ev.KvInfo()
 
 
 def test_an_abort_of_a_waiting_request_fails_it_without_touching_the_runner() -> None:
@@ -355,6 +357,9 @@ def test_concurrent_requests_decode_in_one_batch_and_reply_as_they_would_alone()
 def test_a_batch_never_grows_past_max_num_seqs() -> None:
     submits: list[Ticket] = [_submit(rid=f"r1-{i}", max_tokens=8) for i in range(5)]
     ran = _run(submits, config=EngineConfig(max_num_seqs=2))
+    hello = ran.events[0]
+    assert isinstance(hello, ev.Hello)
+    assert hello.limits.max_num_seqs == 2
     assert max(_decode_rows(ran)) == 2
     assert all(isinstance(_ends_once(ran.outputs[f"r1-{i}"]), Finished) for i in range(5))
     assert ran.report().problems == []

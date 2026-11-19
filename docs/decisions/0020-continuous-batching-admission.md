@@ -20,8 +20,8 @@ Facts that shape admission:
 1. `EngineConfig.max_num_seqs` defaults to 16 (E6's starting value) and accepts any int ≥ 1.
 2. `EngineConfig.max_kv_slots` defaults to 40,960. `Engine` refuses a value below the runner's `max_model_len`, so a lone request always fits and the bound has no exception.
 3. Each request reserves `len(prompt) + max_tokens` slots, the most its row can ever hold. `Scheduler.schedule` admits the head of the waiting queue only when, with it, `rows ≤ max_num_seqs` and `rows × max(reservation over the rows) ≤ max_kv_slots`. If the head does not fit, nothing is admitted that step: no request skips ahead (FCFS).
-4. Because the reservation is an upper bound and nothing is admitted past it, the running batch's padded slots stay at or below `max_kv_slots` for the whole run.
-5. `hello.limits.max_num_seqs` reports the cap, and `hello.kv.capacity_tokens` reports `max_kv_slots`. Both fields exist in contract C2 v1.
+4. Because the reservation is an upper bound and nothing is admitted past it, the running batch's written padded slots (rows × `length`) stay at or below `max_kv_slots` for the whole run. `Engine` refuses a `Submit` past `max_model_len` as a bug, since it could never fit and would hold the head for ever.
+5. `hello.limits.max_num_seqs` reports the cap. `hello.kv.capacity_tokens` stays null: the terminal divides it into `step.kv_tokens`, which counts unpadded tokens, and the budget counts padded slots. C2 v1 has no field for the budget.
 6. `ullm serve` takes `--max-num-seqs` and `--max-kv-slots`. `ullm sim` runs at the defaults.
 7. `check_trace` reports a step with more rows than `hello.limits.max_num_seqs`.
 8. The engine-level batch-size-1 equivalence test pins `max_num_seqs=1`. Batched equivalence is M2-T3's.
@@ -36,7 +36,8 @@ Facts that shape admission:
 
 ## Consequences
 
+- `bench/groups/m1-c1.json` and `m1-c8.json` launch uLLM with `--max-num-seqs 1`, so a rerun reproduces M1-T7's sequential baseline.
 - At workload A's sizes, `max_num_seqs` binds first. At 40,960 slots, two requests with `max_tokens` near the context cannot share a batch even when their prompts are short.
 - A request with a large `max_tokens` holds room it may never use. E8's blocks (M3-T4) replace this account with free blocks, and E11 makes the current-length account safe.
-- The default does not count weights, the MLX cache limit (decision 0015) or the repack peak. At the default the steady KV is about 4.7 GB and the peak about 9.4 GB.
+- The default does not count weights, the MLX cache limit (decision 0015), the repack peak, or capacity rounding: `BatchKV` allocates each row in steps of 256 slots, so allocation can pass the budget by up to 255 slots a row. At the default, written KV is at most about 4.7 GB, the worst allocation 43,264 slots (13 rows, about 4.96 GB), and the repack peak about twice that. These figures are arithmetic from the shape (inferred), not measurements.
 - The prefill token budget has no code until chunked prefill (E13).

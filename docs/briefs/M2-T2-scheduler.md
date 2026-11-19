@@ -28,9 +28,9 @@ waiting deque (FCFS)                      running list
 2. Each request reserves `prompt + max_tokens` slots. This is the most KV its row can ever hold.
 3. The head is admitted only when two limits hold with it. The row count stays at or below `max_num_seqs`. The row count times the largest reservation stays at or below `max_kv_slots`.
 4. `Engine`, in `src/ullm/core/engine.py`, refuses a `max_kv_slots` below the model's `max_model_len`. Thus one request alone always fits.
-5. `hello` reports both limits. `check_trace` reports a step with more rows than `max_num_seqs`.
+5. `hello` reports `max_num_seqs`. `check_trace` reports a step with more rows than `max_num_seqs`.
 
-One slot costs 114,688 bytes on the Qwen3 models. The agent read this from the model's `config.json`. The default of 40,960 slots is about 4.7 GB of KV.
+One slot costs 114,688 bytes on the Qwen3 models. The agent read this from the model's `config.json`. The default of 40,960 slots is about 4.7 GB of KV. This figure is arithmetic, not a measurement.
 
 ## What you get at the end
 

@@ -13,6 +13,7 @@ import gzip
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import signal
 import statistics
@@ -112,7 +113,7 @@ def _servers(group: Group, out: Path, model_dir: str | None) -> dict[str, Server
     servers = {}
     for i, spec in enumerate(group.servers_in_order):
         port = schema.FIRST_PORT + i
-        launch = spec.launch.replace(PORT, str(port)).replace(OUT, str(out))
+        launch = spec.launch.replace(PORT, str(port)).replace(OUT, shlex.quote(str(out)))
         model = spec.model
         if model_dir is not None:
             launch = launch.replace(MODEL, model_dir)

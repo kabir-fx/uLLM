@@ -1,5 +1,6 @@
 import type { Frame, Hello, Step } from "./contracts/telemetry";
 import { Ring } from "./ring";
+import { foldStep, type Second } from "./timeline";
 
 export type RequestState = "waiting" | "prefilling" | "running" | "preempted" | "finished" | "aborted";
 
@@ -30,6 +31,8 @@ export interface Sample {
 export const FEED_ROWS = 200;
 const STEP_SAMPLES = 4096;
 const REQUEST_SAMPLES = 4096;
+const STEPS = 1024;
+const SECONDS = 600;
 
 /**
  * Everything the terminal shows, folded from telemetry frames. Events never reach React
@@ -39,7 +42,6 @@ const REQUEST_SAMPLES = 4096;
 export class TelemetryStore {
   hello: Hello | null = null;
   status: SourceStatus = { kind: "connecting" };
-  lastStep: Step | null = null;
   /** The newest frame's `t`: the ticker's windows end here, so replay speed changes nothing. */
   nowT = 0;
   missedFrames = 0;
@@ -48,6 +50,8 @@ export class TelemetryStore {
   readonly sampled = new Ring<Sample>(STEP_SAMPLES);
   readonly ttfts = new Ring<Sample>(REQUEST_SAMPLES);
   readonly tpots = new Ring<Sample>(REQUEST_SAMPLES);
+  readonly steps = new Ring<Step>(STEPS);
+  readonly seconds = new Ring<Second>(SECONDS);
   version = 0;
 
   private readonly requests = new Map<string, RequestRow>();
@@ -74,6 +78,10 @@ export class TelemetryStore {
   setStatus(status: SourceStatus): void {
     this.status = status;
     this.changed();
+  }
+
+  get lastStep(): Step | null {
+    return this.steps.newest() ?? null;
   }
 
   request(rid: string): RequestRow | undefined {
@@ -135,7 +143,8 @@ export class TelemetryStore {
   }
 
   private applyStep(step: Step): void {
-    this.lastStep = step;
+    this.steps.push(step);
+    foldStep(this.seconds, step);
     // One token per row: a prefill samples its first token, a decode row its next one.
     this.sampled.push({ t: step.t, value: step.rids.length });
     for (const rid of step.rids) {
@@ -162,7 +171,8 @@ export class TelemetryStore {
 
   private reset(): void {
     this.hello = null;
-    this.lastStep = null;
+    this.steps.clear();
+    this.seconds.clear();
     this.nowT = 0;
     this.missedFrames = 0;
     this.droppedEvents = 0;

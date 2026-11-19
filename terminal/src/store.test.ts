@@ -170,3 +170,28 @@ describe("TelemetryStore notifications", () => {
     expect(calls).toBe(0);
   });
 });
+
+describe("TelemetryStore steps", () => {
+  it("keeps each step and folds it into its second", () => {
+    const store = storeOf(
+      ev.frames([
+        [ev.hello(), ev.step(100, "prefill", ["a"], { ms: 80 })],
+        [ev.step(900, "decode", ["a"], { ms: 20 }), ev.step(1_100, "decode", ["a"], { ms: 25 })],
+      ]),
+    );
+    expect([...store.steps].map((s) => s.t)).toEqual([100, 900, 1_100]);
+    expect([...store.seconds].map((s) => [s.second, s.high, s.steps])).toEqual([
+      [0, 80, 2],
+      [1, 25, 1],
+    ]);
+  });
+
+  it("forgets the steps and the seconds at hello", () => {
+    const store = storeOf([
+      ...ev.frames([[ev.hello(), ev.step(100, "decode", ["a"])]]),
+      ...ev.frames([[ev.hello()]]),
+    ]);
+    expect(store.steps.length).toBe(0);
+    expect(store.seconds.length).toBe(0);
+  });
+});

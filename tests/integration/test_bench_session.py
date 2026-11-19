@@ -538,7 +538,7 @@ def test_a_launch_may_write_into_the_session_directory(tmp_path: Path, machine: 
     spec = json.loads(group.read_text())
     spec["engines"][0]["launch"] += " --record {out}/other.jsonl.gz"
     group.write_text(json.dumps(spec))
-    out = tmp_path / "session"
+    out = tmp_path / "a session"
     main(
         [
             str(group),

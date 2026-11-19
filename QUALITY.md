@@ -26,6 +26,7 @@ Always true on `main`. A change that breaks one of these does not merge.
 - `ullm.core` never imports MLX (rule 3): `tests/unit/test_core_is_mlx_free.py`, run by `ci-core`.
 - Every test outside the `mlx` marker passes with MLX absent: the core job's MLX-absent step on Linux, then `ci-core`.
 - Greedy output equals mlx-lm's token IDs through the runner, the engine and the HTTP server (rule 1): `make equivalence`, run by `ci-mlx`.
+- Batched greedy output at `max_num_seqs` 2, 4 and 8 keeps every token in mlx-lm's top 2 and within 0.25 logprob on uLLM's own prefix (decision 0021): `make equivalence`, run by `ci-mlx`.
 - mlx-lm reproduces the committed goldens, and a missing model fails instead of skipping: `ci-mlx`.
 - Lockfiles match their manifests: `uv run --locked` and `pnpm install --frozen-lockfile`, in `ci-core` and `ci-terminal`.
 - The generated TypeScript contract types match the schema, and the terminal typechecks strictly: `ci-terminal`.

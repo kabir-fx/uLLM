@@ -17,6 +17,11 @@ Invariants every runner keeps, and every caller may rely on:
    pass and changes nothing. Plans, ``SamplingParams``, ``add`` and ``release``
    refuse sequence ids, positions, token ids, flags, sampling settings and
    containers of the wrong type or range.
+   A sequence is *prefilling* from ``add`` to its first decode, then *decoding*
+   until ``release`` (decision 0019). A ``PrefillPlan`` is legal only while its
+   sequence is prefilling. A ``DecodePlan`` names every decoding sequence that
+   has not failed, in any order, and may name prefilling ones, which then
+   decode too.
 3. ``StepResult.tokens`` has one entry per sampled row, in plan order.
 4. An ``execute`` that fails after validation, in the forward pass or the
    eval, marks every sequence in the plan as failed. The only legal call for a

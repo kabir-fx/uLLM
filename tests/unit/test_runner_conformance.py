@@ -210,3 +210,44 @@ def test_a_failed_batch_fails_every_sequence_in_it() -> None:
         with pytest.raises(ValueError, match="failed"):
             runner.execute(DecodePlan(seqs=(seq,), token_ids=(5,)))
     runner.execute(DecodePlan(seqs=(3,), token_ids=(5,)))
+
+
+# Invariant 2: a batch decodes together (decision 0019)
+
+
+def _decoding(runner: Runner, *seqs: int) -> dict[int, int]:
+    """Adds, prefills and decodes each sequence once, together; returns each last token."""
+    for seq in seqs:
+        runner.add(seq, GREEDY)
+        runner.execute(PrefillPlan(seq=seq, token_ids=(5, 6), start=0))
+    step = runner.execute(DecodePlan(seqs=seqs, token_ids=(5,) * len(seqs)))
+    return dict(zip(seqs, step.tokens, strict=True))
+
+
+def test_a_decode_must_name_every_decoding_sequence(runner: Runner) -> None:
+    last = _decoding(runner, 1, 2)
+    with pytest.raises(ValueError, match=r"omits decoding sequences \[2\]"):
+        runner.execute(DecodePlan(seqs=(1,), token_ids=(last[1],)))
+    runner.execute(DecodePlan(seqs=(2, 1), token_ids=(last[2], last[1])))
+    runner.release(2)
+    runner.execute(DecodePlan(seqs=(1,), token_ids=(last[1],)))
+
+
+def test_a_prefill_comes_before_the_first_decode(runner: Runner) -> None:
+    last = _decoding(runner, 1)
+    with pytest.raises(ValueError, match="sequence 1 is decoding"):
+        runner.execute(PrefillPlan(seq=1, token_ids=(5,), start=3))
+    runner.execute(DecodePlan(seqs=(1,), token_ids=(last[1],)))
+
+
+def test_a_decode_may_add_prefilling_sequences_to_the_batch(runner: Runner) -> None:
+    last = _decoding(runner, 1)
+    runner.add(2, GREEDY)
+    runner.add(3, GREEDY)
+    runner.execute(PrefillPlan(seq=2, token_ids=(5, 6, 7), start=0))
+    runner.execute(PrefillPlan(seq=3, token_ids=(5,), start=0))
+    step = runner.execute(DecodePlan(seqs=(2, 1), token_ids=(5, last[1])))
+    assert len(step.tokens) == 2
+    with pytest.raises(ValueError, match=r"omits decoding sequences \[2\]"):
+        runner.execute(DecodePlan(seqs=(3, 1), token_ids=(5, 5)))
+    runner.execute(DecodePlan(seqs=(3, 2, 1), token_ids=(5, 5, 5)))

@@ -86,6 +86,7 @@ def test_every_non_eos_id_is_reachable_and_eos_never_is(eos: frozenset[int]) -> 
     for seq in range(200):
         runner.add(seq, _sampling(None))
         seen |= set(_generate(runner, seq, (1,), 8))
+        runner.release(seq)  # a decode names every decoding sequence (0019)
     assert seen == set(range(12)) - eos
 
 

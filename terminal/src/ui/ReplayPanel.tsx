@@ -52,7 +52,7 @@ export function ReplayPanel({ source, run }: { source: ReplaySource; run: Run | 
           aria-label="position"
           min={0}
           max={source.duration}
-          step={100}
+          step="any"
           value={at}
           onChange={(e) => act(() => source.seek(e.target.valueAsNumber))}
         />

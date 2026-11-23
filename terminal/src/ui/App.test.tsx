@@ -126,6 +126,8 @@ describe("App modes", () => {
     for (const run of RUNS) expect(html).toContain(`<option value="${run.id}"`);
     expect(html).toMatch(new RegExp(`<option value="${real.id}" selected`));
     expect(html).toMatch(/<input[^>]*type="range"[^>]*max="25000"[^>]*value="12300"/);
+    // Any step: a fixed step cannot reach a trace length that is not a multiple of it.
+    expect(html).toMatch(/<input[^>]*type="range"[^>]*step="any"/);
     expect(html).toContain("0:12.3 / 0:25.0");
     expect(html).toMatch(/<button[^>]*>pause<\/button>/);
     expect(html).toMatch(/<option value="2" selected/);

@@ -62,7 +62,7 @@ class LoadStatus(Frozen):
     first_error: str | None
 
 
-def create_control_app(client: httpx2.AsyncClient, workloads: Path) -> FastAPI: ...
+def create_control_app(target: httpx2.AsyncClient, workloads: Path) -> FastAPI: ...
 ```
 
 | Route | Does | Errors |
@@ -93,6 +93,8 @@ Both panels render only in live mode. The API base is the origin of `?live=`. Th
 
 - `bench/control.schema.json` is rendered by `bench.control.render_schema` with `ullm.telemetry.export.ModelTitlesOnly` (made public for this). `make contracts` writes it, `tests/unit/test_bench_control_schema.py` checks it, and `gen-contracts.mjs` turns it into `src/contracts/control.ts`. `scripts/export_contracts.py` now runs as `python -m scripts.export_contracts`, so it can import `bench`.
 - `closed_loop` and `open_loop` share `_timed`, which turns one `send` into a `Sent`. `closed_loop`'s behaviour is unchanged.
+- `bench.control.target_client` builds the client `main` passes as `target`. It sets `httpx2.Limits(max_connections=None)`: the default pool holds 100 connections, which would cap the open loop's open requests at 100.
+- A run that raises any exception ends `failed`, with the exception's type and message in `first_error`, so no error leaves the slot taken.
 - `src/config.ts` has `controlsFromQuery`. `src/launcher.ts` holds `launchSpec` and `statusLine`, so the panels stay glue.
 
 ## Alternatives

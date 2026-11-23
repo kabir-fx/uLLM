@@ -32,6 +32,7 @@ from bench.session import main
 
 from ullm.runner.fake_runner import FakeTokenizer
 from ullm.telemetry.check import check_trace
+from ullm.telemetry.events import ReqArrived
 from ullm.telemetry.trace import iter_frames
 
 GOOD = Power(on_ac=True, battery_percent=100, low_power_mode=False, charging=False, lid_open=True)
@@ -548,3 +549,30 @@ def test_a_launch_may_write_into_the_session_directory(tmp_path: Path, machine: 
     )
     frames = list(iter_frames(out / "other.jsonl.gz"))
     assert check_trace(frames).problems == []
+
+
+def test_a_server_started_per_chunk_records_each_block_apart(tmp_path: Path, machine: int) -> None:
+    group = _group(tmp_path / "group.json", "per_chunk")
+    spec = json.loads(group.read_text())
+    spec["engines"][0]["launch"] += " --record {out}/other-{block}.jsonl.gz"
+    group.write_text(json.dumps(spec))
+    out = tmp_path / "session"
+    code = main(
+        [
+            str(group),
+            *("--workload", str(_workload(tmp_path / "w.json", 5))),
+            *("--settle", "0", "--ready-timeout", "30", "--out", str(out)),
+        ]
+    )
+    assert code == 0
+    measured: dict[int, set[str]] = {}
+    for line in (out / schema.RAW).read_text().splitlines():
+        record = SessionRecord.model_validate_json(line)
+        if record.engine == "other" and record.phase == "measure":
+            measured.setdefault(record.block, set()).add(record.sent.id)
+    assert sorted(measured) == [0, 1]
+    for block, ids in measured.items():
+        frames = list(iter_frames(out / f"other-{block}.jsonl.gz"))
+        assert check_trace(frames).problems == []
+        arrived = {e.rid for f in frames for e in f.events if isinstance(e, ReqArrived)}
+        assert len(arrived) == len(ids) + 1  # the chunk's one warm-up request, then its block

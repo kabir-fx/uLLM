@@ -7,21 +7,32 @@ from bench.schema import Group
 from pydantic import ValidationError
 
 
-def test_a_group_whose_engine_replaces_a_common_request_field_is_refused() -> None:
+def _group(servers: str, launch: str, extra_body: dict[str, object]) -> dict[str, object]:
     spec = {"launch": "x", "model": None, "footprint_gb": 1.0}
-    group = {
+    return {
         "name": "g",
         "concurrency": 1,
-        "servers": "resident",
+        "servers": servers,
         "prompts_per_chunk": 2,
         "warmup_per_chunk": 1,
         "seed": 0,
         "baseline": {"name": "base", **spec},
-        "engines": [{"name": "other", **spec, "extra_body": {"temperature": 1}}],
+        "engines": [{"name": "other", **spec, "launch": launch, "extra_body": extra_body}],
         "gates": {"twin_tpot_peak": 0.1, "twin_tpot_sustained": 0.1},
     }
+
+
+def test_a_group_whose_engine_replaces_a_common_request_field_is_refused() -> None:
     with pytest.raises(ValidationError, match="temperature"):
-        Group.model_validate(group)
+        Group.model_validate(_group("resident", "x", {"temperature": 1}))
+
+
+def test_a_resident_server_cannot_name_a_block() -> None:
+    # A resident server starts once, before any block (decision 0026).
+    launch = "x --record {out}/r-{block}.jsonl.gz"
+    with pytest.raises(ValidationError, match="block"):
+        Group.model_validate(_group("resident", launch, {}))
+    Group.model_validate(_group("per_chunk", launch, {}))
 
 
 @pytest.mark.parametrize("name", ["m1-c1", "m1-c8"])

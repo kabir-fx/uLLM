@@ -1,8 +1,11 @@
-"""The closed-loop load generator (B1): N clients take requests from one queue in workload
-order, stream each reply over raw SSE, and time every content chunk (decision 0013)."""
+"""The load generators (B1): a closed loop of N clients that take requests from one queue in
+workload order (decision 0013), and an open loop that sends at Poisson arrival times
+(decision 0024). Both stream each reply over raw SSE and time every content chunk."""
 
 import asyncio
 import json
+import math
+import random
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -112,19 +115,64 @@ async def closed_loop(
     async def client_loop() -> None:
         while queue:
             i, request = queue.pop()
-            sent_unix = time.time()
-            reply, end_ms = await send(
-                client, model, request, template_kwargs, extra_body=extra_body
-            )
-            sent[i] = Sent(
-                id=request.id,
-                sent_unix=sent_unix,
-                chunk_ms=tuple(reply.chunk_ms),
-                end_ms=end_ms,
-                usage=reply.usage,
-                finish_reason=reply.finish_reason,
-                error=reply.outcome_error(),
-            )
+            sent[i] = await _timed(client, model, request, template_kwargs, extra_body)
 
     await asyncio.gather(*(client_loop() for _ in range(concurrency)))
     return [s for s in sent if s is not None]
+
+
+def arrival_offsets(n: int, rate_per_s: float, seed: int) -> list[float]:
+    """Seconds after the start at which each of ``n`` requests arrives: a Poisson process at
+    ``rate_per_s``, the same for the same seed."""
+    if not (rate_per_s > 0 and math.isfinite(rate_per_s)):
+        raise ValueError(f"the rate must be positive and finite, not {rate_per_s}")
+    rng = random.Random(seed)
+    offsets: list[float] = []
+    at = 0.0
+    for _ in range(n):
+        at += rng.expovariate(rate_per_s)
+        offsets.append(at)
+    return offsets
+
+
+async def open_loop(
+    client: httpx2.AsyncClient,
+    model: str,
+    requests: Sequence[WorkloadRequest],
+    rate_per_s: float,
+    seed: int,
+    template_kwargs: dict[str, bool],
+    *,
+    extra_body: Mapping[str, object],
+) -> list[Sent]:
+    """Send each request at its arrival time, however many are open. Returns them in
+    workload order."""
+    offsets = arrival_offsets(len(requests), rate_per_s, seed)
+    loop = asyncio.get_running_loop()
+    start = loop.time()
+
+    async def arrive(request: WorkloadRequest, offset: float) -> Sent:
+        await asyncio.sleep(start + offset - loop.time())
+        return await _timed(client, model, request, template_kwargs, extra_body)
+
+    return list(await asyncio.gather(*map(arrive, requests, offsets)))
+
+
+async def _timed(
+    client: httpx2.AsyncClient,
+    model: str,
+    request: WorkloadRequest,
+    template_kwargs: dict[str, bool],
+    extra_body: Mapping[str, object],
+) -> Sent:
+    sent_unix = time.time()
+    reply, end_ms = await send(client, model, request, template_kwargs, extra_body=extra_body)
+    return Sent(
+        id=request.id,
+        sent_unix=sent_unix,
+        chunk_ms=tuple(reply.chunk_ms),
+        end_ms=end_ms,
+        usage=reply.usage,
+        finish_reason=reply.finish_reason,
+        error=reply.outcome_error(),
+    )

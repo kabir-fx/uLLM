@@ -3,7 +3,8 @@
 from pathlib import Path
 
 import pytest
-from bench.schema import Group
+from bench.plan import plan
+from bench.schema import Group, load_workload
 from pydantic import ValidationError
 
 
@@ -49,3 +50,27 @@ def test_the_m1_groups_rerun_ullm_at_batch_size_1_as_committed(name: str) -> Non
 )
 def test_every_committed_group_is_valid(path: Path) -> None:
     Group.model_validate_json(path.read_text())
+
+
+SWEEP = {1: 21, 2: 21, 4: 21, 8: 10, 16: 8}
+
+
+@pytest.mark.parametrize(("concurrency", "blocks"), SWEEP.items())
+def test_each_sweep_group_runs_the_same_engines_and_plans_its_blocks(
+    concurrency: int, blocks: int
+) -> None:
+    # Decision 0026: one baseline and one uLLM configuration at every concurrency.
+    root = Path(__file__).parents[2]
+    group = Group.model_validate_json((root / f"bench/groups/m2-c{concurrency}.json").read_text())
+    assert group.concurrency == concurrency
+    assert group.servers == "per_chunk"
+    assert group.baseline.name == "mlx-lm-batched-no-cache"
+    names = [e.name for e in group.engines]
+    extra = ["mlx-lm-sequential-no-cache"] if concurrency == 1 else []
+    assert names == ["ullm", "mlx-lm-batched", *extra]
+    [ullm] = [e for e in group.engines if e.name == "ullm"]
+    assert "--max-num-seqs 16" in ullm.launch
+    assert "{block}" in ullm.launch
+    workload = load_workload(root / "bench/workloads/a.json")
+    p = plan(workload.requests, names, group.prompts_per_chunk, group.warmup_per_chunk, 0)
+    assert len(p.blocks) == blocks

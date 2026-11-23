@@ -7,6 +7,7 @@ from tests.prometheus import metric_totals
 from tests.recording import RecordingRunner
 from tests.serving import SERVED, serving, serving_app
 
+from ullm.core.engine import EngineConfig
 from ullm.runner.base import RunnerInfo
 from ullm.runner.fake_runner import FakeRunner, FakeTokenizer, Latency
 from ullm.server.app import ServeConfig, create_app
@@ -56,5 +57,31 @@ def test_an_app_without_its_own_telemetry_serves_no_metrics() -> None:
         events: list[ev.Event] = []
         async with serving(RecordingRunner(FakeRunner(INFO, FAST)), events) as client:
             assert (await client.get("/metrics")).status_code == 404
+
+    _run(main)
+
+
+def test_the_gauges_show_a_running_request_and_one_waiting_behind_it() -> None:
+    slow = Latency(
+        prefill_base_ms=1.0, prefill_per_token_ms=0.0, decode_base_ms=50.0, decode_per_row_ms=0.0
+    )
+    config = ServeConfig(served_model=SERVED, engine=EngineConfig(max_num_seqs=1))
+    body = {"model": SERVED, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 20}
+
+    async def main() -> None:
+        app = create_app(FakeRunner(INFO, slow), FakeTokenizer(), config)
+        async with serving_app(app) as client:
+            replies = [
+                asyncio.create_task(client.post("/v1/chat/completions", json=body))
+                for _ in range(2)
+            ]
+            totals: dict[str, float] = {}
+            for _ in range(100):
+                totals = metric_totals((await client.get("/metrics")).text)
+                if totals["ullm_queue_depth"] == 1:
+                    break
+                await asyncio.sleep(0.01)
+            assert (totals["ullm_queue_depth"], totals["ullm_batch_size"]) == (1, 1)
+            await asyncio.gather(*replies)
 
     _run(main)

@@ -10,8 +10,19 @@ import pytest
 from bench import analysis, schema
 from bench.run import main
 from bench.schema import Message, Source, Workload, WorkloadRequest
+from prometheus_client.parser import text_string_to_metric_families
 
 from ullm.runner.fake_runner import FakeTokenizer
+
+
+def _metric_totals(text: str) -> dict[str, float]:
+    """Each sample but histogram buckets, summed over its labels."""
+    totals: dict[str, float] = {}
+    for family in text_string_to_metric_families(text):
+        for s in family.samples:
+            if "le" not in s.labels:
+                totals[s.name] = totals.get(s.name, 0.0) + s.value
+    return totals
 
 
 def _free_port() -> int:
@@ -78,7 +89,6 @@ def test_a_smoke_run_writes_every_c5_file(
     for name in (schema.CONFIG, schema.ENV, schema.RAW, schema.SUMMARY, schema.CHART):
         assert (out / name).is_file(), name
     assert "Uvicorn running" in (out / schema.TARGET_LOG).read_text()
-    assert not (out / schema.METRICS).exists()  # ullm serve has no /metrics until M2-T5
     assert not (out / schema.POWERMETRICS).exists()
     assert not (out / schema.POWERMETRICS_GZ).exists()
 
@@ -89,6 +99,15 @@ def test_a_smoke_run_writes_every_c5_file(
         ("measure", 0)
     ] * 5 + [("measure", 1)] * 5
     assert all(r["error"] is None for r in raw)
+    # O2's proof: the server's counters equal the load generator's totals, warm-up included.
+    totals = _metric_totals((out / schema.METRICS).read_text())
+    assert totals["ullm_requests_total"] == len(raw)
+    assert totals["ullm_prompt_tokens_total"] == sum(r["usage"]["prompt_tokens"] for r in raw)
+    assert totals["ullm_generation_tokens_total"] == sum(
+        r["usage"]["completion_tokens"] for r in raw
+    )
+    assert totals["ullm_ttft_seconds_count"] == len(raw)
+    assert totals["ullm_aborts_total"] == 0
     summary = (out / schema.SUMMARY).read_text()
     assert "smoke: not a B5 run" in summary
     assert "| **median** |" in summary

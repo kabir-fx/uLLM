@@ -59,7 +59,7 @@ ci-mlx: equivalence ## CI mlx job: equivalence, then the other tests marked mlx;
 
 .PHONY: contracts
 contracts: ## Regenerate the telemetry JSON Schema and TypeScript types (C2)
-	$(UV) python scripts/export_contracts.py
+	$(UV) python -m scripts.export_contracts
 	pnpm -C terminal gen:contracts
 
 .PHONY: fixtures

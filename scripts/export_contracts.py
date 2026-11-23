@@ -1,33 +1,38 @@
-"""Write the telemetry JSON Schema (C2), or check that the committed one is fresh.
+"""Write the telemetry JSON Schema (C2) and the load control schema (decision 0024), or check
+that the committed ones are fresh.
 
-    uv run python scripts/export_contracts.py          # write it
-    uv run python scripts/export_contracts.py --check  # exit 1 if it is stale
+    uv run python -m scripts.export_contracts          # write them
+    uv run python -m scripts.export_contracts --check  # exit 1 if one is stale
 
-The TypeScript types are generated from this file by ``pnpm -C terminal gen:contracts``.
+The TypeScript types are generated from these files by ``pnpm -C terminal gen:contracts``.
 ``make contracts`` runs both steps.
 """
 
 import argparse
 import sys
 
-from ullm.telemetry.export import SCHEMA_PATH, render_schema
+from bench import control
+
+from ullm.telemetry import export
+
+SCHEMAS = ((export.SCHEMA_PATH, export.render_schema), (control.SCHEMA_PATH, control.render_schema))
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Export the telemetry JSON Schema.")
-    parser.add_argument("--check", action="store_true", help="exit 1 if the file is stale")
+    parser = argparse.ArgumentParser(description="Export the contract JSON Schemas.")
+    parser.add_argument("--check", action="store_true", help="exit 1 if a file is stale")
     args = parser.parse_args()
 
-    fresh = render_schema()
-    if args.check:
-        current = SCHEMA_PATH.read_text() if SCHEMA_PATH.exists() else ""
-        if current != fresh:
-            print(f"{SCHEMA_PATH} is stale: run `make contracts`", file=sys.stderr)
-            return 1
-        return 0
-    SCHEMA_PATH.write_text(fresh)
-    print(f"wrote {SCHEMA_PATH}")
-    return 0
+    stale = 0
+    for path, render in SCHEMAS:
+        fresh = render()
+        if not args.check:
+            path.write_text(fresh)
+            print(f"wrote {path}")
+        elif (path.read_text() if path.exists() else "") != fresh:
+            print(f"{path} is stale: run `make contracts`", file=sys.stderr)
+            stale = 1
+    return stale
 
 
 if __name__ == "__main__":

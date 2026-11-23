@@ -1,6 +1,6 @@
 import type { LoadSpec, LoadStatus, WorkloadInfo } from "./contracts/control";
 
-/** The control process behind the launcher (`bench.control`, decision 0024). */
+/** The control process behind the launcher (`bench.control`, decision 0025). */
 export interface ControlClient {
   workloads(): Promise<WorkloadInfo[]>;
   status(): Promise<LoadStatus>;

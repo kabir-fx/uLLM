@@ -1,6 +1,6 @@
 """The load generators (B1): a closed loop of N clients that take requests from one queue in
 workload order (decision 0013), and an open loop that sends at Poisson arrival times
-(decision 0024). Both stream each reply over raw SSE and time every content chunk."""
+(decision 0025). Both stream each reply over raw SSE and time every content chunk."""
 
 import asyncio
 import json

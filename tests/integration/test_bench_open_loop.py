@@ -1,5 +1,5 @@
 """The open-loop load generator: Poisson arrivals from a seed, sent whatever the server does
-(decision 0024)."""
+(decision 0025)."""
 
 import asyncio
 import statistics

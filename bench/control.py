@@ -1,4 +1,4 @@
-"""The control process behind the terminal's load launcher (T3, decision 0024). It runs one
+"""The control process behind the terminal's load launcher (T3, decision 0025). It runs one
 load at a time against a target fixed at startup. Launched load is not a benchmark: it writes
 no C5 directory, and no claim comes from it (rule 7).
 

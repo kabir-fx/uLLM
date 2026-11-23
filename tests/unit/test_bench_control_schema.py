@@ -1,4 +1,4 @@
-"""The load control schema the terminal's types are generated from (decision 0024)."""
+"""The load control schema the terminal's types are generated from (decision 0025)."""
 
 from bench.control import SCHEMA_PATH, render_schema
 

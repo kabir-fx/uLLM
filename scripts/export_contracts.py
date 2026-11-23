@@ -1,4 +1,4 @@
-"""Write the telemetry JSON Schema (C2) and the load control schema (decision 0024), or check
+"""Write the telemetry JSON Schema (C2) and the load control schema (decision 0025), or check
 that the committed ones are fresh.
 
     uv run python -m scripts.export_contracts          # write them

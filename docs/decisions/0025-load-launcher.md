@@ -1,4 +1,4 @@
-# 0024: The load launcher, its control process, and the playground
+# 0025: The load launcher, its control process, and the playground
 
 **Status:** accepted · **Task:** M2-T8 (T3)
 

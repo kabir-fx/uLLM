@@ -1,5 +1,5 @@
 """The control process that the terminal's launcher drives, against the real server on
-FakeRunner over real sockets (decision 0024)."""
+FakeRunner over real sockets (decision 0025)."""
 
 import asyncio
 import json

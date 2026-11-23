@@ -1,7 +1,7 @@
 # M2-T8: Load launcher and playground
 
 **State:** DONE at `7db5646`. Type `/ship` to open the pull request.
-**Decision record:** [0024](../decisions/0024-load-launcher.md) (the full design, for agents) · **Spec:** roadmap M2-T8 (T3)
+**Decision record:** [0025](../decisions/0025-load-launcher.md) (the full design, for agents) · **Spec:** roadmap M2-T8 (T3)
 
 ## The goal
 
@@ -101,7 +101,7 @@ Test yourself: why does a launched run not count as a benchmark?
 - httpx's default pool holds 100 connections, so an open loop could never have more than 100 requests open. The reviewer saw a peak of 100 at the server. A test now holds 120 open, and `target_client` lifts the cap.
 - An error outside the caught types left the run in `running` for good, so no new run could start. A test now makes the parser raise `RecursionError`. The run ends `failed`, and the next start gets 202.
 - No test covered the 4,096-byte body limit. A test now sends a body one space over. With the limit removed, the test fails with 202.
-- Decision 0024 named the parameter `client`, but the code says `target`. The `make contracts` help named only the telemetry schema. Both are fixed.
+- Decision 0025 named the parameter `client`, but the code says `target`. The `make contracts` help named only the telemetry schema. Both are fixed.
 
 **What the verifier saw:**
 

@@ -1,5 +1,5 @@
 // Generate TypeScript types from the JSON Schemas that the Python models export:
-// telemetry protocol v1 (C2, decision 0003) and load control (decision 0024).
+// telemetry protocol v1 (C2, decision 0003) and load control (decision 0025).
 // Never edit the output by hand.
 //
 //   node scripts/gen-contracts.mjs          write src/contracts/*.ts

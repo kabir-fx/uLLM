@@ -17,7 +17,7 @@ export function sourceFromQuery(query: string, base: string): TelemetrySource {
 export interface Controls {
   /** The engine server's origin, for the playground's chat completions. */
   api: string;
-  /** The control process behind the launcher (decision 0024). */
+  /** The control process behind the launcher (decision 0025). */
   control: string;
 }
 

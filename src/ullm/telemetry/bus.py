@@ -65,8 +65,8 @@ class Bus:
 
 
 class Hub:
-    """Moves events from the bus to every subscription. Lives on the event loop's thread:
-    every method runs there, so the subscriptions need no lock."""
+    """Moves events from the bus to ``observe`` and every subscription. Lives on the event
+    loop's thread: every method runs there, so the subscriptions need no lock."""
 
     def __init__(
         self,
@@ -75,8 +75,10 @@ class Hub:
         replica: str,
         capacity: int = CAPACITY,
         frame_ms: float = FRAME_MS,
+        observe: Callable[[list[Event], int], None] | None = None,
     ) -> None:
         self._bus = bus
+        self._observe = observe
         self._clock = clock
         self._replica = replica
         self._capacity = capacity
@@ -113,6 +115,8 @@ class Hub:
             if isinstance(event, Hello):
                 self._hello = event
         if events:  # the bus counts a drop only when it pops a later event
+            if self._observe is not None:
+                self._observe(events, dropped)
             for sub in self._subscriptions:
                 sub._put(events, dropped)
 

@@ -135,10 +135,11 @@ def test_an_open_tab_does_not_keep_ullm_serve_from_stopping_and_closing_its_reco
     ]
 
 
-def test_ullm_serve_with_telemetry_off_has_no_stream() -> None:
+def test_ullm_serve_with_telemetry_off_has_no_stream_and_no_metrics() -> None:
     server, base = _serve("--telemetry", "off")
     try:
         assert httpx2.get(f"{base}/telemetry/stream").status_code == 404
+        assert httpx2.get(f"{base}/metrics").status_code == 404
     finally:
         _stop(server, 15)
 

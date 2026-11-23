@@ -49,7 +49,7 @@ class LoadSpec(Frozen):
     requests: int  # 1..the workload's length; its first N, in order
 
 
-class Workload(Frozen):
+class WorkloadInfo(Frozen):  # bench.schema already has Workload
     name: str
     requests: int
 
@@ -67,12 +67,12 @@ def create_control_app(client: httpx2.AsyncClient, workloads: Path) -> FastAPI: 
 
 | Route | Does | Errors |
 |---|---|---|
-| `GET /workloads` | `list[Workload]` from `workloads/*.json` | |
+| `GET /workloads` | `list[WorkloadInfo]` from `workloads/*.json` | |
 | `GET /load` | the current `LoadStatus` | |
 | `POST /load` | starts a run as one `asyncio.Task`; 202 `LoadStatus` | 409 while one runs; 400 bad spec, unknown workload, non-JSON body |
 | `DELETE /load` | cancels the run; its streams close, so the server aborts them; 200 `LoadStatus` `stopped` | |
 
-The control app reuses `LOCAL_HOSTS`, `TERMINAL_ORIGINS` and the JSON content-type check from `ullm/server/app.py`, and allows `DELETE`.
+The control app imports `LOCAL_HOSTS` and `TERMINAL_ORIGINS` from `ullm/server/app.py`, allows `DELETE` as well, and repeats the server's JSON content-type check. Bodies over 4,096 bytes are refused.
 
 **Open loop.** `bench/loadgen.open_loop(client, model, requests, rate_per_s, seed, template_kwargs, extra_body=)`: Poisson arrivals from `random.Random(seed)`, each request its own task, no cap on open requests. A refusal (503) is recorded as an error, as in `closed_loop`. `closed_loop` does not change.
 
@@ -88,6 +88,12 @@ The control app reuses `LOCAL_HOSTS`, `TERMINAL_ORIGINS` and the JSON content-ty
 | `src/ui/Launcher.tsx`, `src/ui/Playground.tsx` | the two panels; controls in React state, polling `GET /load` once a second while a run is `running` |
 
 Both panels render only in live mode. The API base is the origin of `?live=`. The control base is `?control=`, default `http://127.0.0.1:8090`. In replay mode T4 puts a run picker in their place.
+
+**As built.**
+
+- `bench/control.schema.json` is rendered by `bench.control.render_schema` with `ullm.telemetry.export.ModelTitlesOnly` (made public for this). `make contracts` writes it, `tests/unit/test_bench_control_schema.py` checks it, and `gen-contracts.mjs` turns it into `src/contracts/control.ts`. `scripts/export_contracts.py` now runs as `python -m scripts.export_contracts`, so it can import `bench`.
+- `closed_loop` and `open_loop` share `_timed`, which turns one `send` into a `Sent`. `closed_loop`'s behaviour is unchanged.
+- `src/config.ts` has `controlsFromQuery`. `src/launcher.ts` holds `launchSpec` and `statusLine`, so the panels stay glue.
 
 ## Alternatives
 

@@ -26,14 +26,14 @@ make bench-sweep
    ├── bench.steps    on each session  ──▶ c<N>/steps.md
    └── bench.analysis --sweep          ──▶ comparison.md
 
-bench.step_costs (offline, one process) ──▶ step-costs.json, step-costs.md
+scripts.step_costs (offline, one process) ──▶ step-costs.json, step-costs.md
 gap report, by hand, every figure linked ──▶ README.md
 ```
 
 1. **Group files**, `bench/groups/m2-c1.json` to `m2-c16.json`. Each names the same engines. The baseline is batched `mlx_lm.server` without its prompt cache. uLLM runs with `--max-num-seqs 16` everywhere.
 2. **`{block}` placeholder** in `bench/session.py`. The session puts the block number into the launch when the server starts. Then each chunk of uLLM writes its own recording.
 3. **`bench/steps.py`** reads the recordings of one session. It gives decode step time by batch size, and prefill time per 1,000 tokens. It gives the share of time in prefill, in decode, and between steps. It also gives the stall that the prefill of a new request puts on the requests that decode.
-4. **`bench/step_costs.py`** loads the model once, with no server. It times one decode step of uLLM at 1 to 16 rows. It also times the repack of the batch KV. At one row, it compares the decode loop of mlx-lm with the same loop that waits on each step.
+4. **`scripts/step_costs.py`** loads the model once, with no server. It times one decode step of uLLM at 1 to 16 rows. It also times the repack of the batch KV. At one row, it compares the decode loop of mlx-lm with the same loop that waits on each step.
 5. **`bench/analysis.py --sweep`** prints one table per regime. Each row is an engine, and each column is a concurrency.
 6. **The gap report**, `bench/results/m2/sweep/README.md`, names each gap outside the twin noise, and its cause. A gap without a measured cause says so.
 

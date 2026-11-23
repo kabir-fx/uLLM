@@ -8,7 +8,7 @@ import "./ui/app.css";
 const store = new TelemetryStore((callback) => requestAnimationFrame(callback));
 const root = createRoot(document.getElementById("root")!);
 try {
-  const mode = sourceFromQuery(location.search, import.meta.env.BASE_URL, import.meta.env.MODE === "hosted");
+  const mode = sourceFromQuery(location.search, import.meta.env);
   mode.source.start({ frame: (f) => store.ingest(f), status: (s) => store.setStatus(s) });
   root.render(<App store={store} mode={mode} />);
 } catch (error) {

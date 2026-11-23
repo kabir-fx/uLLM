@@ -16,12 +16,19 @@ export type Mode =
   | { kind: "live"; source: TelemetrySource; controls: Controls }
   | { kind: "replay"; source: ReplaySource; run: Run | null };
 
+/** The fields of Vite's `import.meta.env` that pick the mode; `MODE` is `hosted` in the public build. */
+export interface BuildEnv {
+  MODE: string;
+  BASE_URL: string;
+}
+
 /**
  * `?live=<url>` reads a stream, with `?control=` (default `http://127.0.0.1:8090`).
  * Otherwise `?run=<id>` replays a bundled run (default: the first), or `?trace=<url>` any
  * trace, at `?speed=`. The hosted build ignores `?live=` and `?trace=`.
  */
-export function sourceFromQuery(query: string, base: string, hosted = false): Mode {
+export function sourceFromQuery(query: string, { MODE, BASE_URL: base }: BuildEnv): Mode {
+  const hosted = MODE === "hosted";
   const params = new URLSearchParams(query);
   const live = hosted ? null : params.get("live");
   if (live !== null) {

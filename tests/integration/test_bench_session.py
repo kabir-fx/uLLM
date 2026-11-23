@@ -610,3 +610,30 @@ def test_steps_reads_each_blocks_recording_inside_its_measured_span(
     text = (out / steps.STEPS).read_text()
     assert "## Peak: 2 blocks, 0 events dropped" in text
     assert "| Requests | 4 |" in text
+
+
+def _at_concurrency(valid: Path, tmp_path: Path, concurrency: int, engines: bool) -> Path:
+    copy = tmp_path / f"c{concurrency}"
+    shutil.copytree(valid, copy)
+    group = json.loads((copy / schema.GROUP).read_text())
+    group["concurrency"] = concurrency
+    if not engines:
+        group["engines"] = []
+    (copy / schema.GROUP).write_text(json.dumps(group))
+    return copy
+
+
+def test_sweep_puts_each_concurrency_in_a_column(
+    valid: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    low = _at_concurrency(valid, tmp_path, 2, engines=True)
+    high = _at_concurrency(valid, tmp_path, 4, engines=False)
+    assert analysis.main([str(high), str(low), "--sweep"]) == 0
+    out = capsys.readouterr().out
+    rate = analysis.ratios(analysis.load_session(low), "other", Regime.PEAK)["Output tok/s"]
+    table = out.split("### Peak: Output tok/s, ratio to `base`")[1].split("###")[0]
+    assert "| Engine | c2 | c4 |" in table
+    assert f"| other | {analysis._estimate(rate)}" in table
+    [row] = [line for line in table.splitlines() if line.startswith("| other |")]
+    assert row.endswith("| not run |")
+    assert "| base-twin |" in table

@@ -1,0 +1,158 @@
+{
+  "$defs": {
+    "Closed": {
+      "additionalProperties": false,
+      "properties": {
+        "concurrency": {
+          "maximum": 64,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "kind": {
+          "const": "closed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "concurrency"
+      ],
+      "title": "Closed",
+      "type": "object"
+    },
+    "LoadSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "arrival": {
+          "discriminator": {
+            "mapping": {
+              "closed": "#/$defs/Closed",
+              "open": "#/$defs/Open"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Closed"
+            },
+            {
+              "$ref": "#/$defs/Open"
+            }
+          ]
+        },
+        "max_tokens": {
+          "description": "replaces every request's max_tokens",
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "requests": {
+          "description": "the workload's first N, in order",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "workload": {
+          "description": "a name GET /workloads lists",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workload",
+        "arrival",
+        "max_tokens",
+        "requests"
+      ],
+      "title": "LoadSpec",
+      "type": "object"
+    },
+    "LoadStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "errors": {
+          "type": "integer"
+        },
+        "first_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ok": {
+          "description": "replies without an error; counted when the run ends",
+          "type": "integer"
+        },
+        "spec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LoadSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "enum": [
+            "idle",
+            "running",
+            "done",
+            "stopped",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "spec",
+        "ok",
+        "errors",
+        "first_error"
+      ],
+      "title": "LoadStatus",
+      "type": "object"
+    },
+    "Open": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "open",
+          "type": "string"
+        },
+        "rate_per_s": {
+          "exclusiveMinimum": 0,
+          "maximum": 50,
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "rate_per_s"
+      ],
+      "title": "Open",
+      "type": "object"
+    },
+    "WorkloadInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "requests": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "requests"
+      ],
+      "title": "WorkloadInfo",
+      "type": "object"
+    }
+  },
+  "title": "Control"
+}

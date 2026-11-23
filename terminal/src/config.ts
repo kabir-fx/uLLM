@@ -13,3 +13,18 @@ export function sourceFromQuery(query: string, base: string): TelemetrySource {
   const trace = params.get("trace") ?? `${base}telemetry/steady-chat.jsonl.gz`;
   return replaySource(trace, () => loadTrace(trace), { speed });
 }
+
+export interface Controls {
+  /** The engine server's origin, for the playground's chat completions. */
+  api: string;
+  /** The control process behind the launcher (decision 0025). */
+  control: string;
+}
+
+/** Live mode only: `?live=`'s origin and `?control=` (default `http://127.0.0.1:8090`). */
+export function controlsFromQuery(query: string): Controls | null {
+  const params = new URLSearchParams(query);
+  const live = params.get("live");
+  if (live === null) return null;
+  return { api: new URL(live).origin, control: params.get("control") ?? "http://127.0.0.1:8090" };
+}

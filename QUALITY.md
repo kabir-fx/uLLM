@@ -36,7 +36,7 @@ Always true on `main`. A change that breaks one of these does not merge.
 
 Each may only move in the direction shown. Record the new value when a change improves one.
 
-- **Suppression comments** (`type: ignore`, `noqa`, `eslint-disable`, `@ts-ignore`, `nolint`, `pragma: no cover`) in tracked code: **11**, down. Count:
+- **Suppression comments** (`type: ignore`, `noqa`, `eslint-disable`, `@ts-ignore`, `nolint`, `pragma: no cover`) in tracked code: **9**, down. Count:
 
   ```sh
   git grep -nE 'type: *ignore|noqa|eslint-disable|@ts-(ignore|expect-error|nocheck)|nolint|pragma: *no cover' -- src tests scripts bench router terminal | wc -l

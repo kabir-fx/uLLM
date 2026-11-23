@@ -76,3 +76,21 @@ describe("App", () => {
     expect(renderToStaticMarkup(<App store={store} label="x" />)).toContain("HTTP 503");
   });
 });
+
+describe("App controls", () => {
+  const controls = { api: "http://127.0.0.1:8000", control: "http://127.0.0.1:8090" };
+
+  it("shows the launcher and the playground in live mode", () => {
+    const html = renderToStaticMarkup(<App store={new TelemetryStore(() => {})} label="x" controls={controls} />);
+    expect(html).toContain('class="shell with-side"');
+    expect(html).toMatch(/<aside class="side">[\s\S]*aria-label="load launcher"[\s\S]*aria-label="playground"/);
+    expect(html).toContain("not a benchmark");
+  });
+
+  it("shows neither in replay mode", () => {
+    const html = renderToStaticMarkup(<App store={new TelemetryStore(() => {})} label="x" controls={null} />);
+    expect(html).toContain('class="shell"');
+    expect(html).not.toContain("load launcher");
+    expect(html).not.toContain("playground");
+  });
+});

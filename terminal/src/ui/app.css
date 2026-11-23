@@ -235,3 +235,101 @@ td {
 .pill-preempted { background: var(--state-preempted); }
 .pill-finished { background: var(--state-finished); }
 .pill-aborted { background: var(--state-aborted); }
+
+.shell.with-side {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 300px;
+  grid-template-areas:
+    "header header header"
+    "ticker ticker ticker"
+    "chart strip side"
+    "feed requests side";
+}
+
+.side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.side-panel {
+  background: var(--panel);
+}
+
+.playground {
+  flex: 1;
+}
+
+.controls {
+  display: grid;
+  gap: 6px;
+  padding: 0 10px 8px;
+}
+
+.controls label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: var(--dim);
+}
+
+.controls input,
+.controls select,
+.controls textarea,
+.controls button {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+
+.controls input {
+  width: 90px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.controls textarea {
+  resize: vertical;
+}
+
+.buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.buttons button {
+  flex: 1;
+  cursor: pointer;
+}
+
+.buttons button[type="submit"]:enabled {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.buttons button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.line {
+  margin: 0;
+  padding: 0 10px 6px;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.reply {
+  flex: 1;
+  min-height: 0;
+  margin: 0 10px 6px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+}

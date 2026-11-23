@@ -25,6 +25,7 @@ from pydantic import Field, ValidationError
 from pydantic.json_schema import models_json_schema
 
 from ullm.server.app import LOCAL_HOSTS, TERMINAL_ORIGINS
+from ullm.telemetry.export import ModelTitlesOnly
 
 WORKLOADS = Path("bench/workloads")
 PORT = 8090  # below bench's FIRST_PORT, so a session never takes it
@@ -196,7 +197,8 @@ def _first_problem(e: ValidationError) -> str:
 def render_schema() -> str:
     """The JSON Schema the terminal's ``src/contracts/control.ts`` is generated from."""
     _, schema = models_json_schema(
-        [(LoadSpec, "validation"), (LoadStatus, "serialization"), (WorkloadInfo, "serialization")]
+        [(LoadSpec, "validation"), (LoadStatus, "serialization"), (WorkloadInfo, "serialization")],
+        schema_generator=ModelTitlesOnly,
     )
     return json.dumps({"title": "Control", **schema}, indent=2, sort_keys=True) + "\n"
 

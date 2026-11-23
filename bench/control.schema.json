@@ -6,12 +6,10 @@
         "concurrency": {
           "maximum": 64,
           "minimum": 1,
-          "title": "Concurrency",
           "type": "integer"
         },
         "kind": {
           "const": "closed",
-          "title": "Kind",
           "type": "string"
         }
       },
@@ -40,25 +38,21 @@
             {
               "$ref": "#/$defs/Open"
             }
-          ],
-          "title": "Arrival"
+          ]
         },
         "max_tokens": {
           "description": "replaces every request's max_tokens",
           "maximum": 4096,
           "minimum": 1,
-          "title": "Max Tokens",
           "type": "integer"
         },
         "requests": {
           "description": "the workload's first N, in order",
           "minimum": 1,
-          "title": "Requests",
           "type": "integer"
         },
         "workload": {
           "description": "a name GET /workloads lists",
-          "title": "Workload",
           "type": "string"
         }
       },
@@ -75,7 +69,6 @@
       "additionalProperties": false,
       "properties": {
         "errors": {
-          "title": "Errors",
           "type": "integer"
         },
         "first_error": {
@@ -86,12 +79,10 @@
             {
               "type": "null"
             }
-          ],
-          "title": "First Error"
+          ]
         },
         "ok": {
           "description": "replies without an error; counted when the run ends",
-          "title": "Ok",
           "type": "integer"
         },
         "spec": {
@@ -112,7 +103,6 @@
             "stopped",
             "failed"
           ],
-          "title": "State",
           "type": "string"
         }
       },
@@ -131,13 +121,11 @@
       "properties": {
         "kind": {
           "const": "open",
-          "title": "Kind",
           "type": "string"
         },
         "rate_per_s": {
           "exclusiveMinimum": 0,
           "maximum": 50,
-          "title": "Rate Per S",
           "type": "number"
         }
       },
@@ -152,11 +140,9 @@
       "additionalProperties": false,
       "properties": {
         "name": {
-          "title": "Name",
           "type": "string"
         },
         "requests": {
-          "title": "Requests",
           "type": "integer"
         }
       },

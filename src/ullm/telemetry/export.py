@@ -16,7 +16,7 @@ from ullm.telemetry.events import SCHEMA_VERSION, Frame
 SCHEMA_PATH: Final = Path(__file__).parent / "schema" / f"telemetry.v{SCHEMA_VERSION}.json"
 
 
-class _ModelTitlesOnly(GenerateJsonSchema):
+class ModelTitlesOnly(GenerateJsonSchema):
     """Keep titles on models, drop them on fields.
 
     Field titles ("Rid", "T") add nothing to a schema read by people, and the
@@ -28,7 +28,7 @@ class _ModelTitlesOnly(GenerateJsonSchema):
 
 
 def render_schema() -> str:
-    schema = Frame.model_json_schema(mode="serialization", schema_generator=_ModelTitlesOnly)
+    schema = Frame.model_json_schema(mode="serialization", schema_generator=ModelTitlesOnly)
     schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": f"https://github.com/kabir-fx/uLLM/telemetry.v{SCHEMA_VERSION}.json",

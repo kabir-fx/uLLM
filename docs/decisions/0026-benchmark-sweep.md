@@ -26,16 +26,25 @@
    | m2-c8 | 24 / 8 | 10 | 600 |
    | m2-c16 | 30 / 16 | 8 | 600 |
 
-2. **The same engines at every concurrency.** Baseline `mlx-lm-batched-no-cache` (`--prompt-cache-size 0`, no `seed`) and its twin. Engines `ullm` (`ullm serve --max-num-seqs 16 --record {out}/ullm-{block}.jsonl.gz`) and `mlx-lm-batched` (the defaults). `m2-c1` also runs `mlx-lm-sequential-no-cache` (`"seed": 0`), the engine with uLLM's exact tokens and M1's c1 baseline. uLLM runs one configuration everywhere, as one deployment would.
+2. **The same engines at every concurrency.** Baseline `mlx-lm-batched-no-cache` (`--prompt-cache-size 0`, no `seed`) and its twin. Engines `ullm` (`ullm serve --max-num-seqs 16 --record {out}/ullm-{block}.jsonl.gz`) and `mlx-lm-batched` (the defaults). `m2-c1` also runs `mlx-lm-sequential-no-cache` (`"seed": 0`), the engine with uLLM's exact tokens and M1's c1 baseline. uLLM runs one configuration everywhere, as one deployment would. **`m2-c16` runs without `mlx-lm-batched`** (the author's answer after the smoke in item 4): one block of `m2-c16-cache.json`, the same baseline against `mlx-lm-batched`, runs last in `make bench-sweep` and records whether it fits on the idle Mac.
 3. **`{block}` placeholder.** `bench.session` replaces `{block}` in a launch when the server starts for a chunk. A `resident` group whose launch names `{block}` is refused when the group loads.
-4. **Footprint limits come from a smoke session** of `m2-c16` and of `m2-c1`, one block each, before the author runs the sweep. Each limit is the smoke peak rounded up to the next GB plus 1 GB, as 0016 set the M1 limits from measured peaks.
+4. **Footprint limits come from smoke sessions**, one block each, on the agent's Mac with apps open. Footprint does not depend on other apps (0016), swap does. Each limit is the peak rounded up to the next GB plus 1 GB.
+
+   | Server | Measured peak (GB) | Limit at c1 | c2, c4, c8 | c16 |
+   |---|---|---|---|---|
+   | `ullm` | 1.94 at c1, 4.92 at c16 | 3 | 6 (c16's) | 6 |
+   | `mlx-lm-batched-no-cache` | 2.03 at c1, 6.78 at c8 (M1), 11.59 at c16 | 4 | 8 (c8's) | 13 |
+   | `mlx-lm-batched` | 2.72 at c1, 9.68 at c8 (M1), 12.06 at c16 | 4 | 11 (c8's) | 14 (`m2-c16-cache`) |
+   | `mlx-lm-sequential-no-cache` | 1.95 at c1 | 3 | | |
+
+   At c16, `mlx-lm-batched` failed 40 of 46 requests: `[METAL] Command buffer execution failed: Insufficient Memory (kIOGPUCommandBufferCallbackErrorOutOfMemory)` in its log, and its generation thread died. Swap grew 3,255 MB during that smoke, with apps open. c2 and c4 take c8's limits, since a footprint grows with the batch (inferred).
 5. **`bench.steps`** reads a session's per-chunk recordings and writes `steps.md` beside `summary.md`, per regime, for the measured requests only (joined on request id). It reports:
    - decode step time, p50 and p90, by rows in the step;
    - prefill time per 1,000 prompt tokens;
    - the share of uLLM's busy span spent in prefill, in decode, and between steps;
    - for each request, the prefill time of other requests that ran while it was decoding, as a share of its decode span: the stall FCFS whole-prompt prefill puts on running rows (0020).
 6. **`scripts.step_costs`** is an offline micro-benchmark on the real model, one process, no server. At 1, 2, 4, 8 and 16 rows it times uLLM's `MLXRunner` decode step and `BatchKV.pack`. At one row it times mlx-lm's `generate_step` per token and the same model forward with a synchronous `mx.eval` each step. It writes `bench/results/m2/sweep/step-costs.json` and `.md`. It lives in `scripts/`, as `scripts/make_goldens.py` does: the ruff ban on `mlx_lm.generate` covers engine and bench code, and rule 10 covers engine code.
-7. **`bench.analysis --sweep`** prints one table per regime across the sessions: rows are engines, columns are concurrencies, cells the output tok/s ratio to `mlx-lm-batched-no-cache` with its interval and "within noise" against that session's twin. A second table gives TTFT and TPOT ratios the same way. `make bench-sweep` runs the five sessions, `bench.steps` on each, and writes `bench/results/m2/sweep/comparison.md`.
+7. **`bench.analysis --sweep`** prints one table per regime across the sessions: rows are engines, columns are concurrencies, cells the output tok/s ratio to `mlx-lm-batched-no-cache` with its interval and "within noise" against that session's twin. A second table gives TTFT and TPOT ratios the same way. `make bench-sweep` runs the five sessions, the `m2-c16-cache` block, `scripts.step_costs`, `bench.steps` on each session, and writes `bench/results/m2/sweep/comparison.md`.
 8. **The gap report** `bench/results/m2/sweep/README.md` names every gap the tables claim (outside the twin's floor) and its cause, each figure linked to a committed file. A gap without a measured cause says so.
 
 ## Alternatives considered

@@ -10,7 +10,7 @@
     "launch": "uv run --locked python scripts/mlx_lm_server.py --model {model} --port {port} --prompt-cache-size 0",
     "model": "{model}",
     "extra_body": {},
-    "footprint_gb": 11
+    "footprint_gb": 13
   },
   "engines": [
     {
@@ -18,14 +18,7 @@
       "launch": "uv run --locked ullm serve --port {port} --max-num-seqs 16 --record {out}/ullm-{block}.jsonl.gz",
       "model": null,
       "extra_body": {},
-      "footprint_gb": 4
-    },
-    {
-      "name": "mlx-lm-batched",
-      "launch": "uv run --locked python scripts/mlx_lm_server.py --model {model} --port {port}",
-      "model": "{model}",
-      "extra_body": {},
-      "footprint_gb": 14
+      "footprint_gb": 6
     }
   ],
   "gates": {

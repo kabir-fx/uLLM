@@ -30,7 +30,7 @@ scripts.step_costs (offline, one process) ──▶ step-costs.json, step-costs.
 gap report, by hand, every figure linked ──▶ README.md
 ```
 
-1. **Group files**, `bench/groups/m2-c1.json` to `m2-c16.json`. Each names the same engines. The baseline is batched `mlx_lm.server` without its prompt cache. uLLM runs with `--max-num-seqs 16` everywhere.
+1. **Group files**, `bench/groups/m2-c1.json` to `m2-c16.json`. Each names the same engines. The baseline is batched `mlx_lm.server` without its prompt cache. uLLM runs with `--max-num-seqs 16` everywhere. At c16, batched `mlx_lm.server` with its cache is not in the session. One block of `m2-c16-cache.json` tests it apart.
 2. **`{block}` placeholder** in `bench/session.py`. The session puts the block number into the launch when the server starts. Then each chunk of uLLM writes its own recording.
 3. **`bench/steps.py`** reads the recordings of one session. It gives decode step time by batch size, and prefill time per 1,000 tokens. It gives the share of time in prefill, in decode, and between steps. It also gives the stall that the prefill of a new request puts on the requests that decode.
 4. **`scripts/step_costs.py`** loads the model once, with no server. It times one decode step of uLLM at 1 to 16 rows. It also times the repack of the batch KV. At one row, it compares the decode loop of mlx-lm with the same loop that waits on each step.
@@ -74,13 +74,14 @@ You can still change these before `/ship`.
 
 - **One server for each chunk, at every concurrency.** M1 kept the c1 servers loaded. Then the c1 row has a different lifecycle from the other rows.
 - **Prompts per chunk:** 12 at c1, c2 and c4, 24 at c8 and 30 at c16. Each chunk has as many warm-up requests as the concurrency, and 2 at c1.
-- **Memory limits come from a smoke session** of c1 and c16, one block each. Each limit is the peak, rounded up, plus 1 GB.
+- **Memory limits come from smoke sessions** at c1 and c16, one block each. Each limit is the peak, rounded up, plus 1 GB. c2, c4 and c8 use the c8 peaks of M1.
 - **The step time split comes from an offline script,** not from a new field in the `step` event. A new field changes contract C2 and the terminal types.
 
 ## What can go wrong
 
 - c16 has 8 blocks only. If few blocks are Peak, the Peak row has no interval.
-- Batched `mlx_lm.server` with its cache can push the Mac into swap at c16. Then the session is DISCARDED. The smoke session shows the peak first.
+- In the smoke session, batched `mlx_lm.server` with its cache ran out of GPU memory at c16, at 12.06 GB. It failed 40 of 46 requests. You chose to remove it from the c16 session.
+- The c16 baseline peaked at 11.59 GB, and swap grew with your apps open. If swap grows on the idle Mac, the c16 session is DISCARDED.
 - The offline script times parts of a step in a quiet process. It explains a gap, but it is not the benchmark result.
 
 ## Words

@@ -66,11 +66,21 @@ def test_each_sweep_group_runs_the_same_engines_and_plans_its_blocks(
     assert group.servers == "per_chunk"
     assert group.baseline.name == "mlx-lm-batched-no-cache"
     names = [e.name for e in group.engines]
-    extra = ["mlx-lm-sequential-no-cache"] if concurrency == 1 else []
-    assert names == ["ullm", "mlx-lm-batched", *extra]
+    # At c16 batched mlx-lm with its prompt cache ran out of GPU memory: m2-c16-cache shows it.
+    expected = {1: ["ullm", "mlx-lm-batched", "mlx-lm-sequential-no-cache"], 16: ["ullm"]}
+    assert names == expected.get(concurrency, ["ullm", "mlx-lm-batched"])
     [ullm] = [e for e in group.engines if e.name == "ullm"]
     assert "--max-num-seqs 16" in ullm.launch
     assert "{block}" in ullm.launch
     workload = load_workload(root / "bench/workloads/a.json")
     p = plan(workload.requests, names, group.prompts_per_chunk, group.warmup_per_chunk, 0)
     assert len(p.blocks) == blocks
+
+
+def test_the_c16_cache_group_runs_cached_mlx_lm_against_the_c16_baseline() -> None:
+    root = Path(__file__).parents[2] / "bench/groups"
+    sweep = Group.model_validate_json((root / "m2-c16.json").read_text())
+    cache = Group.model_validate_json((root / "m2-c16-cache.json").read_text())
+    assert cache.baseline == sweep.baseline
+    assert [e.name for e in cache.engines] == ["mlx-lm-batched"]
+    assert "--prompt-cache-size" not in cache.engines[0].launch

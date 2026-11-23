@@ -26,12 +26,18 @@ check-py: ## Ruff lint and format check, mypy, unit and property tests
 	$(UV) mypy
 	$(UV) pytest -m "not mlx" tests/unit tests/property
 
-check-ts: ## Terminal: generated contract types are fresh, typecheck, unit tests, production build
+check-ts: ## Terminal: generated contract types are fresh, typecheck, unit tests, local and hosted builds
 	pnpm -C terminal install --frozen-lockfile --silent
 	pnpm -C terminal check:contracts
 	pnpm -C terminal typecheck
 	pnpm -C terminal test
 	pnpm -C terminal build
+	pnpm -C terminal build:hosted
+
+.PHONY: terminal-hosted
+terminal-hosted: ## The hosted replay build in terminal/dist-hosted/ (decision 0026); pages.yml publishes it
+	pnpm -C terminal install --frozen-lockfile --silent
+	pnpm -C terminal build:hosted
 
 check-go: ## Go vet and tests for the router module
 	cd router && go vet ./... && go test ./...

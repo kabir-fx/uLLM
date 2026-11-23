@@ -15,6 +15,7 @@ htmlcov/
 # Node / terminal
 node_modules/
 terminal/dist/
+terminal/dist-hosted/
 *.tsbuildinfo
 playwright-report/
 test-results/

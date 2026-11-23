@@ -27,6 +27,7 @@ export interface RequestRow {
 export type SourceStatus =
   | { kind: "connecting" }
   | { kind: "open" }
+  | { kind: "paused" }
   | { kind: "ended" }
   | { kind: "error"; message: string };
 

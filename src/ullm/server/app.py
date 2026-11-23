@@ -1,5 +1,5 @@
-"""A1: the OpenAI-compatible HTTP server over ``EngineClient`` (decision 0011), and O1's
-``/telemetry/stream`` (decision 0023)."""
+"""A1: the OpenAI-compatible HTTP server over ``EngineClient`` (decision 0011), O1's
+``/telemetry/stream`` (decision 0023) and O2's ``/metrics`` (decision 0024)."""
 
 import asyncio
 import json
@@ -16,6 +16,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST
 from pydantic import ValidationError
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -39,6 +40,7 @@ from ullm.server.schemas import (
 )
 from ullm.telemetry import trace
 from ullm.telemetry.bus import Bus, Hub, TelemetryClock
+from ullm.telemetry.metrics import Metrics
 
 _log = logging.getLogger(__name__)
 
@@ -66,16 +68,20 @@ class ServeConfig:
 def create_app(
     runner: Runner, tokenizer: Tokenizer, config: ServeConfig, emit: Emit | None = None
 ) -> FastAPI:
-    """With ``emit``, the engine's events go there and nothing streams them; without, the app
-    runs its own bus and serves ``/telemetry/stream``."""
+    """With ``emit``, the engine's events go there and nothing streams or counts them; without,
+    the app runs its own bus and serves ``/telemetry/stream`` and ``/metrics``."""
     info = runner.info()
     max_body = max_body_bytes(tokenizer.token_bytes(), info.max_model_len)
     created = int(time.time())
     logged_fields: set[str] = set()
     engine: EngineClient | None = None
 
-    clock, bus = TelemetryClock.start(), Bus()
-    hub = None if emit is not None else Hub(bus, clock, config.engine.replica)
+    clock, bus, metrics = TelemetryClock.start(), Bus(), Metrics()
+    hub = (
+        None
+        if emit is not None
+        else Hub(bus, clock, config.engine.replica, observe=metrics.observe)
+    )
     if config.record is not None and hub is None:
         raise ValueError("record needs the app's own telemetry: pass no emit")
 
@@ -132,6 +138,15 @@ def create_app(
         @app.get("/telemetry/stream")
         async def telemetry_stream() -> Response:
             return _TelemetryStream(hub, config.telemetry_keepalive_s)
+
+        @app.get("/metrics")
+        async def prometheus() -> Response:
+            # The engine emits a request's events before it delivers the reply, so after this
+            # flush the counters include every reply a client has already read.
+            hub.flush()
+            load = running().health()
+            body = metrics.render(waiting=load.waiting, running=load.running)
+            return Response(body, media_type=CONTENT_TYPE_LATEST)
 
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request) -> Response:

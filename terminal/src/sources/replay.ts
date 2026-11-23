@@ -100,9 +100,10 @@ export function replaySource(
           t0 = frames[0]?.t ?? 0;
           loaded = frames.length > 0;
           rebase(0);
-          out.status({ kind: "open" });
+          out.status({ kind: playing ? "open" : "paused" });
           if (!loaded) out.status({ kind: "ended" });
-          else tick();
+          else if (playing) tick();
+          else deliver(0);
         },
         (error: unknown) => {
           if (sink === out) out.status({ kind: "error", message: (error as Error).message });
@@ -124,7 +125,11 @@ export function replaySource(
       tick();
     },
     pause() {
-      if (!live() || !playing) return;
+      if (!playing) return;
+      if (!live()) {
+        playing = false;
+        return;
+      }
       rebase(position());
       playing = false;
       clearTimeout(timer);

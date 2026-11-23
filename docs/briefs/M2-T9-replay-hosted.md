@@ -1,6 +1,6 @@
 # M2-T9: Replay mode and the hosted build
 
-**State:** in build. You approved the three choices below at the start of `/build M2-T9`.
+**State:** NOT DONE. The review re-check found one more bug, and the fix waits for your ruling.
 **Decision record:** [0026](../decisions/0026-replay-and-hosted-build.md) (the full design, for agents) · **Spec:** roadmap M2-T9 (T4, DEP3)
 
 ## The goal
@@ -98,3 +98,25 @@ Test yourself: why does a seek back send the trace again from frame 0?
 <details><summary>Answer</summary>The store keeps state that frames add to, such as request rows and windows. It cannot take frames away. Only a reset from the `hello` and a new pass gives the state at an earlier time.</details>
 
 ## Result
+
+**State:** NOT DONE. The proof is VERIFIED at `41f0c7a`: 11 of 11 claims. The review is NOT READY at `41f0c7a`. The re-check is NOT READY at `9d1533b`. The fix for the re-check finding is `c8dceb7`, and `make check` passes there. This change used 3 agent runs.
+
+**Against the plan:** `sourceFromQuery` now takes Vite's `import.meta.env` whole, and not a base and a flag. Then the tests reach the choice of the hosted mode.
+
+**What proof and review found:**
+
+- No test covered the hosted wiring in `main.tsx`. Now `sourceFromQuery` reads `MODE` itself, and a mutation of it fails a test.
+- The scrubber had `step=100`, so it stopped 40 ms short of the end of the real run. It now has `step="any"`.
+- A pause pressed while the trace loaded was lost. A test now holds it.
+- The re-check found that a play after that early pause was then lost. A test failed before the fix in `c8dceb7` and passes after it.
+
+**What the verifier saw:** the hosted build ran under `/uLLM/` from a server that does not decode gzip. Every run played to the end, and `?live=` and `?trace=` were ignored. After a seek back from the end, the table went from 32 finished requests to 0.
+
+**What is not proven:** the Pages workflow did not run. The public URL does not exist until you enable Pages and start the workflow after the merge.
+
+**Read these yourself:**
+
+- `terminal/src/sources/replay.ts`: `seek`, and the reset to frame 0 when the target is before the last frame sent.
+- `terminal/src/config.ts`: `sourceFromQuery`, and the two places where `hosted` drops `?live=` and `?trace=`.
+- `.github/workflows/pages.yml`: only `workflow_dispatch`, and the two Pages actions pinned by commit.
+

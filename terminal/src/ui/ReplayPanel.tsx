@@ -14,7 +14,10 @@ function clock(ms: number): string {
 export function ReplayPanel({ source, run }: { source: ReplaySource; run: Run | null }) {
   // Play, pause and speed change the source, not the store; this re-renders for them.
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const act = (change: () => void) => () => (change(), rerender());
+  const act = (change: () => void) => {
+    change();
+    rerender();
+  };
   const at = source.position();
 
   return (
@@ -51,17 +54,17 @@ export function ReplayPanel({ source, run }: { source: ReplaySource; run: Run | 
           max={source.duration}
           step={100}
           value={at}
-          onChange={(e) => act(() => source.seek(e.target.valueAsNumber))()}
+          onChange={(e) => act(() => source.seek(e.target.valueAsNumber))}
         />
         <div className="buttons">
-          <button type="button" onClick={act(() => (source.playing ? source.pause() : source.play()))}>
+          <button type="button" onClick={() => act(() => (source.playing ? source.pause() : source.play()))}>
             {source.playing ? "pause" : "play"}
           </button>
           <select
             name="speed"
             aria-label="speed"
             value={source.speed}
-            onChange={(e) => act(() => source.setSpeed(Number(e.target.value)))()}
+            onChange={(e) => act(() => source.setSpeed(Number(e.target.value)))}
           >
             {[...new Set([...SPEEDS, source.speed])].sort((a, b) => a - b).map((s) => (
               <option key={s} value={s}>
@@ -71,7 +74,7 @@ export function ReplayPanel({ source, run }: { source: ReplaySource; run: Run | 
           </select>
         </div>
       </div>
-      <p className="line" data-position={Math.round(at)}>
+      <p className="line">
         {clock(at)} / {clock(source.duration)}
       </p>
     </section>

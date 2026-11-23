@@ -115,8 +115,10 @@ export function replaySource(
     },
     play() {
       if (!live() || playing) return;
-      if (next === frames.length) next = 0;
-      rebase(next === 0 ? 0 : position());
+      if (next === frames.length) {
+        next = 0;
+        rebase(0);
+      } else rebase(position());
       playing = true;
       sink!.status({ kind: "open" });
       tick();
@@ -140,7 +142,10 @@ export function replaySource(
       // The store cannot take frames back; it rebuilds from the trace's hello (C2).
       if (next > 0 && frames[next - 1]!.t - t0 > at) next = 0;
       rebase(at);
-      if (playing) return tick();
+      if (playing) {
+        tick();
+        return;
+      }
       if (!deliver(at)) return;
       sink!.status(next === frames.length ? { kind: "ended" } : { kind: "paused" });
     },

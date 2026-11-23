@@ -9,8 +9,14 @@ from pathlib import Path
 
 import httpx2
 import pytest
-from bench.control import create_control_app, loopback_target
+import uvicorn
+from bench.control import create_control_app, loopback_target, target_client
+from bench.loadgen import open_loop
 from bench.schema import Message, Source, Workload, WorkloadRequest
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import StreamingResponse
+from starlette.routing import Route
 from tests.recording import RecordingRunner
 from tests.serving import serving, serving_app
 
@@ -277,3 +283,78 @@ def test_a_loopback_target_is_accepted(url: str) -> None:
 def test_any_other_target_is_refused(url: str) -> None:
     with pytest.raises(ValueError, match="loopback"):
         loopback_target(url)
+
+
+def test_a_body_over_the_limit_is_refused(workloads: Path) -> None:
+    async def test(control: httpx2.AsyncClient, events: list[ev.Event]) -> None:
+        body = json.dumps(_spec()) + " " * 4096
+        big = await control.post(
+            "/load", content=body, headers={"content-type": "application/json"}
+        )
+        assert big.status_code == 400
+        assert (await control.get("/load")).json()["state"] == "idle"
+
+    _run(test, workloads)
+
+
+def test_an_error_nobody_foresaw_fails_the_run_and_frees_the_slot(workloads: Path) -> None:
+    def deep(request: httpx2.Request) -> httpx2.Response:
+        # Nesting this deep makes the JSON parser raise RecursionError.
+        return httpx2.Response(200, text="[" * 100_000 + "]" * 100_000)
+
+    async def main() -> None:
+        transport = httpx2.MockTransport(deep)
+        async with (
+            httpx2.AsyncClient(base_url="http://127.0.0.1:9", transport=transport) as target,
+            serving_app(create_control_app(target, workloads)) as control,
+        ):
+            assert (await _post(control, _spec())).status_code == 202
+            status = await _settled(control)
+            assert status["state"] == "failed"
+            assert "RecursionError" in str(status["first_error"])
+            assert (await _post(control, _spec())).status_code == 202
+
+    asyncio.run(asyncio.wait_for(main(), timeout=30))
+
+
+def test_the_target_client_lets_the_open_loop_hold_more_than_100_open() -> None:
+    held = 0
+    peak = 0
+
+    async def chat(request: Request) -> StreamingResponse:
+        nonlocal held, peak
+        await request.body()
+        held += 1
+        peak = max(peak, held)
+
+        async def reply() -> AsyncIterator[bytes]:
+            nonlocal held
+            try:
+                await asyncio.sleep(1.0)
+                yield b'data: {"choices":[{"delta":{"content":"x"},"finish_reason":"stop"}]}\n\n'
+                yield b'data: {"choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1}}\n\n'
+                yield b"data: [DONE]\n\n"
+            finally:
+                held -= 1
+
+        return StreamingResponse(reply(), media_type="text/event-stream")
+
+    stub = Starlette(routes=[Route("/v1/chat/completions", chat, methods=["POST"])])
+    requests = _workload(120).requests
+
+    async def main() -> None:
+        server = uvicorn.Server(uvicorn.Config(stub, host="127.0.0.1", port=0, log_level="warning"))
+        task = asyncio.create_task(server.serve())
+        while not server.started:
+            await asyncio.sleep(0.01)
+        port = server.servers[0].sockets[0].getsockname()[1]
+        try:
+            async with target_client(f"http://127.0.0.1:{port}") as target:
+                sent = await open_loop(target, "m", requests, 1000.0, 0, {}, extra_body={})
+        finally:
+            server.should_exit = True
+            await task
+        assert all(s.error is None for s in sent)
+
+    asyncio.run(asyncio.wait_for(main(), timeout=30))
+    assert peak == 120

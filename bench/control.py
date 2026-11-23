@@ -74,6 +74,10 @@ def loopback_target(url: str) -> str:
     return url
 
 
+def target_client(base_url: str) -> httpx2.AsyncClient:
+    return httpx2.AsyncClient(base_url=base_url, timeout=None)
+
+
 def create_control_app(target: httpx2.AsyncClient, workloads: Path) -> FastAPI:
     """``target`` has the server's base URL. Workloads are ``workloads/*.json``, named by stem."""
     found = {path.stem: load_workload(path) for path in sorted(workloads.glob("*.json"))}
@@ -215,7 +219,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(str(e))
 
     async def serve() -> None:
-        async with httpx2.AsyncClient(base_url=base_url, timeout=None) as target:
+        async with target_client(base_url) as target:
             app = create_control_app(target, args.workloads)
             # Local only (rule 13): no option binds another address.
             config = uvicorn.Config(app, host="127.0.0.1", port=args.port)

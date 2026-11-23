@@ -1,4 +1,3 @@
-/* eslint-disable */
 // Generated from src/ullm/telemetry/schema/telemetry.v1.json by `make contracts`.
 // Do not edit: change src/ullm/telemetry/events.py and regenerate.
 

@@ -28,8 +28,7 @@ const contracts = [
 
 let stale = false;
 for (const c of contracts) {
-  const banner = `/* eslint-disable */
-// Generated from ${c.source} by \`make contracts\`.
+  const banner = `// Generated from ${c.source} by \`make contracts\`.
 // Do not edit: change ${c.models} and regenerate.`;
   const schema = JSON.parse(await readFile(here(c.schema), "utf8"));
   const fresh = await compile(schema, c.root, {

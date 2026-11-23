@@ -1,4 +1,3 @@
-/* eslint-disable */
 // Generated from bench/control.schema.json by `make contracts`.
 // Do not edit: change bench/control.py and regenerate.
 

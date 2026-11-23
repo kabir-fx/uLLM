@@ -1,6 +1,6 @@
 # M2-T5: Prometheus metrics
 
-**State:** in build. You read the Result when `/build` reports.
+**State:** DONE. Read the Result, then run `/ship`.
 **Decision record:** [0024](../decisions/0024-prometheus-metrics.md) (the full design, for agents) · **Spec:** roadmap O2, task M2-T5
 
 ## The goal
@@ -95,3 +95,18 @@ After the last request finishes, the engine does no more steps. The last `step` 
 
 ## Result
 
+DONE. Proof VERIFIED at `c47a005`, review READY with two test fixes, the last at `160235b`. The change used 2 agent runs.
+
+- Proof: the verifier passed 8 of 8 claims on `ullm serve --fake` and `bench/run.py`. Without `hub.flush()`, 200 of 200 scrapes missed the last reply.
+- Review: one reviewer said NOT READY at `c47a005`. Its one real finding was that no test checked the gauges under load. `test_the_gauges_show_a_running_request_and_one_waiting_behind_it` now checks them, and a swap of `waiting` and `running` fails it.
+- Full check: `make ci` passed at `160235b`.
+- Real model: `make bench-smoke` wrote a `metrics.txt` equal to `raw.jsonl`: 18 requests, 8,232 prompt tokens, 3,128 completion tokens. Throughput was 59.4 tok/s at the base and 59.9 tok/s after, one run each on battery.
+- Changes against the plan: none.
+- Not proven: a scrape by a real Prometheus. No test end to end shows `dropped` above 0, or a shutdown or error abort. Preemptions and prefix-cache hits have no events until M3.
+- Passes to later slices: M2-T11 must let a Prometheus in Docker past `TrustedHostMiddleware`. M3-T4 adds `kv_blocks` and `kv_waste_ratio`. M2-T6 can read each run's `metrics.txt`.
+
+Read these yourself:
+
+- `src/ullm/server/app.py:142`: `/metrics` flushes the hub before it renders, and it exists only when the app owns a hub.
+- `src/ullm/telemetry/metrics.py:79`: tokens count the work done. The first token counts at `req.first_token`.
+- `src/ullm/telemetry/bus.py`, `Hub.flush`: the observer gets each drain before the subscriptions.

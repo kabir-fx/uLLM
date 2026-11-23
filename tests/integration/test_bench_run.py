@@ -10,19 +10,9 @@ import pytest
 from bench import analysis, schema
 from bench.run import main
 from bench.schema import Message, Source, Workload, WorkloadRequest
-from prometheus_client.parser import text_string_to_metric_families
+from tests.prometheus import metric_totals
 
 from ullm.runner.fake_runner import FakeTokenizer
-
-
-def _metric_totals(text: str) -> dict[str, float]:
-    """Each sample but histogram buckets, summed over its labels."""
-    totals: dict[str, float] = {}
-    for family in text_string_to_metric_families(text):
-        for s in family.samples:
-            if "le" not in s.labels:
-                totals[s.name] = totals.get(s.name, 0.0) + s.value
-    return totals
 
 
 def _free_port() -> int:
@@ -100,7 +90,7 @@ def test_a_smoke_run_writes_every_c5_file(
     ] * 5 + [("measure", 1)] * 5
     assert all(r["error"] is None for r in raw)
     # O2's proof: the server's counters equal the load generator's totals, warm-up included.
-    totals = _metric_totals((out / schema.METRICS).read_text())
+    totals = metric_totals((out / schema.METRICS).read_text())
     assert totals["ullm_requests_total"] == len(raw)
     assert totals["ullm_prompt_tokens_total"] == sum(r["usage"]["prompt_tokens"] for r in raw)
     assert totals["ullm_generation_tokens_total"] == sum(

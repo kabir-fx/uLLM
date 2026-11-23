@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 
-from prometheus_client.parser import text_string_to_metric_families
+from tests.prometheus import metric_totals
 from tests.recording import RecordingRunner
 from tests.serving import SERVED, serving, serving_app
 
@@ -20,16 +20,6 @@ FAST = Latency(
 
 def _run(main: Callable[[], Awaitable[None]]) -> None:
     asyncio.run(asyncio.wait_for(main(), timeout=20))
-
-
-def _totals(text: str) -> dict[str, float]:
-    """Each unlabelled sample, and each labelled one summed over its labels."""
-    totals: dict[str, float] = {}
-    for family in text_string_to_metric_families(text):
-        for s in family.samples:
-            if "le" not in s.labels:
-                totals[s.name] = totals.get(s.name, 0.0) + s.value
-    return totals
 
 
 def test_a_scrape_right_after_each_reply_already_counts_it() -> None:
@@ -51,7 +41,7 @@ def test_a_scrape_right_after_each_reply_already_counts_it() -> None:
                 completion += usage["completion_tokens"]
                 scrape = await client.get("/metrics")
                 assert scrape.headers["content-type"].startswith("text/plain")
-                totals = _totals(scrape.text)
+                totals = metric_totals(scrape.text)
                 assert totals["ullm_requests_total"] == i
                 assert totals["ullm_prompt_tokens_total"] == prompt
                 assert totals["ullm_generation_tokens_total"] == completion

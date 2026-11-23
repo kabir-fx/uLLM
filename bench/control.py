@@ -75,7 +75,9 @@ def loopback_target(url: str) -> str:
 
 
 def target_client(base_url: str) -> httpx2.AsyncClient:
-    return httpx2.AsyncClient(base_url=base_url, timeout=None)
+    # httpx2's default pool holds 100 connections, which would cap an open loop's arrivals.
+    limits = httpx2.Limits(max_connections=None, max_keepalive_connections=20)
+    return httpx2.AsyncClient(base_url=base_url, timeout=None, limits=limits)
 
 
 def create_control_app(target: httpx2.AsyncClient, workloads: Path) -> FastAPI:

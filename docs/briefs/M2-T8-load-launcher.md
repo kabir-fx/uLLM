@@ -1,6 +1,6 @@
 # M2-T8: Load launcher and playground
 
-**State:** in build. You approved the design. Wait for the report from `/build`.
+**State:** DONE at `7db5646`. Type `/ship` to open the pull request.
 **Decision record:** [0024](../decisions/0024-load-launcher.md) (the full design, for agents) · **Spec:** roadmap M2-T8 (T3)
 
 ## The goal
@@ -53,7 +53,7 @@ What you do not get yet:
 ## Where this puts the project
 
 ```
-M2  T1 █  T2 █  T3 █  T4 █  T5 ░  T6 ░  T7 █  T8 ▓  T9 ░  T10 ░  T11 ░  T12 ░  T13 ░
+M2  T1 █  T2 █  T3 █  T4 █  T5 ░  T6 ░  T7 █  T8 █  T9 ░  T10 ░  T11 ░  T12 ░  T13 ░
 ```
 
 After this slice, M2-T9 and M2-T10 are open in Lane B.
@@ -91,3 +91,36 @@ Test yourself: why does a launched run not count as a benchmark?
 <details><summary>Answer</summary>It does not record run conditions or write a C5 directory. A claim must come from a committed result (rule 7).</details>
 
 ## Result
+
+**State:** DONE. The proof is VERIFIED at `7db5646`: 8 of 8 claims. The review was NOT READY at `9dc61f1`, and the fix commits up to `7db5646` close every Required finding. `make ci` passes at `7db5646`. This change used 3 agent runs.
+
+**Against the plan:** the build followed the plan. Two things were added: a client with no cap on open connections, and a run that fails on any error.
+
+**What proof and review found:**
+
+- httpx's default pool holds 100 connections, so an open loop could never have more than 100 requests open. The reviewer saw a peak of 100 at the server. A test now holds 120 open, and `target_client` lifts the cap.
+- An error outside the caught types left the run in `running` for good, so no new run could start. A test now makes the parser raise `RecursionError`. The run ends `failed`, and the next start gets 202.
+- No test covered the 4,096-byte body limit. A test now sends a body one space over. With the limit removed, the test fails with 202.
+- Decision 0024 named the parameter `client`, but the code says `target`. The `make contracts` help named only the telemetry schema. Both are fixed.
+
+**What the verifier saw:**
+
+- A closed run of 64 at concurrency 8, in headless Chrome, filled the feed live. It ended `done: 64 ok, 0 errors`, and the tap saw 64 finishes.
+- A stop during an open run at 4 a second read `stopped`. The server saw 3 aborts 61 ms after the click, and no arrivals after it.
+- A second start from another tab showed `409: a run is running; stop it first`. The first run still ended done.
+- The playground reply grew in 249 DOM updates.
+- Every bad target, Host, Origin, content type and out-of-limit spec was refused. Replay mode shows neither panel.
+- With `task.cancel()` removed, the stop check failed: 13 arrivals came after the stop.
+
+**What is not proven:**
+
+- The real MLX model. Every run used `FakeRunner`.
+- The panels' logic in unit tests: the polling, the disabled button, the error text. The verifier drove it in Chrome. M2-T10 brings Playwright.
+- Port 5173 on 127.0.0.1, which another app held. The verifier used `[::1]:5173`.
+
+**Read these yourself:**
+
+- `bench/control.py:89-122`: the run task. Cancel sets `stopped` and re-raises, any other error sets `failed`, and the totals come only at the end.
+- `bench/control.py:150-173`: the gates before a run starts, in order: content type, size, spec, workload, 409.
+- `bench/loadgen.py:124-158`: the arrival times from the seed, and one task per request with no cap.
+

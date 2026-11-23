@@ -172,3 +172,18 @@ def test_a_reader_that_leaves_is_no_longer_fed() -> None:
         assert s.hub.readers == 0
 
     _run(test)
+
+
+def test_the_observer_gets_every_drain_whatever_the_readers_keep() -> None:
+    seen: list[tuple[list[ev.Event], int]] = []
+    bus = Bus(2)
+    clock = TelemetryClock(epoch=0.0, epoch_unix_ms=0, monotonic=lambda: 0.0)
+    hub = Hub(bus, clock, "r1", capacity=1, observe=lambda events, n: seen.append((events, n)))
+    hub.subscribe()  # never read, and holds one event
+    for i in range(5):
+        bus.emit(_arrived(i))
+    hub.flush()
+    hub.flush()  # an empty drain tells the observer nothing
+    bus.emit(_arrived(5))
+    hub.close()
+    assert seen == [([_arrived(3), _arrived(4)], 3), ([_arrived(5)], 0)]

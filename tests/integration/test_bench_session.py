@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Literal
 
 import pytest
-from bench import analysis, conditions, schema
+from bench import analysis, conditions, schema, steps
 from bench.analysis import _twin_gate
 from bench.paired import Estimate
 from bench.regimes import Regime
@@ -576,3 +576,37 @@ def test_a_server_started_per_chunk_records_each_block_apart(tmp_path: Path, mac
         assert check_trace(frames).problems == []
         arrived = {e.rid for f in frames for e in f.events if isinstance(e, ReqArrived)}
         assert len(arrived) == len(ids) + 1  # the chunk's one warm-up request, then its block
+
+
+def test_steps_reads_each_blocks_recording_inside_its_measured_span(
+    tmp_path: Path, machine: int
+) -> None:
+    group = _group(tmp_path / "group.json", "per_chunk")
+    spec = json.loads(group.read_text())
+    spec["engines"][0]["launch"] += " --record {out}/other-{block}.jsonl.gz"
+    group.write_text(json.dumps(spec))
+    out = tmp_path / "session"
+    main(
+        [
+            str(group),
+            *("--workload", str(_workload(tmp_path / "w.json", 5))),
+            *("--settle", "0", "--ready-timeout", "30", "--out", str(out)),
+        ]
+    )
+    session = analysis.load_session(out)
+    assert set(session.regimes.values()) == {Regime.PEAK}
+    s = steps.split(
+        [
+            steps.chunk(iter_frames(out / f"other-{b}.jsonl.gz"), session.spans[b, "other"])
+            for b in sorted(session.regimes)
+        ]
+    )
+    measured = [r for r in session.records if r.engine == "other" and r.phase == "measure"]
+    assert s.requests == len(measured) == 4
+    assert s.dropped == 0
+    assert s.prefill_ms_per_1k
+    assert s.decode_ms_by_rows
+    assert steps.main([str(out), "--engine", "other"]) == 0
+    text = (out / steps.STEPS).read_text()
+    assert "## Peak: 2 blocks, 0 events dropped" in text
+    assert "| Requests | 4 |" in text

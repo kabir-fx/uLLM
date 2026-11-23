@@ -114,7 +114,7 @@ def create_control_app(target: httpx2.AsyncClient, workloads: Path) -> FastAPI:
         except asyncio.CancelledError:
             status = status.model_copy(update={"state": "stopped"})
             raise
-        except (httpx2.HTTPError, ValueError, KeyError, IndexError, TypeError) as e:
+        except Exception as e:  # any failure ends the run; none may leave it running
             status = status.model_copy(
                 update={"state": "failed", "first_error": f"{type(e).__name__}: {e}"}
             )

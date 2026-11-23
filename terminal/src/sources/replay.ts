@@ -115,7 +115,11 @@ export function replaySource(
       };
     },
     play() {
-      if (!live() || playing) return;
+      if (playing) return;
+      if (!live()) {
+        playing = true;
+        return;
+      }
       if (next === frames.length) {
         next = 0;
         rebase(0);

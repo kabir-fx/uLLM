@@ -191,6 +191,18 @@ describe("replaySource controls", () => {
     expect(seqs(out.frames)).toEqual([0, 1, 2]);
   });
 
+  it("plays when play follows a pause while the trace loads", async () => {
+    const out = record();
+    const replay = replaySource("t", async () => trace);
+    replay.start(out.sink);
+    replay.pause();
+    replay.play();
+    expect(replay.playing).toBe(true);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(seqs(out.frames)).toEqual([0, 1, 2, 3]);
+    expect(out.statuses).toEqual(["connecting", "open", "ended"]);
+  });
+
   it("does nothing after stop", async () => {
     const out = record();
     const replay = replaySource("t", async () => trace);

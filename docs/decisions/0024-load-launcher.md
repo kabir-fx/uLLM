@@ -32,19 +32,35 @@ browser (terminal, :5173)
 **Interface** (pydantic, `extra="forbid"`, in `bench/control.py`):
 
 ```python
-class Closed(Frozen):  kind: Literal["closed"]; concurrency: int  # 1..64
-class Open(Frozen):    kind: Literal["open"];   rate_per_s: float  # (0, 50]
+class Closed(Frozen):
+    kind: Literal["closed"]
+    concurrency: int  # 1..64
+
+
+class Open(Frozen):
+    kind: Literal["open"]
+    rate_per_s: float  # (0, 50]
+
+
 class LoadSpec(Frozen):
-    workload: str                      # a name GET /workloads lists
-    arrival: Closed | Open             # discriminated on kind
-    max_tokens: int                    # 1..4096; replaces every request's max_tokens
-    requests: int                      # 1..the workload's length; its first N, in order
-class Workload(Frozen): name: str; requests: int
+    workload: str  # a name GET /workloads lists
+    arrival: Closed | Open  # discriminated on kind
+    max_tokens: int  # 1..4096; replaces every request's max_tokens
+    requests: int  # 1..the workload's length; its first N, in order
+
+
+class Workload(Frozen):
+    name: str
+    requests: int
+
+
 class LoadStatus(Frozen):
     state: Literal["idle", "running", "done", "stopped", "failed"]
     spec: LoadSpec | None
-    ok: int; errors: int               # counted when the run ends; 0 while running
+    ok: int
+    errors: int  # counted when the run ends; 0 while running
     first_error: str | None
+
 
 def create_control_app(client: httpx2.AsyncClient, workloads: Path) -> FastAPI: ...
 ```

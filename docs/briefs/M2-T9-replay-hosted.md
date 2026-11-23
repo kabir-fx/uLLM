@@ -1,6 +1,6 @@
 # M2-T9: Replay mode and the hosted build
 
-**State:** NOT DONE. The review re-check found one more bug, and the fix waits for your ruling.
+**State:** DONE at `c8dceb7`. Type `/ship` to open the pull request.
 **Decision record:** [0026](../decisions/0026-replay-and-hosted-build.md) (the full design, for agents) · **Spec:** roadmap M2-T9 (T4, DEP3)
 
 ## The goal
@@ -99,7 +99,7 @@ Test yourself: why does a seek back send the trace again from frame 0?
 
 ## Result
 
-**State:** NOT DONE. The proof is VERIFIED at `41f0c7a`: 11 of 11 claims. The review is NOT READY at `41f0c7a`. The re-check is NOT READY at `9d1533b`. The fix for the re-check finding is `c8dceb7`, and `make check` passes there. This change used 3 agent runs.
+**State:** DONE. The proof is VERIFIED at `41f0c7a`: 11 of 11 claims. The review is READY at `c8dceb7`. The re-check at `9d1533b` found one bug. You accepted its fix, `c8dceb7`, as covered. `make check` passes there, and the change used 3 agent runs.
 
 **Against the plan:** `sourceFromQuery` now takes Vite's `import.meta.env` whole, and not a base and a flag. Then the tests reach the choice of the hosted mode.
 

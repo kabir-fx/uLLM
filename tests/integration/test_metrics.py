@@ -71,17 +71,23 @@ def test_the_gauges_show_a_running_request_and_one_waiting_behind_it() -> None:
     async def main() -> None:
         app = create_app(FakeRunner(INFO, slow), FakeTokenizer(), config)
         async with serving_app(app) as client:
-            replies = [
-                asyncio.create_task(client.post("/v1/chat/completions", json=body))
-                for _ in range(2)
-            ]
-            totals: dict[str, float] = {}
-            for _ in range(100):
-                totals = metric_totals((await client.get("/metrics")).text)
-                if totals["ullm_queue_depth"] == 1:
-                    break
-                await asyncio.sleep(0.01)
-            assert (totals["ullm_queue_depth"], totals["ullm_batch_size"]) == (1, 1)
-            await asyncio.gather(*replies)
+
+            async def load_reaches(want: tuple[float, float]) -> tuple[float, float]:
+                for _ in range(200):
+                    totals = metric_totals((await client.get("/metrics")).text)
+                    seen = (totals["ullm_queue_depth"], totals["ullm_batch_size"])
+                    if seen == want:
+                        break
+                    await asyncio.sleep(0.01)
+                return seen
+
+            def post() -> asyncio.Task[object]:
+                return asyncio.create_task(client.post("/v1/chat/completions", json=body))
+
+            first = post()
+            assert await load_reaches((0, 1)) == (0, 1)
+            second = post()
+            assert await load_reaches((1, 1)) == (1, 1)
+            await asyncio.gather(first, second)
 
     _run(main)

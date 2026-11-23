@@ -58,7 +58,7 @@ ci-mlx: equivalence ## CI mlx job: equivalence, then the other tests marked mlx;
 	ULLM_REQUIRE_MODEL=1 $(UV) pytest -m mlx --ignore=tests/equivalence
 
 .PHONY: contracts
-contracts: ## Regenerate the telemetry JSON Schema and TypeScript types (C2)
+contracts: ## Regenerate the telemetry (C2) and control JSON Schemas and their TypeScript types
 	$(UV) python -m scripts.export_contracts
 	pnpm -C terminal gen:contracts
 

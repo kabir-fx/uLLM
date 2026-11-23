@@ -34,7 +34,7 @@ export interface ReplaySource extends TelemetrySource {
 }
 ```
 
-The clock is a base position and the wall time it was taken at: `position = base + (now − wall) × speed` while playing, `base` while paused. Pause, a new speed and a seek each take a new base, so no change makes the position jump. A seek forward sends the frames between the old and the new position at once. A seek back sends the trace again from frame 0 up to the new position, and the store rebuilds itself from the `hello`. Every frame is still sent at its own time from one base, so timer lateness never accumulates. `SourceStatus` gains `paused`.
+The clock is a base position and the wall time it was taken at: `position = base + (now − wall) × speed` while playing, `base` while paused. Pause, a new speed and a seek each take a new base, so no change makes the position jump. A seek forward sends the frames between the old and the new position at once. A seek back sends the trace again from frame 0 up to the new position, and the store rebuilds itself from the `hello`. Every frame is still sent at its own time from one base, so timer lateness never accumulates. `SourceStatus` gains `paused`. A pause pressed while the trace loads holds: the replay shows its first frame and waits.
 
 **Runs.** `terminal/src/runs.ts` lists the bundled runs:
 
@@ -46,7 +46,7 @@ export const RUNS: readonly Run[];
 
 `recording` is null for synthetic fixtures. They already say SIMULATED through their `hello`. The engine recording is copied to `terminal/fixtures/runs/m2-telemetry-c8.jsonl.gz` so the build serves it beside the fixtures. `runs.test.ts` fails when the copy differs from `bench/results/m2/telemetry/ullm-on.jsonl.gz` byte for byte, or when a recording's machine and commit differ from its session's `env.json`, or when a run's trace is missing.
 
-**Modes.** `sourceFromQuery(query, base, hosted)` returns one of two shapes, so a replay has no launcher and a live stream has no replay bar:
+**Modes.** `sourceFromQuery(query, env)` takes Vite's `import.meta.env` (`MODE`, `BASE_URL`) whole, so the choice of the hosted mode is inside the tested function. It returns one of two shapes, so a replay has no launcher and a live stream has no replay bar:
 
 ```ts
 export type Mode =
@@ -54,9 +54,9 @@ export type Mode =
   | { kind: "replay"; source: ReplaySource; run: Run | null };
 ```
 
-`?run=<id>` picks a bundled run, the first by default. `?trace=` still replays any trace locally, with `run: null`. `?speed=` sets the first speed. `controlsFromQuery` is folded into it. The hosted build (`vite build --mode hosted`) ignores `?live=` and `?trace=`: the public page plays only its own runs.
+`?run=<id>` picks a bundled run, the first by default. `?trace=` still replays any trace locally, with `run: null`. `?speed=` sets the first speed. `controlsFromQuery` is folded into it. The hosted build (`vite build --mode hosted`, so `MODE` is `hosted`) ignores `?live=` and `?trace=`: the public page plays only its own runs.
 
-**Terminal.** In replay mode the side column holds the replay panel in place of the launcher and the playground: a run picker, play and pause, a speed (0.25 to 8), and a scrubber with the position. Picking a run loads `?run=<id>`. The header shows a REPLAY badge in replay mode, and the run's machine and commit, marked dirty when they were.
+**Terminal.** In replay mode the side column holds the replay panel in place of the launcher and the playground: a run picker, play and pause, a speed (0.25 to 8), and a scrubber with the position, with any step, so it reaches the end of a trace of any length. Picking a run loads `?run=<id>`. The header shows a REPLAY badge in replay mode, and the run's machine and commit, marked dirty when they were.
 
 **Hosted build.** `vite build --mode hosted` sets `base: "./"`, so the page works under any path, and writes `terminal/dist-hosted/`. `make terminal-hosted` builds it, and `make check-ts` builds it too, so CI keeps it working. `.github/workflows/pages.yml` runs only on `workflow_dispatch`: it builds with `make terminal-hosted` and deploys with the two Pages actions, pinned by commit. The author enables Pages once (Settings, Pages, source: GitHub Actions) and publishes each time with `gh workflow run pages.yml`. Nothing publishes on a push or a merge.
 

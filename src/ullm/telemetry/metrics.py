@@ -13,8 +13,8 @@ from ullm.telemetry import events as ev
 
 NAMESPACE = "ullm"
 
-# Bucket bounds in seconds, set around M1's figures (TTFT p50 175 ms, TPOT p50 15.6 ms at c1,
-# bench/results/m1); a design choice, not a measurement.
+# Bucket bounds in seconds, set around uLLM's M1 figures at concurrency 1 (TTFT p50 177.9 ms,
+# TPOT p50 16.5 ms, bench/results/m1/c1/summary.md); a design choice, not a measurement.
 TTFT_BUCKETS = (0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)
 TPOT_BUCKETS = (0.005, 0.01, 0.015, 0.02, 0.025, 0.03, 0.05, 0.075, 0.1, 0.25, 0.5, 1.0)
 E2E_BUCKETS = (0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 20.0, 30.0, 60.0, 120.0, 300.0)
@@ -28,20 +28,20 @@ def _values(model: type[ev.ReqFinished | ev.ReqAborted | ev.Step], field: str) -
 
 class Metrics:
     def __init__(self) -> None:
-        self.registry = CollectorRegistry()
+        self._registry = CollectorRegistry()
 
         def histogram(
             name: str, doc: str, buckets: Sequence[float], labels: Sequence[str] = ()
         ) -> Histogram:
             return Histogram(
-                name, doc, labels, namespace=NAMESPACE, registry=self.registry, buckets=buckets
+                name, doc, labels, namespace=NAMESPACE, registry=self._registry, buckets=buckets
             )
 
         def counter(name: str, doc: str, labels: Sequence[str] = ()) -> Counter:
-            return Counter(name, doc, labels, namespace=NAMESPACE, registry=self.registry)
+            return Counter(name, doc, labels, namespace=NAMESPACE, registry=self._registry)
 
         def gauge(name: str, doc: str) -> Gauge:
-            return Gauge(name, doc, namespace=NAMESPACE, registry=self.registry)
+            return Gauge(name, doc, namespace=NAMESPACE, registry=self._registry)
 
         self._ttft = histogram("ttft_seconds", "Arrival to first token.", TTFT_BUCKETS)
         self._tpot = histogram(
@@ -104,4 +104,4 @@ class Metrics:
         """The text exposition, with the gauges set to the engine's load now."""
         self._queue_depth.set(waiting)
         self._batch_size.set(running)
-        return generate_latest(self.registry)
+        return generate_latest(self._registry)

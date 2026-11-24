@@ -86,7 +86,7 @@ The cached `mlx-lm-batched` is within noise of the baseline at c2, c4 and c8. At
 - c16 ran twice, and both runs were DISCARDED on swap.
 - **The rerun, after a reboot.**
   - Swap grew from 445 to 1,454 MB by the end of the baseline's first chunk. It grew again, to 1,633 MB, during the baseline's block 1 chunk. MB here is 2^20 bytes, as in the gate.
-  - Both baseline servers held a footprint of 11.48 GiB during those chunks. uLLM held 1.64 GiB ([probes](c16/probes.jsonl)).
+  - Both baseline servers held a footprint of 11.48 to 11.50 GiB during those chunks. uLLM held 1.64 GiB ([probes](c16/probes.jsonl)).
   - Spotlight was indexing after the reboot: `mds_stores` at 108% CPU at the start ([env](c16/env.json)).
 - **The first run.**
   - Swap grew from 404 to 730 MB.
@@ -97,7 +97,7 @@ The cached `mlx-lm-batched` is within noise of the baseline at c2, c4 and c8. At
 - **What the discarded rerun shows, for the record only.**
   - uLLM's peak footprint was 5.08 GB against the baseline's 11.56.
   - uLLM held 10.9 rows per decode step on average.
-  - Its 16-row decode step took 78.58 ms at p50 ([c16 steps](c16/steps.md)).
+  - Its 16-row decode step took 46.11 ms at p50, Sustained ([c16 steps](c16/steps.md)). In the first run it took 78.58 ms ([c16-discarded steps](c16-discarded/steps.md)). The runs disagree, so neither is a figure for M3.
   - A DISCARDED session is not claimed, so c16 has no ratio in the claims ledger.
 
 ## Offline step costs: what M3 inherits

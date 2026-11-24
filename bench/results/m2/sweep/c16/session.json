@@ -1,0 +1,14 @@
+{
+  "served_models": {
+    "mlx-lm-batched-no-cache": "/Users/shivamvats/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8",
+    "mlx-lm-batched-no-cache-twin": "/Users/shivamvats/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8",
+    "ullm": "mlx-community/Qwen3-0.6B-bf16"
+  },
+  "smoke": false,
+  "settle_s": 600.0,
+  "started_unix": 1795539083.8491368,
+  "ended_unix": 1795540695.329468,
+  "blocks_planned": 8,
+  "blocks_run": 8,
+  "ended": "completed"
+}

@@ -44,7 +44,7 @@ terminal-perf: ## M2-T10: the terminal's T7 budgets in Chromium (decision 0027),
 	pnpm -C terminal build
 	pnpm -C terminal build:hosted
 	pnpm -C terminal exec playwright install --only-shell chromium
-	rm -rf $(TERMINAL_PERF) && mkdir -p $(TERMINAL_PERF)
+	mkdir -p $(TERMINAL_PERF)
 	$(UV) python -m bench.conditions $(TERMINAL_PERF)/env.json
 	PERF_OUT=$(abspath $(TERMINAL_PERF)) pnpm -C terminal perf
 

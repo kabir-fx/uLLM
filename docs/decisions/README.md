@@ -26,6 +26,7 @@ One short file per design decision, numbered in order (roadmap 3.3). A decision 
 | [0024](0024-prometheus-metrics.md) | Prometheus metrics: a `Metrics` registry fed by the telemetry hub on the loop thread, `/metrics` flushes the hub before it renders, gauges from `EngineClient.health()`, token counters count work done, no `/metrics` with telemetry off | M2-T5 |
 | [0025](0025-load-launcher.md) | The load launcher: a separate `bench.control` process on 127.0.0.1:8090 with a loopback target fixed at startup runs one load at a time, closed loop or seeded Poisson `open_loop`; the playground calls `/v1/chat/completions` directly; the control types are generated from its JSON Schema | M2-T8 |
 | [0026](0026-replay-and-hosted-build.md) | Replay controls and the hosted build: `ReplaySource` with play, pause, speed and seek (a seek back resends the trace from its `hello`); bundled runs in `terminal/src/runs.ts`, labelled from their session's `env.json`; `vite build --mode hosted` plays only bundled runs; `pages.yml` publishes only on `workflow_dispatch` | M2-T9 |
+| [0028](0028-benchmark-sweep.md) | The concurrency sweep: one per-chunk session per concurrency 1 to 16 against batched `mlx_lm.server` without prompt cache, uLLM at `--max-num-seqs 16` recorded per chunk; gaps explained by `bench.steps` from the recordings and the offline `scripts.step_costs` | M2-T6 |
 
 ## Template
 

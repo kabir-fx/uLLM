@@ -1,0 +1,422 @@
+/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py:1894: UserWarning: mlx_lm.server is not recommended for production as it only implements basic security checks.
+  warnings.warn(
+2026-11-24 22:50:04,721 - INFO - Starting httpd at 127.0.0.1 on port 8102...
+127.0.0.1 - - [24/Nov/2026 22:50:04] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 22:50:04] "GET /v1/models HTTP/1.1" 200 -
+2026-11-24 22:50:05,373 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,373 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,373 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,373 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,374 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,374 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,374 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,374 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,375 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,376 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,376 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,376 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,376 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,376 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,376 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,376 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,377 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,378 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,378 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,378 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,378 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,379 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,379 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,379 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,379 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,379 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,379 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,379 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,380 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,380 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,380 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,380 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,381 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,381 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,381 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,381 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,382 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,382 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,382 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,382 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,383 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,383 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,383 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,383 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,384 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,384 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,384 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,384 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,385 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,385 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,385 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,385 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,386 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,386 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,386 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,386 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,387 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,387 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,387 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,387 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:05,388 - INFO - Prompt Cache: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,388 - INFO - - assistant: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,388 - INFO - - user: 0 sequences, 0.00 GB
+2026-11-24 22:50:05,388 - INFO - - system: 0 sequences, 0.00 GB
+127.0.0.1 - - [24/Nov/2026 22:50:05] "POST /v1/chat/completions HTTP/1.1" 200 -
+2026-11-24 22:50:08,603 - INFO - Prompt processing progress: 702/706
+2026-11-24 22:50:08,603 - INFO - Prompt processing progress: 702/706
+2026-11-24 22:50:08,603 - INFO - Prompt processing progress: 710/714
+2026-11-24 22:50:08,603 - INFO - Prompt processing progress: 678/682
+2026-11-24 22:50:08,603 - INFO - Prompt processing progress: 691/695
+2026-11-24 22:50:08,603 - INFO - Prompt processing progress: 678/682
+2026-11-24 22:50:08,603 - INFO - Prompt processing progress: 677/681
+2026-11-24 22:50:08,606 - INFO - Prompt processing progress: 687/691
+2026-11-24 22:50:08,671 - INFO - Prompt processing progress: 694/695
+2026-11-24 22:50:08,671 - INFO - Prompt processing progress: 681/682
+2026-11-24 22:50:08,671 - INFO - Prompt processing progress: 680/681
+2026-11-24 22:50:08,671 - INFO - Prompt processing progress: 690/691
+2026-11-24 22:50:08,671 - INFO - Prompt processing progress: 705/706
+2026-11-24 22:50:08,671 - INFO - Prompt processing progress: 713/714
+2026-11-24 22:50:08,671 - INFO - Prompt processing progress: 681/682
+2026-11-24 22:50:08,673 - INFO - Prompt processing progress: 705/706
+2026-11-24 22:50:08,700 - INFO - Prompt processing progress: 695/695
+2026-11-24 22:50:08,700 - INFO - Prompt processing progress: 682/682
+2026-11-24 22:50:08,700 - INFO - Prompt processing progress: 682/682
+2026-11-24 22:50:08,700 - INFO - Prompt processing progress: 681/681
+2026-11-24 22:50:08,700 - INFO - Prompt processing progress: 691/691
+2026-11-24 22:50:08,700 - INFO - Prompt processing progress: 706/706
+2026-11-24 22:50:08,700 - INFO - Prompt processing progress: 706/706
+2026-11-24 22:50:08,700 - INFO - Prompt processing progress: 714/714
+2026-11-24 22:50:12,491 - INFO - Prompt processing progress: 751/755
+2026-11-24 22:50:12,491 - INFO - Prompt processing progress: 731/735
+2026-11-24 22:50:12,491 - INFO - Prompt processing progress: 741/745
+2026-11-24 22:50:12,491 - INFO - Prompt processing progress: 717/721
+2026-11-24 22:50:12,491 - INFO - Prompt processing progress: 767/771
+2026-11-24 22:50:12,492 - INFO - Prompt processing progress: 789/793
+2026-11-24 22:50:12,492 - INFO - Prompt processing progress: 699/703
+2026-11-24 22:50:12,492 - INFO - Prompt processing progress: 727/731
+2026-11-24 22:50:12,585 - INFO - Prompt processing progress: 720/721
+2026-11-24 22:50:12,585 - INFO - Prompt processing progress: 770/771
+2026-11-24 22:50:12,585 - INFO - Prompt processing progress: 792/793
+2026-11-24 22:50:12,585 - INFO - Prompt processing progress: 702/703
+2026-11-24 22:50:12,585 - INFO - Prompt processing progress: 730/731
+2026-11-24 22:50:12,585 - INFO - Prompt processing progress: 734/735
+2026-11-24 22:50:12,587 - INFO - Prompt processing progress: 744/745
+2026-11-24 22:50:12,587 - INFO - Prompt processing progress: 754/755
+2026-11-24 22:50:12,641 - INFO - Prompt processing progress: 703/703
+2026-11-24 22:50:12,641 - INFO - Prompt processing progress: 731/731
+2026-11-24 22:50:12,641 - INFO - Prompt processing progress: 735/735
+2026-11-24 22:50:12,641 - INFO - Prompt processing progress: 745/745
+2026-11-24 22:50:12,641 - INFO - Prompt processing progress: 721/721
+2026-11-24 22:50:12,641 - INFO - Prompt processing progress: 755/755
+2026-11-24 22:50:12,641 - INFO - Prompt processing progress: 771/771
+2026-11-24 22:50:12,641 - INFO - Prompt processing progress: 793/793
+2026-11-24 22:50:22,427 - ERROR - mlx_lm.server generation thread died: [METAL] Command buffer execution failed: Insufficient Memory (00000008:kIOGPUCommandBufferCallbackErrorOutOfMemory).
+Traceback (most recent call last):
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 544, in _run_generate
+    self._generate()
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 943, in _generate
+    prompt_responses, gen_responses = batch_generator.next()
+                                      ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/generate.py", line 1899, in next
+    return self._next()
+           ^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/generate.py", line 1819, in _next
+    generation_responses = self._generation_batch.next()
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/generate.py", line 1478, in next
+    tokens, logprobs = self._step()
+                       ^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/generate.py", line 1434, in _step
+    mx.async_eval(self._next_tokens, self._next_logprobs, token_context)
+RuntimeError: [METAL] Command buffer execution failed: Insufficient Memory (00000008:kIOGPUCommandBufferCallbackErrorOutOfMemory).
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 64103)
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 64096)
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 64102)
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 64110)
+Exception occurred during processing of request from ('127.0.0.1', 64107)
+Exception occurred during processing of request from ('127.0.0.1', 64109)
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 64104)
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+Exception occurred during processing of request from ('127.0.0.1', 64101)
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1887, in <lambda>
+    lambda *args, **kwargs: handler_class(
+                            ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1887, in <lambda>
+    lambda *args, **kwargs: handler_class(
+                            ^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1887, in <lambda>
+    lambda *args, **kwargs: handler_class(
+                            ^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1887, in <lambda>
+    lambda *args, **kwargs: handler_class(
+                            ^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1887, in <lambda>
+    lambda *args, **kwargs: handler_class(
+                            ^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1887, in <lambda>
+    lambda *args, **kwargs: handler_class(
+                            ^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1211, in __init__
+    super().__init__(*args, **kwargs)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1887, in <lambda>
+    lambda *args, **kwargs: handler_class(
+                            ^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1211, in __init__
+    super().__init__(*args, **kwargs)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1211, in __init__
+    super().__init__(*args, **kwargs)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1211, in __init__
+    super().__init__(*args, **kwargs)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1887, in <lambda>
+    lambda *args, **kwargs: handler_class(
+                            ^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1211, in __init__
+    super().__init__(*args, **kwargs)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1211, in __init__
+    super().__init__(*args, **kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1211, in __init__
+    super().__init__(*args, **kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1211, in __init__
+    super().__init__(*args, **kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1352, in do_POST
+    self.handle_completion(request, stop_words)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1352, in do_POST
+    self.handle_completion(request, stop_words)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1352, in do_POST
+    self.handle_completion(request, stop_words)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1352, in do_POST
+    self.handle_completion(request, stop_words)
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1352, in do_POST
+    self.handle_completion(request, stop_words)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1352, in do_POST
+    self.handle_completion(request, stop_words)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1611, in handle_completion
+    for gen in response:
+               ^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1352, in do_POST
+    self.handle_completion(request, stop_words)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1611, in handle_completion
+    for gen in response:
+               ^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1611, in handle_completion
+    for gen in response:
+               ^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1611, in handle_completion
+    for gen in response:
+               ^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1352, in do_POST
+    self.handle_completion(request, stop_words)
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1611, in handle_completion
+    for gen in response:
+               ^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1611, in handle_completion
+    for gen in response:
+               ^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1175, in _inner
+    response = self._await_response(response_queue)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1611, in handle_completion
+    for gen in response:
+               ^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1175, in _inner
+    response = self._await_response(response_queue)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1175, in _inner
+    response = self._await_response(response_queue)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1175, in _inner
+    response = self._await_response(response_queue)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1611, in handle_completion
+    for gen in response:
+               ^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1175, in _inner
+    response = self._await_response(response_queue)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1175, in _inner
+    response = self._await_response(response_queue)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1160, in _await_response
+    raise RuntimeError("generation thread died") from None
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1175, in _inner
+    response = self._await_response(response_queue)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1160, in _await_response
+    raise RuntimeError("generation thread died") from None
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1160, in _await_response
+    raise RuntimeError("generation thread died") from None
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1160, in _await_response
+    raise RuntimeError("generation thread died") from None
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1175, in _inner
+    response = self._await_response(response_queue)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1160, in _await_response
+    raise RuntimeError("generation thread died") from None
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1160, in _await_response
+    raise RuntimeError("generation thread died") from None
+RuntimeError: generation thread died
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1160, in _await_response
+    raise RuntimeError("generation thread died") from None
+RuntimeError: generation thread died
+RuntimeError: generation thread died
+RuntimeError: generation thread died
+  File "/Users/shivamvats/phoenix/perplexity/uLLM/.venv/lib/python3.12/site-packages/mlx_lm/server.py", line 1160, in _await_response
+    raise RuntimeError("generation thread died") from None
+RuntimeError: generation thread died
+RuntimeError: generation thread died
+----------------------------------------
+RuntimeError: generation thread died
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+----------------------------------------
+RuntimeError: generation thread died
+----------------------------------------
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 22:50:23] "POST /v1/chat/completions HTTP/1.1" 404 -

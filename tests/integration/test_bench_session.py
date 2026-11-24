@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Literal
 
 import pytest
-from bench import analysis, conditions, schema
+from bench import analysis, conditions, schema, steps
 from bench.analysis import _twin_gate
 from bench.paired import Estimate
 from bench.regimes import Regime
@@ -32,6 +32,7 @@ from bench.session import main
 
 from ullm.runner.fake_runner import FakeTokenizer
 from ullm.telemetry.check import check_trace
+from ullm.telemetry.events import ReqArrived
 from ullm.telemetry.trace import iter_frames
 
 GOOD = Power(on_ac=True, battery_percent=100, low_power_mode=False, charging=False, lid_open=True)
@@ -548,3 +549,107 @@ def test_a_launch_may_write_into_the_session_directory(tmp_path: Path, machine: 
     )
     frames = list(iter_frames(out / "other.jsonl.gz"))
     assert check_trace(frames).problems == []
+
+
+def test_a_server_started_per_chunk_records_each_block_apart(tmp_path: Path, machine: int) -> None:
+    group = _group(tmp_path / "group.json", "per_chunk")
+    spec = json.loads(group.read_text())
+    spec["engines"][0]["launch"] += " --record {out}/other-{block}.jsonl.gz"
+    group.write_text(json.dumps(spec))
+    out = tmp_path / "session"
+    code = main(
+        [
+            str(group),
+            *("--workload", str(_workload(tmp_path / "w.json", 5))),
+            *("--settle", "0", "--ready-timeout", "30", "--out", str(out)),
+        ]
+    )
+    assert code == 0
+    measured: dict[int, set[str]] = {}
+    for line in (out / schema.RAW).read_text().splitlines():
+        record = SessionRecord.model_validate_json(line)
+        if record.engine == "other" and record.phase == "measure":
+            measured.setdefault(record.block, set()).add(record.sent.id)
+    assert sorted(measured) == [0, 1]
+    for block, ids in measured.items():
+        frames = list(iter_frames(out / f"other-{block}.jsonl.gz"))
+        assert check_trace(frames).problems == []
+        arrived = {e.rid for f in frames for e in f.events if isinstance(e, ReqArrived)}
+        assert len(arrived) == len(ids) + 1  # the chunk's one warm-up request, then its block
+
+
+def test_steps_reads_each_blocks_recording_inside_its_measured_span(
+    tmp_path: Path, machine: int
+) -> None:
+    group = _group(tmp_path / "group.json", "per_chunk")
+    spec = json.loads(group.read_text())
+    spec["engines"][0]["launch"] += " --record {out}/other-{block}.jsonl.gz"
+    group.write_text(json.dumps(spec))
+    out = tmp_path / "session"
+    main(
+        [
+            str(group),
+            *("--workload", str(_workload(tmp_path / "w.json", 5))),
+            *("--settle", "0", "--ready-timeout", "30", "--out", str(out)),
+        ]
+    )
+    session = analysis.load_session(out)
+    assert set(session.regimes.values()) == {Regime.PEAK}
+    s = steps.split(
+        [
+            steps.chunk(iter_frames(out / f"other-{b}.jsonl.gz"), session.spans[b, "other"])
+            for b in sorted(session.regimes)
+        ]
+    )
+    measured = [r for r in session.records if r.engine == "other" and r.phase == "measure"]
+    assert s.requests == len(measured) == 4
+    assert s.dropped == 0
+    assert s.prefill_ms_per_1k
+    assert s.decode_ms_by_rows
+    assert steps.main([str(out), "--engine", "other"]) == 0
+    text = (out / steps.STEPS).read_text()
+    assert "## Peak: 2 blocks, 0 events dropped" in text
+    assert "| Requests | 4 |" in text
+
+
+def _at_concurrency(valid: Path, tmp_path: Path, concurrency: int, engines: bool) -> Path:
+    copy = tmp_path / f"c{concurrency}"
+    shutil.copytree(valid, copy)
+    group = json.loads((copy / schema.GROUP).read_text())
+    group["concurrency"] = concurrency
+    if not engines:
+        group["engines"] = []
+    (copy / schema.GROUP).write_text(json.dumps(group))
+    return copy
+
+
+def test_sweep_puts_each_concurrency_in_a_column(
+    valid: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    low = _at_concurrency(valid, tmp_path, 2, engines=True)
+    high = _at_concurrency(valid, tmp_path, 4, engines=False)
+    assert analysis.main([str(high), str(low), "--sweep"]) == 0
+    out = capsys.readouterr().out
+    rate = analysis.ratios(analysis.load_session(low), "other", Regime.PEAK)["Output tok/s"]
+    table = out.split("### Peak: Output tok/s, ratio to `base`")[1].split("###")[0]
+    assert "| Engine | c2 | c4 |" in table
+    assert f"| other | {analysis._estimate(rate)}" in table
+    [row] = [line for line in table.splitlines() if line.startswith("| other |")]
+    assert row.endswith("| not run |")
+    # Two blocks give the twin no interval, so no gap can be claimed against it.
+    assert f"| other | {analysis._estimate(rate)}, within noise |" in row
+    assert "| base-twin |" in table
+    assert "Below 1 is faster for TTFT, TPOT and E2E; above 1 is faster for output tok/s." in out
+    assert out.count("- c2, VALID, servers stay loaded") == 1
+    assert out.count("- c4, VALID, servers stay loaded") == 1
+    assert out.count("Low Power Mode False") == 2
+
+
+def test_sweep_names_a_discarded_sessions_column(
+    valid: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    low = _at_concurrency(valid, tmp_path, 2, engines=True)
+    swapped = _tampered(valid, tmp_path, {"swap_used_bytes": 400 * MB + 1})
+    high = _at_concurrency(swapped, tmp_path, 4, engines=True)
+    assert analysis.main([str(low), str(high), "--sweep"]) == 0
+    assert "| Engine | c2 | c4, DISCARDED |" in capsys.readouterr().out

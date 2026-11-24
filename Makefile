@@ -116,6 +116,24 @@ bench-baselines: models ## M1-T7: the c1 and c8 sessions of decision 0016, on an
 bench-telemetry: models ## M2-T4: telemetry on against off at c8 (decision 0023), on an idle Mac on AC power
 	$(UV) python -m bench.session bench/groups/m2-telemetry.json --settle 600 --out bench/results/m2/telemetry
 
+SWEEP := bench/results/m2/sweep
+SWEEP_SESSIONS := $(SWEEP)/c1 $(SWEEP)/c2 $(SWEEP)/c4 $(SWEEP)/c8 $(SWEEP)/c16
+
+.PHONY: bench-sweep
+bench-sweep: models ## M2-T6: the c1 to c16 sessions of decision 0028, on an idle Mac on AC power
+	$(UV) python -m bench.session bench/groups/m2-c1.json --settle 240 --out $(SWEEP)/c1
+	$(UV) python -m bench.session bench/groups/m2-c2.json --settle 600 --out $(SWEEP)/c2
+	$(UV) python -m bench.session bench/groups/m2-c4.json --settle 600 --out $(SWEEP)/c4
+	$(UV) python -m bench.session bench/groups/m2-c8.json --settle 600 --out $(SWEEP)/c8
+	# A 16 GB Mac may swap at c16 (claims row 33): the verdict is recorded, the sweep goes on.
+	-$(UV) python -m bench.session bench/groups/m2-c16.json --settle 600 --out $(SWEEP)/c16
+	# Expected to fail: it records whether cached mlx-lm fits at c16 on an idle Mac.
+	-$(UV) python -m bench.session bench/groups/m2-c16-cache.json --settle 0 --blocks 1 \
+		--out $(SWEEP)/c16-cache
+	$(UV) python -m scripts.step_costs --out $(SWEEP)
+	$(UV) python -m bench.steps $(SWEEP_SESSIONS)
+	$(UV) python -m bench.analysis $(SWEEP_SESSIONS) --sweep > $(SWEEP)/comparison.md
+
 .PHONY: test-mlx equivalence bench-smoke sim up verify
 test-mlx: ## Tests marked mlx: need MLX (Apple Silicon); the model from M0-T7 on
 	$(UV) pytest -m mlx

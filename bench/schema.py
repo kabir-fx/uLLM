@@ -150,7 +150,8 @@ class RequestRecord(Frozen):
 
 class EngineSpec(Frozen):
     """One server of a group. ``launch`` may hold ``{model}``, the pinned snapshot's path,
-    ``{port}`` and ``{out}``, the session directory; it runs through shlex, never a shell."""
+    ``{port}``, ``{out}``, the session directory, and in a per-chunk group ``{block}``; it runs
+    through shlex, never a shell."""
 
     name: str
     launch: str
@@ -191,6 +192,14 @@ class Group(Frozen):
             raise ValueError(f"engine names repeat: {names}")
         if any(n.endswith(TWIN) for n in names):
             raise ValueError(f"no engine name may end in {TWIN!r}: the session derives the twin")
+        return self
+
+    @model_validator(mode="after")
+    def _block_per_chunk(self) -> Self:
+        if self.servers == "resident" and any("{block}" in s.launch for s in self.servers_in_order):
+            raise ValueError(
+                "a resident server starts before any block: no launch may name {block}"
+            )
         return self
 
     @property

@@ -710,10 +710,68 @@ def compare_sessions(sessions: Sequence[Session]) -> str:
     return "\n".join(lines)
 
 
+def _column(session: Session, verdict: bool = True) -> str:
+    c = f"c{session.group.concurrency}"
+    return c if session.verdict == "VALID" or not verdict else f"{c}, {session.verdict}"
+
+
+def sweep_sessions(sessions: Sequence[Session]) -> str:
+    """One table per regime and metric: a row per engine, a column per concurrency."""
+    ordered = sorted(sessions, key=lambda s: s.group.concurrency)
+    baselines = {s.baseline for s in ordered}
+    if len(baselines) != 1:
+        raise SystemExit(f"a sweep needs one baseline, got {sorted(baselines)}")
+    twin = ordered[0].twin
+    engines = list(dict.fromkeys(e.name for s in ordered for e in s.group.engines))
+    lines = [
+        f"Ratio to `{ordered[0].baseline}`: median [95% block-bootstrap interval], "
+        "prompts/blocks. Below 1 is faster for TTFT, TPOT and E2E; above 1 is faster for "
+        "output tok/s. A gap inside its session's twin floor reads within noise.",
+        "",
+    ]
+    for s in ordered:
+        lines += [
+            f"- {_column(s, verdict=False)}, {s.verdict}, {_lifecycle(s.group)}",
+            f"  {_conditions(s)}",
+        ]
+    lines.append("")
+    for regime in REGIMES:
+        here = [s for s in ordered if any(r is regime for r in s.regimes.values())]
+        if not here:
+            continue
+        estimates = {id(s): {n: ratios(s, n, regime) for n in [*engines, twin]} for s in here}
+        for m in METRICS:
+            lines += [
+                f"### {regime.value}: {m}, ratio to `{ordered[0].baseline}`",
+                "",
+                "| Engine | " + " | ".join(_column(s) for s in here) + " |",
+                "|---" * (1 + len(here)) + "|",
+            ]
+            for name in [*engines, twin]:
+                cells = []
+                for s in here:
+                    est = estimates[id(s)][name].get(m)
+                    if name != twin and name not in {e.name for e in s.group.engines}:
+                        cells.append("not run")
+                        continue
+                    cell = _estimate(est)
+                    noise = estimates[id(s)][twin].get(m)
+                    floor_ = None if noise is None else floor(noise)
+                    if name != twin and est is not None and not claimed(est, floor_):
+                        cell += ", within noise"
+                    cells.append(cell)
+                lines.append(f"| {name} | " + " | ".join(cells) + " |")
+            lines.append("")
+    return "\n".join(lines)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="bench.analysis")
     parser.add_argument("dirs", nargs="+", type=Path, help="C5 run or session directories")
     parser.add_argument("--compare", action="store_true", help="also print a table across them")
+    parser.add_argument(
+        "--sweep", action="store_true", help="also print one column per session's concurrency"
+    )
     args = parser.parse_args(argv)
     runs = [load_run(p) for p in args.dirs if not (p / schema.GROUP).exists()]
     sessions = [load_session(p) for p in args.dirs if (p / schema.GROUP).exists()]
@@ -728,6 +786,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(compare(runs), end="")
         if sessions:
             print(compare_sessions(sessions), end="")
+    if args.sweep:
+        print(sweep_sessions(sessions), end="")
     return 0
 
 

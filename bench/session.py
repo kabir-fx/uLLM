@@ -47,6 +47,7 @@ WORKLOAD = Path("bench/workloads/a.json")
 MODEL = "{model}"
 PORT = "{port}"
 OUT = "{out}"
+BLOCK = "{block}"
 
 
 class ServerFailed(Exception):
@@ -86,9 +87,10 @@ class Server:
     live: Live | None = None
     served: str | None = None
 
-    async def start(self, timeout_s: float) -> Live:
+    async def start(self, timeout_s: float, block: int | None = None) -> Live:
         log = self.log_path.open("ab")
-        target = Target(self.launch, log)
+        launch = self.launch if block is None else self.launch.replace(BLOCK, str(block))
+        target = Target(launch, log)
         client = httpx2.AsyncClient(base_url=f"http://127.0.0.1:{self.port}", timeout=None)
         try:
             served = await ready(client, target, timeout_s, self.model)
@@ -236,7 +238,7 @@ class Session:
         """One engine's turn: start it if it runs per chunk, warm it up, send the block, probe.
         False when a request failed."""
         per_chunk = self.group.servers == "per_chunk"
-        live = server.live or await server.start(self.args.ready_timeout)
+        live = server.live or await server.start(self.args.ready_timeout, block)
         name, concurrency = server.spec.name, self.group.concurrency
         try:
             warm = await live.send(warmup, concurrency, self.kwargs)

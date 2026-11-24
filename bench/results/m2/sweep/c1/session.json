@@ -1,0 +1,16 @@
+{
+  "served_models": {
+    "mlx-lm-batched-no-cache": "/Users/shivamvats/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8",
+    "mlx-lm-batched-no-cache-twin": "/Users/shivamvats/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8",
+    "ullm": "mlx-community/Qwen3-0.6B-bf16",
+    "mlx-lm-batched": "/Users/shivamvats/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8",
+    "mlx-lm-sequential-no-cache": "/Users/shivamvats/.cache/huggingface/hub/models--mlx-community--Qwen3-0.6B-bf16/snapshots/42096995f6402fde107068cf530136fe64b604f8"
+  },
+  "smoke": false,
+  "settle_s": 240.0,
+  "started_unix": 1795468719.953717,
+  "ended_unix": 1795473811.083744,
+  "blocks_planned": 21,
+  "blocks_run": 21,
+  "ended": "completed"
+}

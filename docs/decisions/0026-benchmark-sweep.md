@@ -44,7 +44,7 @@
    - the share of uLLM's busy span spent in prefill, in decode, and between steps;
    - for each request, the prefill time of other requests that ran while it was decoding, as a share of its decode span: the stall FCFS whole-prompt prefill puts on running rows (0020).
 6. **`scripts.step_costs`** is an offline micro-benchmark on the real model, one process, no server. At 1, 2, 4, 8 and 16 rows it times uLLM's `MLXRunner` decode step and `BatchKV.pack`. At one row it times mlx-lm's `generate_step` per token and the same model forward with a synchronous `mx.eval` each step. It writes `bench/results/m2/sweep/step-costs.json` and `.md`. It lives in `scripts/`, as `scripts/make_goldens.py` does: the ruff ban on `mlx_lm.generate` covers engine and bench code, and rule 10 covers engine code.
-7. **`bench.analysis --sweep`** prints one table per regime across the sessions: rows are engines, columns are concurrencies, cells the output tok/s ratio to `mlx-lm-batched-no-cache` with its interval and "within noise" against that session's twin. A second table gives TTFT and TPOT ratios the same way. `make bench-sweep` runs the five sessions, the `m2-c16-cache` block, `scripts.step_costs`, `bench.steps` on each session, and writes `bench/results/m2/sweep/comparison.md`.
+7. **`bench.analysis --sweep`** prints one table per regime across the sessions: rows are engines, columns are concurrencies, cells the output tok/s ratio to `mlx-lm-batched-no-cache` with its interval and "within noise" against that session's twin. A DISCARDED session's column is headed with its verdict, so its cells never read as claims. A second table gives TTFT and TPOT ratios the same way. `make bench-sweep` runs the five sessions, the `m2-c16-cache` block, `scripts.step_costs`, `bench.steps` on each session, and writes `bench/results/m2/sweep/comparison.md`.
 8. **The gap report** `bench/results/m2/sweep/README.md` names every gap the tables claim (outside the twin's floor) and its cause, each figure linked to a committed file. A gap without a measured cause says so.
 
 ## Alternatives considered
@@ -60,3 +60,4 @@
 - The sweep is five sessions on the author's idle Mac. M1's c1 and c8 sessions took 62 and 57 minutes (`session.json`).
 - c16 has 8 blocks. If few of them are Peak, Peak has no interval, as in M1.
 - M3-T9 and M7-T1 reuse `bench.steps` and `--sweep`.
+- c16 was DISCARDED twice on swap growth: once in the full sweep, and once more after a reboot, as the author chose. The first run is kept in `bench/results/m2/sweep/c16-discarded/`. No c16 ratio is claimed. The swap growth is recorded as a measured finding (claims row 30).

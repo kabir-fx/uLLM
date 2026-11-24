@@ -1,3 +1,16 @@
+Ratio to `mlx-lm-batched-no-cache`: median [95% block-bootstrap interval], prompts/blocks. Below 1 is faster for TTFT, TPOT and E2E; above 1 is faster for output tok/s. A gap inside its session's twin floor reads within noise.
+
+- c1, VALID, one server per chunk
+  - Commit `c51200e20812` (dirty tree). Apple M4, 10 cores, 16 GB, macOS 27.2.1; mlx 0.32.4, mlx-lm 0.32.2. At the start: AC True, battery 18%, Low Power Mode False. Over 106 probes: charging in 106, lid open in 106.
+- c2, VALID, one server per chunk
+  - Commit `c51200e20812` (dirty tree). Apple M4, 10 cores, 16 GB, macOS 27.2.1; mlx 0.32.4, mlx-lm 0.32.2. At the start: AC True, battery 31%, Low Power Mode False. Over 85 probes: charging in 85, lid open in 85.
+- c4, VALID, one server per chunk
+  - Commit `c51200e20812` (dirty tree). Apple M4, 10 cores, 16 GB, macOS 27.2.1; mlx 0.32.4, mlx-lm 0.32.2. At the start: AC True, battery 44%, Low Power Mode False. Over 85 probes: charging in 85, lid open in 85.
+- c8, VALID, one server per chunk
+  - Commit `c51200e20812` (dirty tree). Apple M4, 10 cores, 16 GB, macOS 27.2.1; mlx 0.32.4, mlx-lm 0.32.2. At the start: AC True, battery 55%, Low Power Mode False. Over 41 probes: charging in 41, lid open in 41.
+- c16, DISCARDED, one server per chunk
+  - Commit `c51200e20812` (dirty tree). Apple M4, 10 cores, 16 GB, macOS 27.2.1; mlx 0.32.4, mlx-lm 0.32.2. At the start: AC True, battery 50%, Low Power Mode False. Over 25 probes: charging in 25, lid open in 25.
+
 ### Peak: TTFT, ratio to `mlx-lm-batched-no-cache`
 
 | Engine | c1 | c4 | c16, DISCARDED |

@@ -1,6 +1,6 @@
 # M2-T10: Terminal quality gates
 
-**State:** in build. You do not need to do anything now.
+**State:** DONE at `ac1e03c`. Type `/ship` to open the pull request.
 **Decision record:** [0027](../decisions/0027-terminal-quality-gates.md) (the full design, for agents) · **Spec:** roadmap M2-T10 (T7)
 
 ## The goal
@@ -98,3 +98,41 @@ A replay keeps a copy of the whole trace in memory. That copy is about 18 MB for
 </details>
 
 ## Result
+
+**DONE at `ac1e03c`.** The full check `make ci` passed at `ac1e03c`. The change used 3 agent runs.
+
+- **Proof:** NOT VERIFIED at `7019665`. Seven of eight claims passed. The memory budget passed against two real leaks.
+- **Review:** NOT READY at `7019665`, with three test findings and one port finding.
+- **Re-check:** READY at `ac1e03c`. The agent ran each reproduction again, and each one now fails as it must.
+
+Changes against the plan:
+
+- The memory budget now uses live mode. It compares the heap after 40 repeats with the heap after 20.
+- A replay keeps the whole trace in memory, so the first design could not see a small leak.
+- The browser tests use ports 4183 and 4184. A `vite preview` on 4173 broke `make check` before.
+
+Bugs that proof and review found:
+
+- A store that kept every ended request passed the old memory test. It now fails at 1.17×.
+- A page that kept every frame also passed. It now fails at 1.83×.
+- The key exclusion list had no test. A new test fails when the list is shorter.
+- The smoke test passed on an empty step chart. It now counts the pixels of the token bars.
+- `make terminal-perf` wrote `dirty: true` on a clean tree, because it deleted its results first.
+
+Results on the M4, in `bench/results/m2/terminal-perf/`:
+
+- The frame rate was 60.0 fps, and the p99 frame interval was 16.8 ms.
+- The heap was 4.13 MB after 20 repeats and after 40 repeats.
+- The hosted replay was ready in a median of 72 ms.
+
+What is not proven:
+
+- The CI runner on Linux did not run the browser tests yet. `/ship` will show that.
+- The KV block grid is not in the frame-rate test. The M3 task that builds T5 will add it.
+
+Read these yourself:
+
+- `terminal/perf/budgets.spec.ts:67`: the memory budget. Check that 20 repeats fill every ring.
+- `terminal/src/keys.ts:4`: the controls that keep their own keys.
+- `Makefile:42`: the `terminal-perf` target writes committed results.
+

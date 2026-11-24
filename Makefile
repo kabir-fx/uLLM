@@ -36,6 +36,18 @@ check-ts: ## Terminal: generated contract types are fresh, typecheck, unit tests
 	pnpm -C terminal exec playwright install --only-shell chromium
 	pnpm -C terminal e2e
 
+TERMINAL_PERF := bench/results/m2/terminal-perf
+
+.PHONY: terminal-perf
+terminal-perf: ## M2-T10: the terminal's T7 budgets in Chromium (decision 0027), on the author's Mac on AC power
+	pnpm -C terminal install --frozen-lockfile --silent
+	pnpm -C terminal build
+	pnpm -C terminal build:hosted
+	pnpm -C terminal exec playwright install --only-shell chromium
+	rm -rf $(TERMINAL_PERF) && mkdir -p $(TERMINAL_PERF)
+	$(UV) python -m bench.conditions $(TERMINAL_PERF)/env.json
+	PERF_OUT=$(abspath $(TERMINAL_PERF)) pnpm -C terminal perf
+
 .PHONY: terminal-hosted
 terminal-hosted: ## The hosted replay build in terminal/dist-hosted/ (decision 0026); pages.yml publishes it
 	pnpm -C terminal install --frozen-lockfile --silent

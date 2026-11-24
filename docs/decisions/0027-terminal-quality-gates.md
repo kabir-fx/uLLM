@@ -14,6 +14,7 @@ Facts this design rests on:
 - `@playwright/test` 1.65.1 is the newest release (`pnpm view @playwright/test version`). Its Chromium is Chrome Headless Shell 159.0.8154.6.
 - A spike on the author's M4 replayed a 2,304-block trace in Chromium for 10 s at about 25 s into the trace: 60.0 fps headless and 60.0 fps headed, frame interval p99 16.8 ms and 17.7 ms.
 - Roadmap 4 says CI timings mean nothing and no benchmark runs in CI.
+- V8 shrinks the strings of a parsed frame once the store has read it. In a probe, the JS heap fell from 27.0 MB to 16.8 MB as a 10× stream was delivered once, then stayed flat. A probe that keeps every ended request raised the heap 1.39× over the same run.
 
 ## Decision
 
@@ -28,7 +29,7 @@ Facts this design rests on:
 | Budget | Measured as | Pass |
 |---|---|---|
 | 60 fps | `requestAnimationFrame` timestamps over the whole `stress` trace at speed 1, with the finished tab open | mean ≥ 58 fps and p99 frame interval ≤ 25 ms |
-| Flat memory | the `stress` trace repeated 10 times as one stream (no `hello` between repeats, `seq`, `t` and request ids shifted), served through `page.route`, at speed 16; JS heap and DOM nodes after a forced GC at the end of each repeat | the last repeat's heap ≤ 1.10 × the second's, and DOM nodes ≤ 1.10 × |
+| Flat memory | the `stress` trace repeated 10 times as one stream (no `hello` between repeats, `seq`, `t` and request ids shifted), served through `page.route`, delivered once by a seek to the end and back, then played at speed 16; JS heap and DOM nodes after a forced GC at the end of each repeat | the last repeat's heap ≤ 1.10 × the second's, and DOM nodes ≤ 1.10 × |
 | Interactive | from navigation start to the replay panel showing a duration above zero, on the hosted build, 5 cold browser contexts | median ≤ 1,000 ms |
 
 The heap compares with the second repeat, not the first, because the rings fill during the first.

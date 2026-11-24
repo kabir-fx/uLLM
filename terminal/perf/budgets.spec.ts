@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 import { fixtureFrames } from "../src/testing/fixtures";
 import { repeatTrace } from "../src/testing/repeat";
 
@@ -8,8 +8,15 @@ import { repeatTrace } from "../src/testing/repeat";
 const HOSTED = "http://127.0.0.1:4183/";
 const FPS_MIN = 58;
 const FRAME_P99_MAX_MS = 25;
-const REPEATS = 10;
-const GROWTH_MAX = 1.1;
+// The TTFT and TPOT rings hold 4,096 samples and the stress trace adds 218 a repeat, so every
+// ring is full after 19 repeats; growth past that is a leak.
+const BASE_REPEATS = 20;
+const LONG_REPEATS = 40;
+const LOADS = 3;
+const GROWTH_MAX = 1.05;
+/** Nothing listens here: Playwright answers both from the test. */
+const STREAM = "http://127.0.0.1:9999/telemetry/stream";
+const CONTROL = "http://127.0.0.1:9998";
 const INTERACTIVE_MAX_MS = 1000;
 const COLD_LOADS = 5;
 
@@ -57,47 +64,52 @@ test("60 fps over the stress trace, with the finished tab open", async ({ page }
   expect(p99).toBeLessThanOrEqual(FRAME_P99_MAX_MS);
 });
 
-test("flat memory over the stress trace streamed 10 times with no reset", async ({ page }) => {
-  const frames = repeatTrace(await fixtureFrames("stress.jsonl.gz"), REPEATS);
-  const body = frames.map((f) => JSON.stringify(f)).join("\n");
-  await page.route("**/long.jsonl", (route) => route.fulfill({ body, contentType: "application/x-ndjson" }));
-  const cdp = await page.context().newCDPSession(page);
+test("flat memory: a live session holds the same heap after 40 repeats of the stress trace as after 20", async ({ browser }) => {
+  const stress = await fixtureFrames("stress.jsonl.gz");
+  const samples = async (repeats: number) => {
+    const sse = repeatTrace(stress, repeats).map((f) => `data: ${JSON.stringify(f)}\n\n`).join("");
+    const out: { heap: number; nodes: number }[] = [];
+    for (let i = 0; i < LOADS; i++) out.push(await liveMemoryAfter(browser, sse));
+    return out;
+  };
+  const base = await samples(BASE_REPEATS);
+  const long = await samples(LONG_REPEATS);
 
-  await page.goto("/?trace=long.jsonl&speed=16");
-  await expect(page.locator(".status")).toHaveText("open");
-  // V8 shrinks a parsed frame's strings once the store has read them, so the heap falls while
-  // a trace plays for the first time. Delivering every frame first takes that out.
-  const position = page.getByLabel("position");
-  await page.keyboard.press("Space");
-  await position.fill((await position.getAttribute("max"))!);
-  await position.fill("0");
-  await page.locator(".replay button").click();
-  await expect(page.locator(".status")).toHaveText("open");
-  const period = (frames.at(-1)!.t - frames[0]!.t) / REPEATS;
-  const heap: number[] = [];
-  const nodes: number[] = [];
-  for (let k = 1; k <= REPEATS; k++) {
-    await expect.poll(async () => Number(await position.inputValue()), { timeout: 60_000 }).toBeGreaterThanOrEqual(k * period - 1);
-    await cdp.send("HeapProfiler.collectGarbage");
-    heap.push((await cdp.send("Runtime.getHeapUsage")).usedSize);
-    nodes.push((await cdp.send("Memory.getDOMCounters")).nodes);
-  }
-
-  const heapGrowth = heap.at(-1)! / heap[1]!;
-  const nodeGrowth = nodes.at(-1)! / nodes[1]!;
+  const heapGrowth = median(long.map((s) => s.heap)) / median(base.map((s) => s.heap));
+  const nodeGrowth = median(long.map((s) => s.nodes)) / median(base.map((s) => s.nodes));
   result.memory = {
-    repeats: REPEATS,
-    speed: 16,
-    heap_bytes: heap,
-    dom_nodes: nodes,
-    heap_last_over_second: round(heapGrowth),
-    nodes_last_over_second: round(nodeGrowth),
+    repeats: { base: BASE_REPEATS, long: LONG_REPEATS },
+    heap_bytes: { base: base.map((s) => s.heap), long: long.map((s) => s.heap) },
+    dom_nodes: { base: base.map((s) => s.nodes), long: long.map((s) => s.nodes) },
+    heap_long_over_base: round(heapGrowth),
+    nodes_long_over_base: round(nodeGrowth),
     budget: { growth_max: GROWTH_MAX },
     pass: heapGrowth <= GROWTH_MAX && nodeGrowth <= GROWTH_MAX,
   };
   expect(heapGrowth).toBeLessThanOrEqual(GROWTH_MAX);
   expect(nodeGrowth).toBeLessThanOrEqual(GROWTH_MAX);
 });
+
+/**
+ * JS heap and DOM nodes after a forced GC, once a live stream has delivered `sse` in full.
+ * Live mode keeps no copy of the frames, unlike a replay, so a leak of frames shows.
+ */
+async function liveMemoryAfter(browser: Browser, sse: string): Promise<{ heap: number; nodes: number }> {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.route(STREAM, (route) =>
+    route.fulfill({ body: sse, headers: { "content-type": "text/event-stream", "access-control-allow-origin": "*" } }),
+  );
+  await page.route(`${CONTROL}/**`, (route) => route.abort());
+  const cdp = await context.newCDPSession(page);
+  await page.goto(`/?live=${encodeURIComponent(STREAM)}&control=${encodeURIComponent(CONTROL)}`);
+  await expect(page.locator(".status")).toHaveText("ended", { timeout: 60_000 });
+  await cdp.send("HeapProfiler.collectGarbage");
+  const heap = (await cdp.send("Runtime.getHeapUsage")).usedSize;
+  const nodes = (await cdp.send("Memory.getDOMCounters")).nodes;
+  await context.close();
+  return { heap, nodes };
+}
 
 test("the hosted replay is interactive within 1 s of navigation", async ({ browser }) => {
   const times: number[] = [];
@@ -130,6 +142,10 @@ async function interactiveAfter(page: Page): Promise<number> {
     { polling: "raf" },
   );
   return (await ready.jsonValue()) as number;
+}
+
+function median(values: number[]): number {
+  return [...values].sort((a, b) => a - b)[values.length >> 1]!;
 }
 
 function round(n: number): number {

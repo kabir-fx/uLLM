@@ -57,3 +57,35 @@ def test_loops_that_disagree_on_a_token_are_refused(
     prompt = step_costs._median_prompt(tokenizer)
     with pytest.raises(RuntimeError, match="different tokens"):
         step_costs.measure(runner.model, runner, prompt, (1,), 4, 1)
+
+
+def test_a_repack_is_timed_with_its_copy_evaluated(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # MLX is lazy: a repack costs nothing until something evaluates the packed KV. A packed
+    # layer that carries a costly lazy term shows whether the timing waits for it.
+    import mlx.core as mx
+    from scripts import step_costs
+
+    from ullm.runner.kv import batch as kv
+
+    real = kv._packed
+
+    def costly(
+        rows: list[tuple[kv.LayerKV, int, int, int]], length: int
+    ) -> tuple[mx.array | None, mx.array | None]:
+        keys, values = real(rows, length)
+        assert keys is not None
+        x = mx.ones((1024, 1024))
+        for _ in range(4):
+            x = x @ x * 1e-3
+        return keys + 0 * x.sum().astype(keys.dtype), values
+
+    runner, tokenizer = mlx_loaded
+    prompt = step_costs._median_prompt(tokenizer)
+    _, plain = step_costs.batch(runner, prompt, 2, 6)
+    monkeypatch.setattr(kv, "_packed", costly)
+    _, slowed = step_costs.batch(runner, prompt, 2, 6)
+    layers = len(runner.model.layers)
+    assert slowed["join_ms"] - plain["join_ms"] > layers * 0.5
+    assert slowed["leave_ms"] - plain["leave_ms"] > layers * 0.5

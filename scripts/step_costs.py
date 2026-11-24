@@ -3,7 +3,8 @@
 At one row it times mlx-lm's ``generate_step``, which queues step ``n + 1`` before it waits on
 step ``n``, against the same model call that waits on every step. At each row count it times
 uLLM's ``MLXRunner`` decode step, split into the forward pass and the rest, and the repack when
-a sequence joins or leaves the batch.
+a sequence joins or leaves the batch. MLX is lazy, so a repack's copy runs in the next step's
+``mx.eval``: its cost is that step's total minus the median step at the same row count.
 
     uv run python -m scripts.step_costs --out bench/results/m2/sweep
 """
@@ -50,8 +51,8 @@ class Batch(Frozen):
     rows: int
     forward_ms: tuple[float, ...]
     total_ms: tuple[float, ...]
-    join_ms: tuple[float, ...]  # the first decode's total minus its forward: the repack
-    leave_ms: tuple[float, ...]  # ``release`` of one row of the full batch
+    join_ms: tuple[float, ...]
+    leave_ms: tuple[float, ...] = ()  # none at one row: no row is left to decode
 
 
 class StepCosts(Frozen):
@@ -108,8 +109,9 @@ def synchronous(model: Any, prompt: list[int], n: int) -> tuple[list[int], float
 def batch(
     runner: MLXRunner, prompt: list[int], rows: int, n: int
 ) -> tuple[list[int], dict[str, float]]:
-    """``rows`` copies of ``prompt``, prefilled one by one, then ``n`` decode steps of all.
-    Returns row 0's tokens and the medians."""
+    """``rows`` copies of ``prompt``, prefilled one by one, then ``n`` decode steps of all;
+    then one row leaves and the rest decode ``n`` steps more. Returns row 0's tokens up to the
+    leave, and the medians."""
     seqs = tuple(range(rows))
     last = []
     for seq in seqs:
@@ -117,27 +119,28 @@ def batch(
         last.append(runner.execute(PrefillPlan(seq, tuple(prompt), 0)).tokens[0])
     first = [last[0]]
     forward, total = [], []
-    join = 0.0
-    for i in range(n - 1):
+    for _ in range(n - 1):
         result = runner.execute(DecodePlan(seqs, tuple(last)))
         last = list(result.tokens)
         first.append(last[0])
-        if i == 0:
-            join = result.total_ms - result.forward_ms
-        else:
-            forward.append(result.forward_ms)
-            total.append(result.total_ms)
-    began = time.perf_counter()
-    runner.release(seqs[-1])
-    leave = (time.perf_counter() - began) * 1000
-    for seq in seqs[:-1]:
-        runner.release(seq)
+        forward.append(result.forward_ms)
+        total.append(result.total_ms)
     medians = {
-        "forward_ms": statistics.median(forward),
-        "total_ms": statistics.median(total),
-        "join_ms": join,
-        "leave_ms": leave,
+        "forward_ms": statistics.median(forward[1:]),
+        "total_ms": statistics.median(total[1:]),
+        "join_ms": total[0] - statistics.median(total[1:]),
     }
+    runner.release(seqs[-1])
+    rest, last = seqs[:-1], last[:-1]
+    if rest:
+        after = []
+        for _ in range(n - 1):
+            result = runner.execute(DecodePlan(rest, tuple(last)))
+            last = list(result.tokens)
+            after.append(result.total_ms)
+        medians["leave_ms"] = after[0] - statistics.median(after[1:])
+    for seq in rest:
+        runner.release(seq)
     return first, medians
 
 
@@ -174,6 +177,8 @@ def measure(
 
 
 def _cell(values: Sequence[float]) -> str:
+    if not values:
+        return "n/a"
     return f"{statistics.median(values):.2f} [{min(values):.2f}, {max(values):.2f}]"
 
 

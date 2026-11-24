@@ -33,7 +33,9 @@ class Chunk:
 def chunk(frames: Iterable[ev.Frame], span: ChunkSpan) -> Chunk:
     frames = list(frames)
     events = [e for f in frames for e in f.events]
-    hello = next(e for e in events if isinstance(e, ev.Hello))
+    hello = next((e for e in events if isinstance(e, ev.Hello)), None)
+    if hello is None:
+        raise ValueError("a recording with no hello event: its server died before it began")
     start = span.start_unix * 1000 - hello.epoch_unix_ms
     end = span.end_unix * 1000 - hello.epoch_unix_ms
     steps = [e for e in events if isinstance(e, ev.Step) and e.t - e.ms >= start and e.t <= end]

@@ -106,3 +106,9 @@ def test_a_requests_stall_is_others_prefill_while_it_decodes() -> None:
 def test_dropped_events_are_counted() -> None:
     frames = [ev.Frame(replica="r", seq=0, t=1500, dropped=3, events=EVENTS)]
     assert split([chunk(frames, ChunkSpan("ullm", 1000.0, 1001.0))]).dropped == 3
+
+
+def test_a_recording_without_hello_is_refused_by_name() -> None:
+    # A server that dies before its first frame leaves a recording with no epoch to align.
+    with pytest.raises(ValueError, match="no hello"):
+        chunk([], ChunkSpan("ullm", 1000.0, 1001.0))

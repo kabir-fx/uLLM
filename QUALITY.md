@@ -30,6 +30,7 @@ Always true on `main`. A change that breaks one of these does not merge.
 - mlx-lm reproduces the committed goldens, and a missing model fails instead of skipping: `ci-mlx`.
 - Lockfiles match their manifests: `uv run --locked` and `pnpm install --frozen-lockfile`, in `ci-core` and `ci-terminal`.
 - The generated TypeScript contract types match the schema, and the terminal typechecks strictly: `ci-terminal`.
+- The hosted replay opens, plays and draws in headless Chromium with no console error (decision 0027): `terminal/e2e/`, run by `ci-terminal`.
 - Go code is gofmt-clean and vet-clean, and its tests pass under the race detector: `ci-router`.
 
 ## Ratchets

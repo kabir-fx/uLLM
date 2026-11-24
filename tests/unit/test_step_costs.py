@@ -1,6 +1,6 @@
 """``scripts.step_costs`` times loops that do the same work: at one row, mlx-lm's pipelined
 loop, the same call waiting on each step, and ``MLXRunner`` give the same greedy tokens
-(decision 0026)."""
+(decision 0028)."""
 
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING

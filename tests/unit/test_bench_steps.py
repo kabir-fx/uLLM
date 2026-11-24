@@ -1,5 +1,5 @@
 """``bench.steps`` splits one chunk's recorded steps into the figures that explain a gap
-(decision 0026). Every expected value below is worked out by hand from the events."""
+(decision 0028). Every expected value below is worked out by hand from the events."""
 
 from typing import Literal
 

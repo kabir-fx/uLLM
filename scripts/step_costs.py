@@ -1,4 +1,4 @@
-"""Offline step costs on the real model, in one process with no server (decision 0026).
+"""Offline step costs on the real model, in one process with no server (decision 0028).
 
 At one row it times mlx-lm's ``generate_step``, which queues step ``n + 1`` before it waits on
 step ``n``, against the same model call that waits on every step. At each row count it times

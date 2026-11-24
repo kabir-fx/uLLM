@@ -1,6 +1,6 @@
 # M2 sweep: workload A at concurrency 1 to 16, and why each gap exists
 
-Decision 0026 defines the sessions. Each ratio is to batched `mlx_lm.server` without prompt cache, `mlx-lm-batched-no-cache`. Each ratio is paired prompt by prompt in each block, with a 95% block-bootstrap interval. A gap is claimed only when its median is outside the twin's floor (decision 0016). All sessions ran on the same machine:
+Decision 0028 defines the sessions. Each ratio is to batched `mlx_lm.server` without prompt cache, `mlx-lm-batched-no-cache`. Each ratio is paired prompt by prompt in each block, with a 95% block-bootstrap interval. A gap is claimed only when its median is outside the twin's floor (decision 0016). All sessions ran on the same machine:
 
 - a fanless 16 GB M4 Air on AC power, with Low Power Mode off and the lid open;
 - `qwen3-0.6b-bf16`;
@@ -96,7 +96,7 @@ These are mlx-lm's paths against each other. uLLM is not in them, and no measure
   - The twin's Sustained TPOT median was 1.0556.
 - **Cached `mlx-lm-batched` at c16** ([c16-cache](c16-cache/mlx-lm-batched.log)):
   - Metal ran out of memory: `kIOGPUCommandBufferCallbackErrorOutOfMemory`.
-  - The generation thread died, and 38 of 138 requests failed. The smoke run in decision 0026 showed the same.
+  - The generation thread died, and 38 of 138 requests failed. The smoke run in decision 0028 showed the same.
 - **What the discarded rerun shows, for the record only.**
   - uLLM's peak footprint was 5.08 GB against the baseline's 11.56.
   - uLLM held 10.9 rows per decode step on average.

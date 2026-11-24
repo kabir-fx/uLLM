@@ -29,7 +29,7 @@ def test_a_group_whose_engine_replaces_a_common_request_field_is_refused() -> No
 
 
 def test_a_resident_server_cannot_name_a_block() -> None:
-    # A resident server starts once, before any block (decision 0026).
+    # A resident server starts once, before any block (decision 0028).
     launch = "x --record {out}/r-{block}.jsonl.gz"
     with pytest.raises(ValidationError, match="block"):
         Group.model_validate(_group("resident", launch, {}))
@@ -59,7 +59,7 @@ SWEEP = {1: 21, 2: 21, 4: 21, 8: 10, 16: 8}
 def test_each_sweep_group_runs_the_same_engines_and_plans_its_blocks(
     concurrency: int, blocks: int
 ) -> None:
-    # Decision 0026: one baseline and one uLLM configuration at every concurrency.
+    # Decision 0028: one baseline and one uLLM configuration at every concurrency.
     root = Path(__file__).parents[2]
     group = Group.model_validate_json((root / f"bench/groups/m2-c{concurrency}.json").read_text())
     assert group.concurrency == concurrency

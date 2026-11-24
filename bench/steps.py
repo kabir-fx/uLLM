@@ -1,5 +1,5 @@
 """What uLLM's engine did during each measured chunk of a session, from its per-chunk
-recordings: the figures that explain a gap to the baseline (decision 0026).
+recordings: the figures that explain a gap to the baseline (decision 0028).
 
     uv run python -m bench.steps bench/results/m2/sweep/c8      # writes steps.md
 """

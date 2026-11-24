@@ -1,7 +1,7 @@
 # M2-T6: The concurrency sweep
 
 **State:** built. Proof is VERIFIED and review is READY, so it is ready for `/ship`.
-**Decision record:** [0026](../decisions/0026-benchmark-sweep.md) (the full design, for agents) · **Spec:** roadmap M2-T6 (B3, B6)
+**Decision record:** [0028](../decisions/0028-benchmark-sweep.md) (the full design, for agents) · **Spec:** roadmap M2-T6 (B3, B6)
 
 ## The goal
 
@@ -115,15 +115,15 @@ uLLM prefills each new prompt alone, in one step. Every running request waits fo
   - Review NOT READY at `8f7d832` with one Critical, all fixed. One scoped re-check found two README wording problems. With the fix in `e300280`, review is READY.
   - `make ci` green at `1d8be2e`, `make check` green at `e300280`.
 - **Against the plan:**
-  - c16 was DISCARDED twice on swap, once after a reboot. Batched `mlx_lm.server` held 11.48 GiB, uLLM 1.6 GiB. c16 has no claimed ratio. Claims row 30 records the swap with Spotlight as a confounder. The Makefile goes on past it.
-  - Steps are selected by span, and stall is a share of the client's measured span (0026 item 5).
+  - c16 was DISCARDED twice on swap, once after a reboot. Batched `mlx_lm.server` held 11.48 GiB, uLLM 1.6 GiB. c16 has no claimed ratio. Claims row 33 records the swap with Spotlight as a confounder. The Makefile goes on past it.
+  - Steps are selected by span, and stall is a share of the client's measured span (0028 item 5).
 - **Bugs that proof and review found:**
   - `scripts/step_costs.py` timed the repack call. MLX copies lazily, so the copy ran in the next step. Join and leave are now that step's excess over the median.
-  - Claims row 29 rested on Peak. It now rests on Sustained.
+  - Claims row 32 rested on Peak. It now rests on Sustained.
   - The README cited the first c16 run's step time.
   - `--sweep` named no conditions and no DISCARDED column.
   - `bench.steps` raised `StopIteration` on a recording with no hello.
-- **Findings:** at Sustained, uLLM's TTFT is 0.841, 0.548, 0.465 and 0.424 of the baseline's at c1, c2, c4 and c8. Output tok/s is 1.006, 1.079, 1.093 and 1.120. TPOT is 1.044 at c4 and 1.014 at c1. M1's 1.167 at c1 does not recur (row 29).
+- **Findings:** at Sustained, uLLM's TTFT is 0.841, 0.548, 0.465 and 0.424 of the baseline's at c1, c2, c4 and c8. Output tok/s is 1.006, 1.079, 1.093 and 1.120. TPOT is 1.044 at c4 and 1.014 at c1. M1's 1.167 at c1 does not recur (row 32).
 - **Not proven:**
   - The c1 TTFT and TPOT gaps have no measured cause. Pipelining is a guess.
   - The c2 to c8 TTFT cause (mlx-lm's 0.5 s `TimeBudget`) is read in the source, not measured.
@@ -135,5 +135,5 @@ uLLM prefills each new prompt alone, in one step. Every running request waits fo
 - **Read these yourself:**
   - `scripts/step_costs.py:109`: what the first step's excess holds.
   - `bench/results/m2/sweep/README.md`: Gap 1 and Gap 2 labels.
-  - `docs/CLAIMS.md`: rows 29 and 30.
+  - `docs/CLAIMS.md`: rows 32 and 33.
 

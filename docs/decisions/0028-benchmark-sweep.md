@@ -1,4 +1,4 @@
-# 0026: The concurrency sweep and how its gaps are explained
+# 0028: The concurrency sweep and how its gaps are explained
 
 **Status:** accepted (the author chose the recommended answer to three questions before any logic was written) · **Task:** M2-T6 (B3, B6) · **Builds on:** 0016 (paired sessions), 0020 (admission), 0023 (recorder)
 
@@ -60,4 +60,4 @@
 - The sweep is five sessions on the author's idle Mac. M1's c1 and c8 sessions took 62 and 57 minutes (`session.json`).
 - c16 has 8 blocks. If few of them are Peak, Peak has no interval, as in M1.
 - M3-T9 and M7-T1 reuse `bench.steps` and `--sweep`.
-- c16 was DISCARDED twice on swap growth: once in the full sweep, and once more after a reboot, as the author chose. The first run is kept in `bench/results/m2/sweep/c16-discarded/`. `make bench-sweep` goes on past a DISCARDED c16, so the rest of the sweep still runs. No c16 ratio is claimed. The swap growth is recorded as a measured finding (claims row 30).
+- c16 was DISCARDED twice on swap growth: once in the full sweep, and once more after a reboot, as the author chose. The first run is kept in `bench/results/m2/sweep/c16-discarded/`. `make bench-sweep` goes on past a DISCARDED c16, so the rest of the sweep still runs. No c16 ratio is claimed. The swap growth is recorded as a measured finding (claims row 33).

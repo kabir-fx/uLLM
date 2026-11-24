@@ -8,6 +8,7 @@ Recorded telemetry for building and testing the terminal before the engine exist
 |---|---|---|
 | `steady-chat.jsonl.gz` | Workload A: 10 closed-loop clients, prompts of 100–1000 tokens, outputs up to 300, batch cap 8, contiguous KV (no blocks), about 45 s | Request feed, ticker, step chart, batch strip, a short queue, two client aborts |
 | `prefix-pressure.jsonl.gz` | Workloads B and C: open-loop arrivals, 75% of requests share a 2048-token system prompt, two very long prompts, a 1024-block pool, about 50 s | Everything above, plus `kv.snapshot` (owned, shared, Cached and free blocks), prefix-cache hits, evictions, preemptions and the long-prefill stall |
+| `stress.jsonl.gz` | Open-loop arrivals at 4 a second, 64 requests running, a 2,304-block pool, 218 requests, about 70 s | The terminal's frame-rate budget (T7): about 2,300 blocks in each snapshot, and 200 rows in the finished tab and the feed |
 
 Both traces pass `ullm.telemetry.check.check_trace`: frames are gap-free and ordered, every request follows the life cycle (arrived, admitted, first token, then finished or aborted, with preemptions in between), steps only include requests that can be in them, and each `req.finished` token count equals the tokens its steps sampled.
 

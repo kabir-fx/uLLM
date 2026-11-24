@@ -1,0 +1,70 @@
+{
+  "chromium": "159.0.8154.6",
+  "viewport": {
+    "width": 1600,
+    "height": 1000
+  },
+  "fps": {
+    "frames": 4249,
+    "mean_fps": 60,
+    "p50_ms": 16.7,
+    "p99_ms": 16.8,
+    "max_ms": 16.8,
+    "finished_rows": 200,
+    "budget": {
+      "mean_fps_min": 58,
+      "p99_ms_max": 25
+    },
+    "pass": true
+  },
+  "memory": {
+    "repeats": {
+      "base": 20,
+      "long": 40
+    },
+    "heap_bytes": {
+      "base": [
+        4131676,
+        4131908,
+        4131840
+      ],
+      "long": [
+        4134196,
+        4132548,
+        4132544
+      ]
+    },
+    "dom_nodes": {
+      "base": [
+        3476,
+        3476,
+        3476
+      ],
+      "long": [
+        3476,
+        3476,
+        3476
+      ]
+    },
+    "heap_long_over_base": 1,
+    "nodes_long_over_base": 1,
+    "budget": {
+      "growth_max": 1.05
+    },
+    "pass": true
+  },
+  "interactive": {
+    "cold_loads_ms": [
+      75,
+      72.2,
+      55.7,
+      71.7,
+      71.8
+    ],
+    "median_ms": 71.8,
+    "budget": {
+      "median_ms_max": 1000
+    },
+    "pass": true
+  }
+}

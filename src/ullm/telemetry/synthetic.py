@@ -104,6 +104,22 @@ SCENARIOS: dict[str, Scenario] = {
         blocks=Blocks(),
         kv_capacity_tokens=16 * 1024,
     ),
+    "stress": Scenario(
+        name="stress",
+        description=(
+            "The terminal's frame-rate budget (T7): open-loop arrivals keep 64 requests "
+            "running on a 2,304-block pool, so the finished tab and the feed reach 200 rows."
+        ),
+        seed=3,
+        duration_s=60,
+        rate_per_s=4.0,
+        prompt_tokens=(100, 600),
+        max_tokens=256,
+        min_output_tokens=64,
+        max_num_seqs=64,
+        blocks=Blocks(num_blocks=2304),
+        kv_capacity_tokens=2304 * 16,
+    ),
 }
 
 

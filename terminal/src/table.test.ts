@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Frame } from "./contracts/telemetry";
 import { FEED_ROWS, TelemetryStore } from "./store";
-import { tabCounts, tableRows } from "./table";
+import { tabAfterKey, tabCounts, tableRows } from "./table";
 import * as ev from "./testing/events";
 import { fixtureFrames } from "./testing/fixtures";
 
@@ -97,5 +97,19 @@ describe("tableRows", () => {
     expect(store.feed()).toHaveLength(FEED_ROWS);
     expect(tabCounts(store)).toEqual({ running: 0, waiting: 40, finished: FEED_ROWS, preempted: 0 });
     expect(tableRows(store, "finished")[0]?.rid).toBe(`done${FEED_ROWS + 29}`);
+  });
+});
+
+describe("tabAfterKey", () => {
+  it("moves with the arrows, wrapping at each end, and jumps with Home and End (WAI-ARIA tabs)", () => {
+    expect(tabAfterKey("running", "ArrowRight")).toBe("waiting");
+    expect(tabAfterKey("preempted", "ArrowRight")).toBe("running");
+    expect(tabAfterKey("running", "ArrowLeft")).toBe("preempted");
+    expect(tabAfterKey("finished", "Home")).toBe("running");
+    expect(tabAfterKey("waiting", "End")).toBe("preempted");
+  });
+
+  it("ignores other keys", () => {
+    expect(tabAfterKey("running", "Enter")).toBeNull();
   });
 });

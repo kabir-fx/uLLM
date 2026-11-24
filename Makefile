@@ -26,12 +26,32 @@ check-py: ## Ruff lint and format check, mypy, unit and property tests
 	$(UV) mypy
 	$(UV) pytest -m "not mlx" tests/unit tests/property
 
-check-ts: ## Terminal: generated contract types are fresh, typecheck, unit tests, production build
+check-ts: ## Terminal: generated contract types are fresh, typecheck, unit tests, local and hosted builds, browser smoke test
 	pnpm -C terminal install --frozen-lockfile --silent
 	pnpm -C terminal check:contracts
 	pnpm -C terminal typecheck
 	pnpm -C terminal test
 	pnpm -C terminal build
+	pnpm -C terminal build:hosted
+	pnpm -C terminal exec playwright install --only-shell chromium
+	pnpm -C terminal e2e
+
+TERMINAL_PERF := bench/results/m2/terminal-perf
+
+.PHONY: terminal-perf
+terminal-perf: ## M2-T10: the terminal's T7 budgets in Chromium (decision 0027), on the author's Mac on AC power
+	pnpm -C terminal install --frozen-lockfile --silent
+	pnpm -C terminal build
+	pnpm -C terminal build:hosted
+	pnpm -C terminal exec playwright install --only-shell chromium
+	mkdir -p $(TERMINAL_PERF)
+	$(UV) python -m bench.conditions $(TERMINAL_PERF)/env.json
+	PERF_OUT=$(abspath $(TERMINAL_PERF)) pnpm -C terminal perf
+
+.PHONY: terminal-hosted
+terminal-hosted: ## The hosted replay build in terminal/dist-hosted/ (decision 0026); pages.yml publishes it
+	pnpm -C terminal install --frozen-lockfile --silent
+	pnpm -C terminal build:hosted
 
 check-go: ## Go vet and tests for the router module
 	cd router && go vet ./... && go test ./...
@@ -52,7 +72,10 @@ ci-router: ## CI router job: gofmt, go vet, tests with the race detector
 	test -z "$$(gofmt -l router)" || { gofmt -l router; exit 1; }
 	cd router && go vet ./... && go test -race ./...
 
-ci-terminal: check-ts ## CI terminal job: same as check-ts
+ci-terminal: ## CI terminal job: Chromium's system libraries, then check-ts
+	pnpm -C terminal install --frozen-lockfile --silent
+	pnpm -C terminal exec playwright install --with-deps --only-shell chromium
+	$(MAKE) check-ts
 
 ci-mlx: equivalence ## CI mlx job: equivalence, then the other tests marked mlx; a missing model fails instead of skipping
 	ULLM_REQUIRE_MODEL=1 $(UV) pytest -m mlx --ignore=tests/equivalence

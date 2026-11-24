@@ -22,7 +22,7 @@ The table across concurrencies is [comparison.md](comparison.md). The offline st
 
 ## Sustained, the claimed figures
 
-Only Sustained has blocks at every concurrency. Peak has 3 blocks at c1, 1 at c4 and 1 at c16. Only c1 has a Peak interval. Its gaps are covered under Gap 1 and Gap 3 below. `summary.md` prints footprints in GiB under the label GB, and this page copies them as printed.
+Only Sustained has blocks at every concurrency. Peak has 3 blocks at c1, 1 at c4 and 1 at c16. Only c1 has a Peak interval. uLLM's Peak gaps are covered under Gap 1 and Gap 3, the baselines' under "Gaps between the baselines". `summary.md` prints footprints in GiB under the label GB, and this page copies them as printed.
 
 | uLLM, ratio to the baseline | c1 | c2 | c4 | c8 |
 |---|---|---|---|---|
@@ -73,8 +73,8 @@ The cached `mlx-lm-batched` is within noise of the baseline at c2, c4 and c8. At
 
 These are mlx-lm's paths against each other. uLLM is not in them, and no measurement here explains them.
 
-- **`mlx-lm-sequential-no-cache` at c1, Sustained.** TTFT is 0.910 [0.894, 0.928], TPOT 0.995 [0.991, 1.001], E2E 0.981 [0.973, 0.989] and output tok/s 1.012 [1.008, 1.035]. A request with a `seed` is not batchable (`mlx_lm/server.py` line 771), so it takes `_serve_single` and `generate_step` and skips `BatchGenerator`. That this explains the gaps is a guess.
-- **Cached `mlx-lm-batched` at c1, Sustained.** TPOT is 1.004 [0.998, 1.014] and output tok/s 0.993 [0.974, 0.996]. Workload A's prompts are distinct dialogues, so the prompt cache can reuse little beyond the chat template's first tokens and mostly adds work. That this is the cause is a guess.
+- **`mlx-lm-sequential-no-cache` at c1, Sustained.** TTFT is 0.910 [0.894, 0.928], TPOT 0.995 [0.991, 1.001], E2E 0.981 [0.973, 0.989] and output tok/s 1.012 [1.008, 1.035]. At Peak, TTFT is 0.865 [0.863, 0.874], TPOT 0.993 [0.992, 0.996], E2E 0.981 [0.979, 0.985] and output tok/s 1.035 [1.032, 1.044]. A request with a `seed` is not batchable (`mlx_lm/server.py` line 771), so it takes `_serve_single` and `generate_step` and skips `BatchGenerator`. That this explains the gaps is a guess.
+- **Cached `mlx-lm-batched` at c1, Sustained.** TPOT is 1.004 [0.998, 1.014] and output tok/s 0.993 [0.974, 0.996]. At Peak, TTFT is 1.016 [1.015, 1.023] and E2E 1.003 [1.002, 1.007]. Workload A's prompts are distinct dialogues, so the prompt cache can reuse little beyond the chat template's first tokens and mostly adds work. That this is the cause is a guess.
 
 ## M1's gap at c1 does not recur
 
@@ -89,7 +89,7 @@ These are mlx-lm's paths against each other. uLLM is not in them, and no measure
 - c16 ran twice, and both runs were DISCARDED on swap.
 - **The rerun, after a reboot.**
   - Swap grew from 445 to 1,454 MB by the end of the baseline's first chunk. It grew again, to 1,633 MB, during the baseline's block 1 chunk. MB here is 2^20 bytes, as in the gate.
-  - Both baseline servers held a footprint of 11.48 to 11.50 GiB during those chunks. uLLM held 1.64 GiB ([probes](c16/probes.jsonl)).
+  - Both baseline servers held a footprint of 11.48 to 11.49 GiB during those chunks. uLLM held 1.61 to 1.64 GiB ([probes](c16/probes.jsonl)).
   - Spotlight was indexing after the reboot: `mds_stores` at 108% CPU at the start ([env](c16/env.json)). This may have added to the swap, so the rerun alone does not show the baseline as the only cause.
 - **The first run.**
   - Swap grew from 404 to 730 MB.

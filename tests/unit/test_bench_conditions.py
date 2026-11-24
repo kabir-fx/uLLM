@@ -1,5 +1,6 @@
 """B5: the run conditions a session refuses to start without (decisions 0013 and 0016)."""
 
+import subprocess
 from pathlib import Path
 
 from bench import conditions
@@ -90,4 +91,5 @@ def test_main_records_the_machine_in_env_json(tmp_path: Path) -> None:
     conditions.main([str(out)])
     env = RunEnv.model_validate_json(out.read_text())
     assert env.powermetrics is False
-    assert env.started <= env.ended
+    head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
+    assert env.commit == head.stdout.strip()

@@ -637,3 +637,13 @@ def test_sweep_puts_each_concurrency_in_a_column(
     [row] = [line for line in table.splitlines() if line.startswith("| other |")]
     assert row.endswith("| not run |")
     assert "| base-twin |" in table
+
+
+def test_sweep_names_a_discarded_sessions_column(
+    valid: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    low = _at_concurrency(valid, tmp_path, 2, engines=True)
+    swapped = _tampered(valid, tmp_path, {"swap_used_bytes": 400 * MB + 1})
+    high = _at_concurrency(swapped, tmp_path, 4, engines=True)
+    assert analysis.main([str(low), str(high), "--sweep"]) == 0
+    assert "| Engine | c2 | c4, DISCARDED |" in capsys.readouterr().out

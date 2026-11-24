@@ -710,6 +710,11 @@ def compare_sessions(sessions: Sequence[Session]) -> str:
     return "\n".join(lines)
 
 
+def _column(session: Session) -> str:
+    c = f"c{session.group.concurrency}"
+    return c if session.verdict == "VALID" else f"{c}, {session.verdict}"
+
+
 def sweep_sessions(sessions: Sequence[Session]) -> str:
     """One table per regime and metric: a row per engine, a column per concurrency."""
     ordered = sorted(sessions, key=lambda s: s.group.concurrency)
@@ -728,7 +733,7 @@ def sweep_sessions(sessions: Sequence[Session]) -> str:
             lines += [
                 f"### {regime.value}: {m}, ratio to `{ordered[0].baseline}`",
                 "",
-                "| Engine | " + " | ".join(f"c{s.group.concurrency}" for s in here) + " |",
+                "| Engine | " + " | ".join(_column(s) for s in here) + " |",
                 "|---" * (1 + len(here)) + "|",
             ]
             for name in [*engines, twin]:

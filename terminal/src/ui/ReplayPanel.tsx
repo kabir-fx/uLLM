@@ -1,4 +1,5 @@
-import { useReducer } from "react";
+import { useEffect, useReducer } from "react";
+import { replayKey } from "../keys";
 import { RUNS, type Run } from "../runs";
 import type { ReplaySource } from "../sources/replay";
 
@@ -19,6 +20,21 @@ export function ReplayPanel({ source, run }: { source: ReplaySource; run: Run | 
     rerender();
   };
   const at = source.position();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const action = replayKey({ ...pick(e), target: e.target instanceof Element ? e.target : null });
+      if (!action) return;
+      e.preventDefault();
+      if (action.kind === "toggle") {
+        if (source.playing) source.pause();
+        else source.play();
+      } else source.seek(source.position() + action.byMs);
+      rerender();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [source]);
 
   return (
     <section className="panel side-panel replay" aria-label="replay">
@@ -79,4 +95,8 @@ export function ReplayPanel({ source, run }: { source: ReplaySource; run: Run | 
       </p>
     </section>
   );
+}
+
+function pick({ key, altKey, ctrlKey, metaKey, shiftKey }: KeyboardEvent) {
+  return { key, altKey, ctrlKey, metaKey, shiftKey };
 }

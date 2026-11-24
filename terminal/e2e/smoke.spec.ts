@@ -19,15 +19,20 @@ test("the hosted replay opens, plays and draws in a clean browser", async ({ pag
   const before = await clock.textContent();
   await expect(clock).not.toHaveText(before!);
 
+  // Labels and grid lines are drawn with no data; only token bars and strip cells use these colours.
   for (const panel of ["step chart", "batch strip"]) {
     const canvas = page.getByLabel(panel).locator("canvas");
-    const painted = () => canvas.evaluate((canvas: HTMLCanvasElement) => {
-      const { data } = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height);
-      let n = 0;
-      for (let i = 3; i < data.length; i += 4) if (data[i]! > 0) n++;
-      return n / (canvas.width * canvas.height);
-    });
-    await expect.poll(painted, { message: `share of the ${panel} drawn` }).toBeGreaterThan(0.01);
+    const tokenPixels = () =>
+      canvas.evaluate((canvas: HTMLCanvasElement) => {
+        const css = getComputedStyle(canvas);
+        const rgb = (name: string) => parseInt(css.getPropertyValue(name).trim().slice(1), 16);
+        const colours = new Set([rgb("--prefill"), rgb("--decode")]);
+        const { data } = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height);
+        let n = 0;
+        for (let i = 0; i < data.length; i += 4) if (colours.has((data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!)) n++;
+        return n;
+      });
+    await expect.poll(tokenPixels, { message: `prefill and decode pixels in the ${panel}` }).toBeGreaterThan(500);
   }
   expect(errors).toEqual([]);
 });

@@ -710,9 +710,9 @@ def compare_sessions(sessions: Sequence[Session]) -> str:
     return "\n".join(lines)
 
 
-def _column(session: Session) -> str:
+def _column(session: Session, verdict: bool = True) -> str:
     c = f"c{session.group.concurrency}"
-    return c if session.verdict == "VALID" else f"{c}, {session.verdict}"
+    return c if session.verdict == "VALID" or not verdict else f"{c}, {session.verdict}"
 
 
 def sweep_sessions(sessions: Sequence[Session]) -> str:
@@ -723,7 +723,18 @@ def sweep_sessions(sessions: Sequence[Session]) -> str:
         raise SystemExit(f"a sweep needs one baseline, got {sorted(baselines)}")
     twin = ordered[0].twin
     engines = list(dict.fromkeys(e.name for s in ordered for e in s.group.engines))
-    lines: list[str] = []
+    lines = [
+        f"Ratio to `{ordered[0].baseline}`: median [95% block-bootstrap interval], "
+        "prompts/blocks. Below 1 is faster for TTFT, TPOT and E2E; above 1 is faster for "
+        "output tok/s. A gap inside its session's twin floor reads within noise.",
+        "",
+    ]
+    for s in ordered:
+        lines += [
+            f"- {_column(s, verdict=False)}, {s.verdict}, {_lifecycle(s.group)}",
+            f"  {_conditions(s)}",
+        ]
+    lines.append("")
     for regime in REGIMES:
         here = [s for s in ordered if any(r is regime for r in s.regimes.values())]
         if not here:

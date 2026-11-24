@@ -636,7 +636,13 @@ def test_sweep_puts_each_concurrency_in_a_column(
     assert f"| other | {analysis._estimate(rate)}" in table
     [row] = [line for line in table.splitlines() if line.startswith("| other |")]
     assert row.endswith("| not run |")
+    # Two blocks give the twin no interval, so no gap can be claimed against it.
+    assert f"| other | {analysis._estimate(rate)}, within noise |" in row
     assert "| base-twin |" in table
+    assert "Below 1 is faster for TTFT, TPOT and E2E; above 1 is faster for output tok/s." in out
+    assert out.count("- c2, VALID, servers stay loaded") == 1
+    assert out.count("- c4, VALID, servers stay loaded") == 1
+    assert out.count("Low Power Mode False") == 2
 
 
 def test_sweep_names_a_discarded_sessions_column(

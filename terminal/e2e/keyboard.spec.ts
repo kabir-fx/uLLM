@@ -32,6 +32,19 @@ test("Space on a focused button presses only that button", async ({ page }) => {
   await expect(page.locator(".status")).toHaveText("paused");
 });
 
+test("keys aimed at a tab or a select keep their own meaning and leave the replay alone", async ({ page }) => {
+  await page.keyboard.press("Space");
+  const position = page.getByLabel("position");
+  const at = await position.inputValue();
+  await page.locator('[role="tab"][data-tab="running"]').focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveAttribute("data-tab", "waiting");
+  await page.getByLabel("speed").focus();
+  await page.keyboard.press("Space");
+  await expect(page.locator(".status")).toHaveText("paused");
+  expect(await position.inputValue()).toBe(at);
+});
+
 test("the requests tabs follow the WAI-ARIA tabs pattern", async ({ page }) => {
   const selected = page.locator('[role="tab"][aria-selected="true"]');
   await page.locator('[role="tab"][data-tab="running"]').focus();

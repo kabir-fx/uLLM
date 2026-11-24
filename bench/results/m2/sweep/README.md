@@ -73,8 +73,8 @@ The cached `mlx-lm-batched` is within noise of the baseline at c2, c4 and c8. At
 
 These are mlx-lm's paths against each other. uLLM is not in them, and no measurement here explains them.
 
-- **`mlx-lm-sequential-no-cache` at c1, Sustained.** TTFT is 0.910 [0.894, 0.928], TPOT 0.995 [0.991, 1.001], E2E 0.981 [0.973, 0.989] and output tok/s 1.012 [1.008, 1.035]. At Peak, TTFT is 0.865 [0.863, 0.874], TPOT 0.993 [0.992, 0.996], E2E 0.981 [0.979, 0.985] and output tok/s 1.035 [1.032, 1.044]. A request with a `seed` is not batchable (`mlx_lm/server.py` line 771), so it takes `_serve_single` and `generate_step` and skips `BatchGenerator`. That this explains the gaps is a guess.
-- **Cached `mlx-lm-batched` at c1, Sustained.** TPOT is 1.004 [0.998, 1.014] and output tok/s 0.993 [0.974, 0.996]. At Peak, TTFT is 1.016 [1.015, 1.023] and E2E 1.003 [1.002, 1.007]. Workload A's prompts are distinct dialogues, so the prompt cache can reuse little beyond the chat template's first tokens and mostly adds work. That this is the cause is a guess.
+- **`mlx-lm-sequential-no-cache` at c1.** At Sustained, TTFT is 0.910 [0.894, 0.928], TPOT 0.995 [0.991, 1.001], E2E 0.981 [0.973, 0.989] and output tok/s 1.012 [1.008, 1.035]. At Peak, TTFT is 0.865 [0.863, 0.874], TPOT 0.993 [0.992, 0.996], E2E 0.981 [0.979, 0.985] and output tok/s 1.035 [1.032, 1.044]. A request with a `seed` is not batchable (`mlx_lm/server.py` line 771), so it takes `_serve_single` and `generate_step` and skips `BatchGenerator`. That this explains the gaps is a guess.
+- **Cached `mlx-lm-batched` at c1.** At Sustained, TPOT is 1.004 [0.998, 1.014] and output tok/s 0.993 [0.974, 0.996]. At Peak, TTFT is 1.016 [1.015, 1.023] and E2E 1.003 [1.002, 1.007]. Workload A's prompts are distinct dialogues, so the prompt cache can reuse little beyond the chat template's first tokens and mostly adds work. That this is the cause is a guess.
 
 ## M1's gap at c1 does not recur
 

@@ -102,7 +102,8 @@ bench-sweep: models ## M2-T6: the c1 to c16 sessions of decision 0026, on an idl
 	$(UV) python -m bench.session bench/groups/m2-c2.json --settle 600 --out $(SWEEP)/c2
 	$(UV) python -m bench.session bench/groups/m2-c4.json --settle 600 --out $(SWEEP)/c4
 	$(UV) python -m bench.session bench/groups/m2-c8.json --settle 600 --out $(SWEEP)/c8
-	$(UV) python -m bench.session bench/groups/m2-c16.json --settle 600 --out $(SWEEP)/c16
+	# A 16 GB Mac may swap at c16 (claims row 30): the verdict is recorded, the sweep goes on.
+	-$(UV) python -m bench.session bench/groups/m2-c16.json --settle 600 --out $(SWEEP)/c16
 	# Expected to fail: it records whether cached mlx-lm fits at c16 on an idle Mac.
 	-$(UV) python -m bench.session bench/groups/m2-c16-cache.json --settle 0 --blocks 1 \
 		--out $(SWEEP)/c16-cache

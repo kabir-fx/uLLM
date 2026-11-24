@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { TelemetryStore } from "../store";
-import { TABS, tabCounts, tableRows, type Tab } from "../table";
+import { TABS, tabAfterKey, tabCounts, tableRows, type Tab } from "../table";
 import { int, ms, percent } from "./format";
 import { ROW_HEIGHT, visibleRange } from "./window";
 
@@ -31,9 +31,26 @@ export function RequestsTable({ store }: { store: TelemetryStore }) {
 
   return (
     <section className="requests" aria-label="requests">
-      <div className="tabs" role="tablist">
+      <div
+        className="tabs"
+        role="tablist"
+        onKeyDown={(e) => {
+          const next = tabAfterKey(tab, e.key);
+          if (next === null) return;
+          e.preventDefault();
+          choose(next);
+          e.currentTarget.querySelector<HTMLElement>(`[data-tab="${next}"]`)?.focus();
+        }}
+      >
         {TABS.map((t) => (
-          <button key={t} role="tab" data-tab={t} aria-selected={t === tab} onClick={() => choose(t)}>
+          <button
+            key={t}
+            role="tab"
+            data-tab={t}
+            aria-selected={t === tab}
+            tabIndex={t === tab ? 0 : -1}
+            onClick={() => choose(t)}
+          >
             {t} <span className="dim">{counts[t]}</span>
           </button>
         ))}

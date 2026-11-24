@@ -3,6 +3,24 @@ import type { RequestRow, RequestState, TelemetryStore } from "./store";
 export const TABS = ["running", "waiting", "finished", "preempted"] as const;
 export type Tab = (typeof TABS)[number];
 
+/** The WAI-ARIA tabs pattern: the arrows move and wrap, Home and End jump; null for any other key. */
+export function tabAfterKey(tab: Tab, key: string): Tab | null {
+  const i = TABS.indexOf(tab);
+  const n = TABS.length;
+  switch (key) {
+    case "ArrowRight":
+      return TABS[(i + 1) % n]!;
+    case "ArrowLeft":
+      return TABS[(i + n - 1) % n]!;
+    case "Home":
+      return TABS[0];
+    case "End":
+      return TABS[n - 1]!;
+    default:
+      return null;
+  }
+}
+
 const TAB_OF: Record<RequestState, Tab> = {
   waiting: "waiting",
   prefilling: "running",

@@ -43,7 +43,7 @@ New tests:
 - The arrow keys, Home and End move between the requests tabs.
 - Tab reaches every control, and each control shows a focus ring.
 - The frame rate stays at 60 fps over the full stress trace.
-- The heap does not grow over ten repeats of the stress trace as one stream.
+- In live mode, the heap after 40 repeats of the stress trace equals the heap after 20.
 - The hosted replay is ready in 1 s or less.
 
 What you do not get yet:
@@ -64,8 +64,8 @@ After this slice, Lane B has no open task in M2. M4 is next for Lane B.
 You can still change these before `/ship`.
 
 - The frame-rate budget needs a mean of 58 fps or more. The p99 frame interval must be 25 ms or less.
-- The memory budget compares the last repeat with the second. The rings fill during the first repeat.
-- The memory test streams ten repeats with no `hello` between them, so the store never resets.
+- The memory budget compares 40 repeats with 20 repeats. The rings are full only after 19 repeats.
+- The memory test uses live mode. A replay keeps a copy of the whole trace, and that copy hides a small leak.
 - The keys do nothing when the focus is on a form control, a button or a tab. Those keep their own behaviour.
 
 ## What can go wrong
@@ -88,12 +88,12 @@ Frame rate in a browser is the gap between two `requestAnimationFrame` callbacks
 
 A leak test must let the store fill first. A store with ring buffers grows until each ring is full, and then it stays flat.
 
-**Test yourself:** why does the memory test not replay the stress trace ten times from its start?
+**Test yourself:** why does the memory test use live mode and not a replay?
 
 <details>
 <summary>Answer</summary>
 
-Each replay starts with a `hello`, and a `hello` clears the store. The rings never fill, so a leak in them stays hidden.
+A replay keeps a copy of the whole trace in memory. That copy is about 18 MB for ten repeats. A small leak hides in it, and a leak that keeps frames costs a replay nothing. Live mode keeps no frames, so its heap shows each leak.
 
 </details>
 

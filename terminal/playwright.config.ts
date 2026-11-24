@@ -2,9 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 // Decision 0027: `smoke` drives the hosted build and runs in `make check-ts`; `perf` checks
 // the T7 budgets on the local build, which accepts `?trace=`, and runs only in `make terminal-perf`.
-// Both servers serve builds that the Makefile made first.
-const HOSTED = "http://127.0.0.1:4173";
-const LOCAL = "http://127.0.0.1:4174";
+// Both servers serve builds that the Makefile made first, on ports apart from `vite preview`'s 4173.
+const HOSTED = "http://127.0.0.1:4183";
+const LOCAL = "http://127.0.0.1:4184";
 
 export default defineConfig({
   forbidOnly: true,
@@ -15,7 +15,7 @@ export default defineConfig({
     { name: "perf", testDir: "perf", use: { baseURL: LOCAL }, timeout: 300_000 },
   ],
   webServer: [
-    { command: "vite preview --outDir dist-hosted", url: HOSTED, reuseExistingServer: false },
-    { command: "vite preview --port 4174", url: LOCAL, reuseExistingServer: false },
+    { command: "vite preview --outDir dist-hosted --port 4183", url: HOSTED, reuseExistingServer: false },
+    { command: "vite preview --port 4184", url: LOCAL, reuseExistingServer: false },
   ],
 });

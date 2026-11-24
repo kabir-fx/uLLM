@@ -5,7 +5,7 @@ import { fixtureFrames } from "../src/testing/fixtures";
 import { repeatTrace } from "../src/testing/repeat";
 
 // The T7 budgets (decision 0027). `make terminal-perf` sets PERF_OUT and commits what lands there.
-const HOSTED = "http://127.0.0.1:4173/";
+const HOSTED = "http://127.0.0.1:4183/";
 const FPS_MIN = 58;
 const FRAME_P99_MAX_MS = 25;
 const REPEATS = 10;

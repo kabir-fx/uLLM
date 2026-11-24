@@ -1,6 +1,7 @@
 """B5 run conditions: observe them, refuse a session that breaks them, log powermetrics, and
 record the machine in env.json (decisions 0013 and 0016)."""
 
+import argparse
 import platform
 import re
 import signal
@@ -190,3 +191,16 @@ def environment(*, used_powermetrics: bool, started: datetime) -> RunEnv:
         started=started.isoformat(timespec="seconds"),
         ended=datetime.now(UTC).isoformat(timespec="seconds"),
     )
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Write env.json for a run measured by another tool, such as `make terminal-perf`."""
+    parser = argparse.ArgumentParser(description="Record the machine and run conditions.")
+    parser.add_argument("out", type=Path, help="where to write env.json")
+    args = parser.parse_args(argv)
+    env = environment(used_powermetrics=False, started=datetime.now(UTC))
+    args.out.write_text(env.model_dump_json(indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    main()

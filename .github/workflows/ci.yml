@@ -2,7 +2,7 @@
 #   core      Linux, no MLX: lint, format, types, every test that needs no model
 #   mlx       macOS arm64: MLX device probe, the model, tests marked `mlx` (goldens)
 #   router    Go vet, gofmt, tests with the race detector
-#   terminal  generated contract types are fresh; strict typecheck
+#   terminal  generated contract types are fresh; strict typecheck; unit tests; builds; browser smoke test
 # Each job runs its `make ci-<job>` target, so `make ci` runs the same commands
 # locally (decision 0007). Add a check to the target, not here.
 # Actions are pinned to commit SHAs; the comment names the release.

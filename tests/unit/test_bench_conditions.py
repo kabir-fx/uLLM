@@ -1,7 +1,11 @@
 """B5: the run conditions a session refuses to start without (decisions 0013 and 0016)."""
 
+import subprocess
+from pathlib import Path
+
+from bench import conditions
 from bench.conditions import parse_footprint, parse_power, parse_swap, violations
-from bench.schema import Power
+from bench.schema import Power, RunEnv
 
 ON_BATTERY = """Now drawing from 'Battery Power'
  -InternalBattery-0 (id=22675555)\t39%; discharging; 2:53 remaining present: true
@@ -80,3 +84,12 @@ def test_footprint_and_its_peak_are_read_in_bytes() -> None:
     text = "    phys_footprint: 2474416 B\n    phys_footprint_peak: 3000000 B\n"
     assert parse_footprint(text) == (2474416, 3000000)
     assert parse_footprint("footprint: no process") is None
+
+
+def test_main_records_the_machine_in_env_json(tmp_path: Path) -> None:
+    out = tmp_path / "env.json"
+    conditions.main([str(out)])
+    env = RunEnv.model_validate_json(out.read_text())
+    assert env.powermetrics is False
+    head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
+    assert env.commit == head.stdout.strip()

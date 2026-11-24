@@ -46,3 +46,4 @@ Each with the reason it lost.
 ## Consequences
 What this makes easier, harder, or necessary later.
 ```
+| [0027](0027-terminal-quality-gates.md) | Terminal quality gates: a seeded `stress` trace; Playwright smoke and keyboard tests on the hosted build in `check-ts`; `make terminal-perf` checks 60 fps, flat memory over a 10× stream and time to interactive ≤ 1 s, locally; Space and arrow keys in replay, WAI-ARIA tabs, a focus ring | M2-T10 |

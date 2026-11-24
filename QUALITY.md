@@ -8,8 +8,8 @@ The bar is the engineering rules and the definition of done in `docs/AGENT_ROADM
 
 | Check | Command | When | Typical time |
 |---|---|---|---|
-| Fast | `make check` | after every increment; the pre-push hook runs it | 7 s |
-| Full | `make ci` | before proof, before a pull request | 71 s on an M4 with the model downloaded |
+| Fast | `make check` | after every increment; the pre-push hook runs it | 20 s on an M4, Chromium installed |
+| Full | `make ci` | before proof, before a pull request | 166 s on an M4 with the model downloaded |
 | Performance | `make bench-smoke` | a performance-relevant change: on the base before the first commit, and again after | 82 s on an M4, model load included |
 
 `make bench-smoke` skips the B5 checks, so its numbers are for before and after only, never a claim. Run both on the same power source: the summary records AC, battery and Low Power Mode. The pull request carries both summary tables (roadmap 3.3).
@@ -30,6 +30,7 @@ Always true on `main`. A change that breaks one of these does not merge.
 - mlx-lm reproduces the committed goldens, and a missing model fails instead of skipping: `ci-mlx`.
 - Lockfiles match their manifests: `uv run --locked` and `pnpm install --frozen-lockfile`, in `ci-core` and `ci-terminal`.
 - The generated TypeScript contract types match the schema, and the terminal typechecks strictly: `ci-terminal`.
+- The hosted replay opens, plays and draws in headless Chromium with no console error (decision 0027): `terminal/e2e/`, run by `ci-terminal`.
 - Go code is gofmt-clean and vet-clean, and its tests pass under the race detector: `ci-router`.
 
 ## Ratchets

@@ -84,3 +84,15 @@ def test_steady_chat_has_a_queue_and_no_blocks(generated: dict[str, list[ev.Fram
     hello = events[0]
     assert isinstance(hello, ev.Hello)
     assert hello.kv.num_blocks is None
+
+
+def test_stress_holds_the_frame_rate_budget_load(generated: dict[str, list[ev.Frame]]) -> None:
+    frames = generated["stress"]
+    events = [e for f in frames for e in f.events]
+    snapshots = [e for e in events if isinstance(e, ev.KvSnapshot)]
+    assert snapshots
+    assert all(s.num_blocks == 2304 for s in snapshots)
+    assert sum(isinstance(e, ev.ReqFinished) for e in events) >= 200
+    steps = [e for e in events if isinstance(e, ev.Step)]
+    assert max(len(s.rids) for s in steps) == 64
+    assert len(frames) / (frames[-1].t / 1000) > 13

@@ -11,9 +11,9 @@
 
 ## Decision
 
-1. **`bench/readme.py`** renders one table: uLLM over the sweep's baseline, Sustained, one column per concurrency (c1, c2, c4, c8), rows output tok/s, TTFT, TPOT, E2E (median and 95% block-bootstrap interval, "within noise" by `bench.paired.claimed` against the twin's floor, as `comparison.md` does) and prompts/blocks, then one line of conditions from `env.json` and `session.json`. It refuses a session that is not VALID, more than one baseline, or more than one machine and commit. `splice` writes the table between two HTML-comment markers in `README.md` and refuses a README without exactly one ordered pair.
+1. **`bench/readme.py`** renders one table: uLLM over the sweep's baseline, Sustained, one column per concurrency (c1, c2, c4, c8), rows output tok/s, TTFT, TPOT, E2E (median and 95% block-bootstrap interval, "within noise" by `bench.paired.claimed` against the twin's floor, as `comparison.md` does) and prompts/blocks, then one line of conditions from `env.json` and `session.json`. It refuses a session that is not VALID, more than one baseline, or more than one setup: commit and tree state, machine, mlx and mlx-lm versions, model, and the baseline's and uLLM's launch commands. The conditions line says when the tree was dirty. `splice` writes the table between two HTML-comment markers in `README.md` and refuses a README without exactly one ordered pair.
 2. **`make readme`** runs it; `make bench-sweep` runs it last.
-3. **`tests/integration/test_readme_tables.py`** fails when `README.md` differs from what `bench.readme` makes. It lives in `tests/integration`, so `make ci-core` (the CI `core` job) runs it and `make check` stays fast.
+3. **`tests/unit/test_bench_readme.py`** holds each refusal on stub sessions. **`tests/integration/test_readme_tables.py`** fails when `README.md` differs from what `bench.readme` makes. It lives in `tests/integration`, so `make ci-core` (the CI `core` job) runs it and `make check` stays fast.
 4. **`make verify`** exits 2 unless `uname -sm` is `Darwin arm64`, then runs `make models`; the equivalence suite with `ULLM_REQUIRE_MODEL=1 ULLM_GOLDEN_TOKENS=128`; the property tests under the `ci` Hypothesis profile; `ullm sim`; `make bench-smoke`. It passed on the author's M4 in 2 min 49 s, 103 s of it equivalence. Claims rows it reproduces are marked *verify*: 8, 9, 10, 12, 13, 14, 23, 24, 26.
 5. **`make demo-gif`**: a Playwright project, `demo` (`terminal/demo/record.spec.ts`), opens the hosted build's default run, waits for the REPLAY badge and the first request row, and records 15 s of video at 1600 × 1000. ffmpeg (Homebrew, outside the repo's lockfiles; needed only to regenerate the GIF) keeps 10 s from second 4, at 10 fps and 1200 px wide, into `docs/assets/demo.gif` (3.4 MB).
 6. **README v1** has P1's sections. The line count of `core` plus `runner` is stated at M2 with its command, not generated.
@@ -29,6 +29,6 @@
 
 ## Consequences
 
-- A new sweep must be followed by `make readme`; CI enforces it. Moving to new sessions means changing `SESSIONS` in `bench/readme.py`.
+- A new sweep must be followed by `make readme`; CI enforces it. If any c1 to c8 session of a new sweep is DISCARDED, `make bench-sweep` fails at its last step, after every session has run: the README keeps its old table until the sweep is rerun or `SESSIONS` changes. Moving to new sessions means changing `SESSIONS` in `bench/readme.py`.
 - The README's replay link works only after the author enables Pages and runs `pages.yml`.
 - The GIF is not reproducible byte for byte: video timing varies. Its content, the default bundled run labelled REPLAY, is.

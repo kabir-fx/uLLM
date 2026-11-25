@@ -25,7 +25,7 @@ Docker:  Prometheus 127.0.0.1:9090 ───────┘
          Grafana 127.0.0.1:3000 ── provisioned data source and dashboard
 ```
 
-1. `src/ullm/server/app.py`: `LOCAL_HOSTS` adds `host.docker.internal`. The bind stays 127.0.0.1.
+1. `src/ullm/server/app.py`: `_LocalHosts` accepts `host.docker.internal` on `GET /metrics` only. Every other path keeps the old check. The bind stays 127.0.0.1.
 2. `deploy/docker-compose.yml`: Prometheus and Grafana, each image pinned by digest. Each port binds to 127.0.0.1.
 3. `deploy/prometheus/prometheus.yml`: one job that scrapes `host.docker.internal:8000` every 5 s.
 4. `deploy/grafana/provisioning/`: the Prometheus data source and the dashboard provider.
@@ -61,17 +61,18 @@ After this slice, M2-T12 stays open in Lane A.
 
 ## Choices the agent made
 
-You chose the panel scope: only metrics that exist now. You can still change these choices before `/ship`:
+You chose the panel scope: only metrics that exist now. You also chose `GET /metrics` as the only path for `host.docker.internal`. You can still change these choices before `/ship`:
 
-- `host.docker.internal` joins `LOCAL_HOSTS` for all paths. A proxy container that rewrites `Host` is the other option. It adds a third container for one header.
-- Grafana lets anonymous users view, and only on 127.0.0.1. No password goes in the repo.
+- Grafana lets anonymous users view, and only on 127.0.0.1. No one can log in. You change the dashboard in its file.
+- Grafana sends a request with a foreign `Host` to `127.0.0.1`. No password goes in the repo.
 - The scrape target is port 8000, the default of `ullm serve`.
 
 ## What can go wrong
 
 - `ullm serve` is not running. The Prometheus target shows "down", and the panels show "No data".
 - `ullm serve --telemetry off` answers 404 on `/metrics`. The target shows "down".
-- A page that a DNS rebind brings to 127.0.0.1 still arrives under its own name, so the server refuses it.
+- A page that a DNS rebind brings to 127.0.0.1 arrives under its own name, so the server refuses it.
+- A hostile network can point `host.docker.internal` at an attacker. That page can then read `/metrics` and the Prometheus API, but no prompts or outputs.
 
 ## Words
 

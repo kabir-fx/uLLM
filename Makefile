@@ -165,5 +165,11 @@ sim: ## Run the real engine on FakeRunner with fake clients, then check the trac
 up: ## Router plus replicas
 	$(call todo,M5-T4)
 
-verify: ## Reproduce the claims in docs/CLAIMS.md on any Apple Silicon Mac
-	$(call todo,M2-T12)
+verify: ## Reproduce the claims marked verify in docs/CLAIMS.md on any Apple Silicon Mac (decision 0030)
+	@[ "$$(uname -sm)" = "Darwin arm64" ] || { echo "make verify: needs an Apple Silicon Mac" >&2; exit 2; }
+	$(MAKE) models
+	ULLM_REQUIRE_MODEL=1 ULLM_GOLDEN_TOKENS=128 $(UV) pytest -m mlx tests/equivalence
+	HYPOTHESIS_PROFILE=ci $(UV) pytest tests/property
+	$(UV) ullm sim
+	$(MAKE) bench-smoke
+	@echo "make verify: all passed"

@@ -133,6 +133,11 @@ bench-sweep: models ## M2-T6: the c1 to c16 sessions of decision 0028, on an idl
 	$(UV) python -m scripts.step_costs --out $(SWEEP)
 	$(UV) python -m bench.steps $(SWEEP_SESSIONS)
 	$(UV) python -m bench.analysis $(SWEEP_SESSIONS) --sweep > $(SWEEP)/comparison.md
+	$(MAKE) readme
+
+.PHONY: readme
+readme: ## Regenerate the README's benchmark table from the committed sweep (decision 0030)
+	$(UV) python -m bench.readme
 
 COMPOSE := docker compose -f deploy/docker-compose.yml
 

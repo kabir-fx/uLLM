@@ -26,6 +26,21 @@ def table(sessions: Sequence[Session]) -> str:
     baselines = {s.baseline for s in ordered}
     if len(baselines) != 1:
         raise SystemExit(f"one baseline for the whole table, got {sorted(baselines)}")
+    setups = {
+        (
+            s.env.commit,
+            s.env.chip,
+            s.env.memory_gb,
+            s.env.macos,
+            s.env.libraries["mlx"],
+            s.env.libraries["mlx-lm"],
+            s.info.served_models[ENGINE],
+        )
+        for s in ordered
+    }
+    if len(setups) != 1:
+        raise SystemExit(f"one machine, commit and model for the whole table, got {setups}")
+    env, model = ordered[0].env, ordered[0].info.served_models[ENGINE]
     estimates = [ratios(s, ENGINE, Regime.SUSTAINED) for s in ordered]
     noise = [ratios(s, s.twin, Regime.SUSTAINED) for s in ordered]
     lines = [
@@ -48,15 +63,10 @@ def table(sessions: Sequence[Session]) -> str:
         + " | ".join(f"{e['TTFT'].prompts} / {e['TTFT'].blocks}" for e in estimates)
         + " |"
     )
-    envs = {(s.env.commit, s.env.chip, s.env.memory_gb, s.env.macos) for s in ordered}
-    if len(envs) != 1:
-        raise SystemExit(f"one machine and commit for the whole table, got {sorted(envs)}")
-    env = ordered[0].env
-    models = {s.info.served_models[ENGINE] for s in ordered}
     lines += [
         "",
         f"Median [95% block-bootstrap interval]; below 1 is faster for TTFT, TPOT and E2E, "
-        f"above 1 for output tok/s. `{', '.join(sorted(models))}`, workload A, closed loop. "
+        f"above 1 for output tok/s. `{model}`, workload A, closed loop. "
         f"{env.chip}, {env.memory_gb:g} GB, macOS {env.macos}; mlx {env.libraries['mlx']}, "
         f"mlx-lm {env.libraries['mlx-lm']}; commit `{env.commit[:7]}`. "
         "Every session VALID under the run conditions (decision 0016).",

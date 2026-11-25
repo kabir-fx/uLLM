@@ -1,6 +1,6 @@
 # M2-T11: Grafana dashboard
 
-**State:** in build. You read this brief while the agent builds the slice.
+**State:** DONE at `d02fcf5`. Type `/ship` to open the pull request.
 **Decision record:** [0029](../decisions/0029-grafana-dashboard.md) (the full design, for agents) · **Spec:** roadmap M2-T11 (O3)
 
 ## The goal
@@ -97,3 +97,22 @@ O2 says that percentiles come from histograms, never averages. One slow request 
 </details>
 
 ## Result
+
+DONE at `d02fcf5`. The verifier proved 7 claims on the real stack at `27d706a`. The scoped re-check found the fixes READY at `d02fcf5`. `make ci` passed at `d02fcf5`.
+
+Changes against the plan:
+
+- The review found that a rebound page could sign in to Grafana as `admin/admin`. Grafana now sends a foreign `Host` to `127.0.0.1`, and no one can log in.
+- The review found that `host.docker.internal` reached every path. The agent claimed that the name was as safe as `localhost`. That claim was wrong. You chose `GET /metrics` only, and `_LocalHosts` does this now.
+- The throughput panel says "prefill tok/s", because cached prompt tokens are not in that count.
+
+What the agent did not prove:
+
+- No test runs the PromQL formulas or the compose files in CI. The verifier ran them by hand.
+- No one ran a real DNS rebind from a browser. The agents sent the same `Host` and `Origin` headers with `curl`.
+
+Read these yourself:
+
+- `src/ullm/server/app.py:403`: `_LocalHosts`. Check that only `GET /metrics` passes without the old check.
+- `deploy/docker-compose.yml:18`: the Grafana settings that stop a rebound login.
+- `deploy/grafana/dashboards/ullm.json`: the prefix hit rate formula, before M3-T5 makes it nonzero.

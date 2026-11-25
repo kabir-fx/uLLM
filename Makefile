@@ -134,6 +134,15 @@ bench-sweep: models ## M2-T6: the c1 to c16 sessions of decision 0028, on an idl
 	$(UV) python -m bench.steps $(SWEEP_SESSIONS)
 	$(UV) python -m bench.analysis $(SWEEP_SESSIONS) --sweep > $(SWEEP)/comparison.md
 
+COMPOSE := docker compose -f deploy/docker-compose.yml
+
+.PHONY: grafana grafana-down
+grafana: ## M2-T11: Prometheus and Grafana in Docker for `ullm serve` on :8000; open http://127.0.0.1:3000/
+	$(COMPOSE) up -d
+
+grafana-down: ## Stop the Prometheus and Grafana containers
+	$(COMPOSE) down
+
 .PHONY: test-mlx equivalence bench-smoke sim up verify
 test-mlx: ## Tests marked mlx: need MLX (Apple Silicon); the model from M0-T7 on
 	$(UV) pytest -m mlx

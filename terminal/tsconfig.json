@@ -26,6 +26,7 @@
     "src",
     "e2e",
     "perf",
+    "demo",
     "vite.config.ts",
     "playwright.config.ts"
   ]

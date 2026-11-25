@@ -53,6 +53,17 @@ terminal-hosted: ## The hosted replay build in terminal/dist-hosted/ (decision 0
 	pnpm -C terminal install --frozen-lockfile --silent
 	pnpm -C terminal build:hosted
 
+DEMO_VIDEO := terminal/test-results/demo.webm
+
+.PHONY: demo-gif
+demo-gif: terminal-hosted ## The README's GIF: 10 s of the hosted replay in Chromium (decision 0030); needs ffmpeg
+	pnpm -C terminal build
+	pnpm -C terminal exec playwright install --only-shell chromium
+	DEMO_OUT=$(abspath $(DEMO_VIDEO)) pnpm -C terminal exec playwright test --project demo
+	ffmpeg -y -loglevel error -ss 4 -t 10 -i $(DEMO_VIDEO) \
+		-vf "fps=10,scale=1200:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" \
+		docs/assets/demo.gif
+
 check-go: ## Go vet and tests for the router module
 	cd router && go vet ./... && go test ./...
 
@@ -133,6 +144,11 @@ bench-sweep: models ## M2-T6: the c1 to c16 sessions of decision 0028, on an idl
 	$(UV) python -m scripts.step_costs --out $(SWEEP)
 	$(UV) python -m bench.steps $(SWEEP_SESSIONS)
 	$(UV) python -m bench.analysis $(SWEEP_SESSIONS) --sweep > $(SWEEP)/comparison.md
+	$(MAKE) readme
+
+.PHONY: readme
+readme: ## Regenerate the README's benchmark table from the committed sweep (decision 0030)
+	$(UV) python -m bench.readme
 
 COMPOSE := docker compose -f deploy/docker-compose.yml
 
@@ -160,5 +176,11 @@ sim: ## Run the real engine on FakeRunner with fake clients, then check the trac
 up: ## Router plus replicas
 	$(call todo,M5-T4)
 
-verify: ## Reproduce the claims in docs/CLAIMS.md on any Apple Silicon Mac
-	$(call todo,M2-T12)
+verify: ## Reproduce the claims marked verify in docs/CLAIMS.md on any Apple Silicon Mac (decision 0030)
+	@[ "$$(uname -sm)" = "Darwin arm64" ] || { echo "make verify: needs an Apple Silicon Mac" >&2; exit 2; }
+	$(MAKE) models
+	ULLM_REQUIRE_MODEL=1 ULLM_GOLDEN_TOKENS=128 $(UV) pytest -m mlx tests/equivalence
+	HYPOTHESIS_PROFILE=ci $(UV) pytest tests/property
+	$(UV) ullm sim
+	$(MAKE) bench-smoke
+	@echo "make verify: all passed"

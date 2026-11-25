@@ -31,6 +31,7 @@ Always true on `main`. A change that breaks one of these does not merge.
 - Lockfiles match their manifests: `uv run --locked` and `pnpm install --frozen-lockfile`, in `ci-core` and `ci-terminal`.
 - The generated TypeScript contract types match the schema, and the terminal typechecks strictly: `ci-terminal`.
 - The hosted replay opens, plays and draws in headless Chromium with no console error (decision 0027): `terminal/e2e/`, run by `ci-terminal`.
+- The README's benchmark table is what `bench.readme` makes from the committed sweep (decision 0030): `tests/integration/test_readme_tables.py`, run by `ci-core`.
 - Go code is gofmt-clean and vet-clean, and its tests pass under the race detector: `ci-router`.
 
 ## Ratchets

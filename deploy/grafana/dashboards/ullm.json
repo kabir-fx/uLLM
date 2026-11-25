@@ -18,7 +18,7 @@
       "id": 1,
       "type": "timeseries",
       "title": "Throughput",
-      "description": "tok/s output and prompt",
+      "description": "tok/s sampled and prefilled; prefill excludes cached prompt tokens",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -63,7 +63,7 @@
             "uid": "prometheus"
           },
           "expr": "sum(rate(ullm_prompt_tokens_total[$__rate_interval]))",
-          "legendFormat": "prompt tok/s",
+          "legendFormat": "prefill tok/s",
           "refId": "B"
         }
       ]
@@ -315,7 +315,7 @@
       "id": 7,
       "type": "timeseries",
       "title": "Prefix hit rate",
-      "description": "cached prompt tokens over all prompt tokens; 0 until M3-T5",
+      "description": "cached prompt tokens over cached plus prefilled; 0, or no data while idle, until M3-T5",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

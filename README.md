@@ -10,8 +10,8 @@ uLLM is a small, readable LLM inference engine for Apple Silicon, written from s
 
 - **Engine** (Python, MLX): its own generation loop, sampler, streaming detokenizer and stop check; continuous batching over a contiguous batch KV cache with first-come-first-served admission by row and KV-slot limits. Greedy output at batch size 1 gives exactly mlx-lm's token IDs for every golden prompt; at batch sizes 2, 4 and 8 every token is in mlx-lm's top 2 and within 0.25 logprob of its best ([claims 9, 12, 23](docs/CLAIMS.md)).
 - **API server**: OpenAI-compatible `/v1/chat/completions`, streamed or not, tested with the official OpenAI Python SDK, 50 concurrent clients and client disconnects ([claims 14 to 16](docs/CLAIMS.md)).
-- **Telemetry**: every engine step goes onto a bounded bus that never blocks the engine thread, out to a live stream, a recorder and Prometheus `/metrics`; telemetry on costs no throughput the benchmark can see ([claims 25, 26](docs/CLAIMS.md)).
-- **Terminal** (TypeScript, React, Canvas 2D): step chart, batch strip, requests table, load launcher and playground in live mode; replay of recorded runs, also as the hosted build; 60 fps under a stress trace ([claims 27 to 29](docs/CLAIMS.md)).
+- **Telemetry**: every engine step goes onto a bounded bus that never blocks the engine thread, out to a live stream, a recorder and Prometheus `/metrics`; telemetry on costs no throughput the benchmark can see ([claims 25, 26, 38](docs/CLAIMS.md)).
+- **Terminal** (TypeScript, React, Canvas 2D): step chart, batch strip, requests table, load launcher and playground in live mode; replay of recorded runs, also as the hosted build; 60 fps under a stress trace ([claims 27 to 29, 39](docs/CLAIMS.md)).
 - **Benchmarks**: paired sessions against `mlx_lm.server` under checked run conditions, with bootstrap intervals and a twin of the baseline as the noise floor ([claims 17 to 20](docs/CLAIMS.md)).
 - **Grafana**: `make grafana` runs pinned Prometheus and Grafana on 127.0.0.1 with one dashboard ([claim 37](docs/CLAIMS.md)).
 
@@ -118,11 +118,11 @@ Start with the engine thread and follow one request.
 
 | File | What to read it for |
 |---|---|
-| [`src/ullm/core/engine.py`](src/ullm/core/engine.py) | The engine loop: take new requests, schedule, run one step on the runner, emit outputs and telemetry. One thread owns all of it, so `core` has no locks and never imports MLX |
+| [`src/ullm/core/engine.py`](src/ullm/core/engine.py) | The engine loop: take new requests, schedule, run one step on the runner, emit outputs and telemetry. One thread owns all of it, and `core` never imports MLX (claim 1) |
 | [`src/ullm/core/scheduler.py`](src/ullm/core/scheduler.py) | Continuous batching: who prefills and who decodes this step, FCFS, admission by rows and padded KV slots |
 | [`src/ullm/core/request.py`](src/ullm/core/request.py) | The request state machine |
 | [`src/ullm/core/client.py`](src/ullm/core/client.py) | The thread bridge between asyncio and the engine thread: queues only |
-| [`src/ullm/runner/mlx_runner.py`](src/ullm/runner/mlx_runner.py) | Prefill and batched decode on the model, without mlx-lm's generation loop; `mx.eval` ends each step before any timing |
+| [`src/ullm/runner/mlx_runner.py`](src/ullm/runner/mlx_runner.py) | Prefill and batched decode on the model, without mlx-lm's generation loop (claim 2) |
 | [`src/ullm/runner/kv/batch.py`](src/ullm/runner/kv/batch.py) | `BatchKV`: the contiguous batch KV cache, one left-padded row per sequence, repacked whenever the set of rows changes |
 | [`src/ullm/runner/sampler.py`](src/ullm/runner/sampler.py), [`src/ullm/core/stop.py`](src/ullm/core/stop.py), [`src/ullm/runner/detokenizer.py`](src/ullm/runner/detokenizer.py) | Sampling with per-request seeds, stop strings, streaming text |
 | [`src/ullm/server/app.py`](src/ullm/server/app.py) | The OpenAI-compatible server, SSE, disconnects, `/metrics`, `/telemetry/stream` |

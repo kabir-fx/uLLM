@@ -53,6 +53,17 @@ terminal-hosted: ## The hosted replay build in terminal/dist-hosted/ (decision 0
 	pnpm -C terminal install --frozen-lockfile --silent
 	pnpm -C terminal build:hosted
 
+DEMO_VIDEO := terminal/test-results/demo.webm
+
+.PHONY: demo-gif
+demo-gif: terminal-hosted ## The README's GIF: 10 s of the hosted replay in Chromium (decision 0030); needs ffmpeg
+	pnpm -C terminal build
+	pnpm -C terminal exec playwright install --only-shell chromium
+	DEMO_OUT=$(abspath $(DEMO_VIDEO)) pnpm -C terminal exec playwright test --project demo
+	ffmpeg -y -loglevel error -ss 4 -t 10 -i $(DEMO_VIDEO) \
+		-vf "fps=10,scale=1200:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" \
+		docs/assets/demo.gif
+
 check-go: ## Go vet and tests for the router module
 	cd router && go vet ./... && go test ./...
 

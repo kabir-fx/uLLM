@@ -4,6 +4,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
@@ -18,6 +19,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST
 from pydantic import ValidationError
+from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ullm.core.client import EngineClient, RequestStream, Unavailable
@@ -49,6 +51,9 @@ RETRY_AFTER_S = 1
 BODY_SLACK_BYTES = 64 * 1024
 MAX_LOGGED_FIELDS = 32  # unknown field names logged per process; client-chosen, so bounded
 LOCAL_HOSTS = ("127.0.0.1", "localhost")  # a DNS-rebound page arrives under its own name
+# Docker Desktop reaches the Mac's 127.0.0.1 under this name, and Prometheus cannot override
+# Host. The name resolves through the network's DNS, so it may only scrape (decision 0029).
+DOCKER_SCRAPE_HOST = re.compile(r"host\.docker\.internal(:\d+)?", re.IGNORECASE)
 DEFAULT_MAX_TOKENS = 512  # mlx_lm.server's default, so baselines match
 TERMINAL_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
 # uvicorn waits for every open response before the lifespan's exit, and a telemetry stream
@@ -111,7 +116,7 @@ def create_app(
 
     app = FastAPI(title="uLLM", lifespan=lifespan)
     app.add_middleware(_EchoRequestId)
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=LOCAL_HOSTS)
+    app.add_middleware(_LocalHosts)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=TERMINAL_ORIGINS,
@@ -393,6 +398,23 @@ class _TelemetryStream(Response):
                 await send({"type": "http.response.body", "body": body, "more_body": True})
             await send({"type": "http.response.body", "body": b"", "more_body": False})
             tasks.cancel_scope.cancel()
+
+
+class _LocalHosts:
+    """Starlette's host check, except Prometheus in Docker on ``GET /metrics``."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self._app = app
+        self._checked = TrustedHostMiddleware(app, allowed_hosts=LOCAL_HOSTS)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        scrape = (
+            scope["type"] == "http"
+            and scope["method"] == "GET"
+            and scope["path"] == "/metrics"
+            and DOCKER_SCRAPE_HOST.fullmatch(Headers(scope=scope).get("host", ""))
+        )
+        await (self._app if scrape else self._checked)(scope, receive, send)
 
 
 class _EchoRequestId:

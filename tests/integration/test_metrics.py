@@ -52,6 +52,30 @@ def test_a_scrape_right_after_each_reply_already_counts_it() -> None:
     _run(main)
 
 
+def test_prometheus_in_docker_may_scrape_metrics_and_nothing_else() -> None:
+    async def main() -> None:
+        app = create_app(FakeRunner(INFO, FAST), FakeTokenizer(), ServeConfig(served_model=SERVED))
+        async with serving_app(app) as client:
+            docker = {"host": "host.docker.internal:8000"}
+            scrape = await client.get("/metrics", headers=docker)
+            assert scrape.status_code == 200
+            assert metric_totals(scrape.text)["ullm_requests_total"] == 0
+            foreign = await client.get("/metrics", headers={"host": "evil.test"})
+            assert foreign.status_code == 400
+            refused = [
+                await client.get(path, headers=docker, timeout=2)
+                for path in ("/health", "/v1/models", "/telemetry/stream", "/metrics/")
+            ]
+            chat = {"model": SERVED, "messages": [{"role": "user", "content": "hi"}]}
+            refused.append(await client.post("/v1/chat/completions", json=chat, headers=docker))
+            assert [(r.status_code, r.text) for r in refused] == [(400, "Invalid host header")] * 5
+            assert (
+                await client.get("/health", headers={"host": "localhost:8000"})
+            ).status_code == 200
+
+    _run(main)
+
+
 def test_an_app_without_its_own_telemetry_serves_no_metrics() -> None:
     async def main() -> None:
         events: list[ev.Event] = []

@@ -1,0 +1,29 @@
+# O3: Prometheus and Grafana for `ullm serve` on the Mac (decision 0029). Engines never run
+# here: Docker's Linux VM cannot reach the Metal GPU. Ports bind to 127.0.0.1 (rule 13).
+name: ullm-observe
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.7.3@sha256:49214755b6153f90a597adcbff0252cc61069f8ab69ce8411285cd4a560e8038
+    ports: ["127.0.0.1:9090:9090"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:12.3.0@sha256:70d9599b186ce287be0d2c5ba9a78acb2e86c1a68c9c41449454d0fc3eeb84e8
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: [prometheus]
+    environment:
+      # A DNS-rebound page arrives under its own Host: redirect it, and leave it no login.
+      GF_SERVER_DOMAIN: 127.0.0.1
+      GF_SERVER_ENFORCE_DOMAIN: "true"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_BASIC_ENABLED: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/ullm.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

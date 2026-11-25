@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  # `ullm serve` on the Mac. Docker Desktop names the Mac host.docker.internal.
+  - job_name: ullm
+    static_configs:
+      - targets: ["host.docker.internal:8000"]

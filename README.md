@@ -61,7 +61,7 @@ Workload A (distinct chat dialogues, Qwen3-0.6B in bf16), closed loop, against b
 | E2E | 0.989 [0.981, 0.999] | 0.919 [0.900, 0.938] | 0.912 [0.887, 0.930] | 0.891 [0.844, 0.921] |
 | Prompts / blocks | 204 / 17 | 240 / 20 | 228 / 19 | 216 / 9 |
 
-Median [95% block-bootstrap interval]; below 1 is faster for TTFT, TPOT and E2E, above 1 for output tok/s. `mlx-community/Qwen3-0.6B-bf16`, workload A, closed loop. Apple M4, 16 GB, macOS 27.2.1; mlx 0.32.4, mlx-lm 0.32.2; commit `c51200e`. Every session VALID under the run conditions (decision 0016).
+Median [95% block-bootstrap interval]; below 1 is faster for TTFT, TPOT and E2E, above 1 for output tok/s. `mlx-community/Qwen3-0.6B-bf16`, workload A, closed loop. Apple M4, 16 GB, macOS 27.2.1; mlx 0.32.4, mlx-lm 0.32.2; commit `c51200e`, dirty tree. Every session VALID under the run conditions (decision 0016).
 <!-- bench.readme: end -->
 
 Why each gap exists, from uLLM's own step recordings and mlx-lm's source, is in [the sweep's README](bench/results/m2/sweep/README.md). In short:

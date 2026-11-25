@@ -1,5 +1,5 @@
 """The README's benchmark table is the one `bench.readme` makes from the committed sweep
-sessions (P1, rule 8, decision 0030). It loads four sessions, about 30 s, so it runs in
+sessions (P1, rule 8, decision 0030). Loading four sessions is slow, so it runs in
 `make ci-core`, not `make check`."""
 
 from pathlib import Path

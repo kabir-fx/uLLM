@@ -1,6 +1,6 @@
 # M2-T12: README v1, claims ledger, `make verify`
 
-**State:** in build. You enable GitHub Pages and run `pages.yml` before `/ship`, so the replay link works.
+**State:** DONE at `1ab9035`, except the replay link. You enable GitHub Pages and run `pages.yml`, then type `/ship`.
 **Decision record:** [0030](../decisions/0030-readme-claims-verify.md) (the full design, for agents) · **Spec:** roadmap M2-T12 (P1, P2)
 
 ## The goal
@@ -62,7 +62,7 @@ After this slice, M2-T13 is open for you, and then Gate A.
 You chose two items: a script records the GIF, and you publish the replay before `/ship`. You can still change these choices before `/ship`:
 
 - The README table shows Sustained only. Peak has an interval only at c1.
-- The freshness test is in `tests/integration`, not `tests/unit`. It needs about 30 s, so `make check` stays fast.
+- The freshness test is in `tests/integration`, not `tests/unit`. It loads four sessions, so `make check` stays fast.
 - The README gives the line count of `core` and `runner` at one commit, with the command. A script does not keep it current.
 - `make verify` replaces `make goldens-check` in claims row 8, because the exact check fails on another chip.
 
@@ -70,7 +70,7 @@ You chose two items: a script records the GIF, and you publish the replay before
 
 - A new sweep changes the results, but no one runs `make readme`. CI fails on the freshness test.
 - The replay link is dead until you run `pages.yml`.
-- `make verify` needs about 1.2 GB for the model, and more time than `make check`.
+- `make verify` needs about 1.2 GB for the model. It took 2 min 49 s on the M4.
 
 ## Words
 
@@ -92,3 +92,31 @@ Test yourself: why does `make verify` not run `make goldens-check`?
 </details>
 
 ## Result
+
+DONE at `1ab9035`, with one step for you. The README links `https://kabir-fx.github.io/uLLM/`, and that address gives 404 until you publish. `make ci` passed at `1ab9035`.
+
+The verifier tested 9 claims at `543d164`. 8 passed. Claim 8 failed: two README lines had no claims row. The reviewer found the same gap. The reviewer also found that no test held the refusals of `bench.readme`.
+
+The fixes:
+
+- Claims rows 38 and 39 now back the telemetry line and the terminal line.
+- The code tour now cites rows 1 and 2. It no longer says that `core` has no locks.
+- New unit tests hold each refusal. The reviewer's mutant now fails 2 tests.
+- The setup check now also compares the tree state and the launch commands.
+- The table now says that the sweep ran from a dirty tree.
+
+What the agents did not prove:
+
+- No agent ran `make verify` on a second Mac. So no run tested the near-tie warning on another chip.
+- No agent opened the hosted replay on GitHub Pages.
+
+What passes to later slices:
+
+- M3 and later sweeps need a new `SESSIONS` list in `bench/readme.py`.
+- M7-T3 writes the final README.
+
+Read these yourself:
+
+- `bench/readme.py:22`: the refusals. Make sure that no session that is not VALID, and no mixed setup, gets into the README.
+- `Makefile`, the `verify` target: the 128-token equivalence run must fail when the model is missing.
+- `README.md`, the "Limitations" section: check each line against its source.

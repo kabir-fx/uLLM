@@ -56,7 +56,6 @@ def test_prometheus_in_docker_may_scrape() -> None:
     async def main() -> None:
         app = create_app(FakeRunner(INFO, FAST), FakeTokenizer(), ServeConfig(served_model=SERVED))
         async with serving_app(app) as client:
-            # Docker Desktop's VM reaches the Mac's 127.0.0.1 under this name (decision 0029).
             scrape = await client.get("/metrics", headers={"host": "host.docker.internal:8000"})
             assert scrape.status_code == 200
             assert metric_totals(scrape.text)["ullm_requests_total"] == 0

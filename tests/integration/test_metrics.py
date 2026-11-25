@@ -52,6 +52,20 @@ def test_a_scrape_right_after_each_reply_already_counts_it() -> None:
     _run(main)
 
 
+def test_prometheus_in_docker_may_scrape() -> None:
+    async def main() -> None:
+        app = create_app(FakeRunner(INFO, FAST), FakeTokenizer(), ServeConfig(served_model=SERVED))
+        async with serving_app(app) as client:
+            # Docker Desktop's VM reaches the Mac's 127.0.0.1 under this name (decision 0029).
+            scrape = await client.get("/metrics", headers={"host": "host.docker.internal:8000"})
+            assert scrape.status_code == 200
+            assert metric_totals(scrape.text)["ullm_requests_total"] == 0
+            foreign = await client.get("/metrics", headers={"host": "evil.test"})
+            assert foreign.status_code == 400
+
+    _run(main)
+
+
 def test_an_app_without_its_own_telemetry_serves_no_metrics() -> None:
     async def main() -> None:
         events: list[ev.Event] = []

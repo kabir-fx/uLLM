@@ -48,7 +48,9 @@ RETRY_AFTER_S = 1
 # Room in a request body for everything but the messages: model, stop strings, options.
 BODY_SLACK_BYTES = 64 * 1024
 MAX_LOGGED_FIELDS = 32  # unknown field names logged per process; client-chosen, so bounded
-LOCAL_HOSTS = ("127.0.0.1", "localhost")  # a DNS-rebound page arrives under its own name
+# A DNS-rebound page arrives under its own name. Docker Desktop reaches the Mac's 127.0.0.1
+# as host.docker.internal, and Prometheus cannot override Host (decision 0029).
+LOCAL_HOSTS = ("127.0.0.1", "localhost", "host.docker.internal")
 DEFAULT_MAX_TOKENS = 512  # mlx_lm.server's default, so baselines match
 TERMINAL_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
 # uvicorn waits for every open response before the lifespan's exit, and a telemetry stream

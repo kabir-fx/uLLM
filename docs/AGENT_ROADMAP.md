@@ -606,7 +606,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 - [ ] **M3-T1** Block manager with stateful property tests (E8, Q2).
 - [ ] **M3-T2** `[spike]` KV layout on the real model, decision recorded (E9).
 - [ ] **M3-T3** KV store behind its interface; equivalence against contiguous (E9, Q3).
-- [ ] **M3-T4** Admission by free blocks; memory metrics (E6, E8).
+- [ ] **M3-T4** Admission by free blocks; memory metrics, and their KV usage panel in the Grafana dashboard (E6, E8, O3).
 - [ ] **M3-T5** Prefix caching; equivalence on and off; `cached_tokens` (E10).
 - [ ] **M3-T6** Preemption; forced-preemption equivalence (E11).
 - [ ] **M3-T7** Cache salt and the timing side-channel demonstration (E12).
@@ -627,7 +627,7 @@ A milestone is done when its gate passes. Tags: `[design]` needs approval before
 
 #### M5 Go router `[B]`
 
-- [ ] **M5-T1** Proxy, health checks, router metrics, chaos test against `ullm sim` (R1, R2, R8).
+- [ ] **M5-T1** Proxy, health checks, router metrics and their breaker-state and load-per-replica panels in the Grafana dashboard, chaos test against `ullm sim` (R1, R2, R8, O3).
 - [ ] **M5-T2** Circuit breaker and load-aware selection (R3, R4).
 - [ ] **M5-T3** Prefix-aware routing (R5). Needs E10.
 - [ ] **M5-T4** Telemetry fan-in; replicas panel and decision feed; `make up` (R6, T6).

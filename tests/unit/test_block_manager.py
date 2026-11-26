@@ -95,3 +95,156 @@ def test_appending_needs_a_block_only_when_the_last_is_full() -> None:
     assert len(blocks.table(0)) == 1
     blocks.free(1)
     assert blocks.can_append(0)
+
+
+def _cached(blocks: BlockManager, seq: int, keys: tuple[int, ...]) -> tuple[int, ...]:
+    """Allocates ``seq`` with one full block per key, registers them and frees it."""
+    blocks.allocate(seq, num_tokens=len(keys) * blocks.block_size)
+    for index, key in enumerate(keys):
+        assert blocks.register(seq, index, key)
+    table = blocks.table(seq)
+    blocks.free(seq)
+    return table
+
+
+def test_a_freed_block_with_a_key_is_cached_and_one_without_is_free() -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    blocks.allocate(seq=0, num_tokens=6)
+    assert blocks.register(0, 0, key=10)
+    first, _ = blocks.table(0)
+    blocks.free(0)
+    assert (blocks.num_free, blocks.num_cached, blocks.num_in_use) == (3, 1, 0)
+    assert blocks.lookup(10) == first
+
+
+def test_only_a_full_block_takes_a_key() -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    blocks.allocate(seq=0, num_tokens=6)
+    with pytest.raises(ValueError, match="not full"):
+        blocks.register(0, 1, key=11)
+    blocks.append_slot(0)
+    blocks.append_slot(0)
+    assert blocks.register(0, 1, key=11)
+
+
+def test_a_block_takes_one_key() -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    blocks.allocate(seq=0, num_tokens=4)
+    blocks.register(0, 0, key=10)
+    with pytest.raises(ValueError, match="already has a key"):
+        blocks.register(0, 0, key=11)
+
+
+def test_a_key_held_by_another_block_is_not_taken_over() -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    blocks.allocate(seq=0, num_tokens=4)
+    blocks.allocate(seq=1, num_tokens=4)
+    assert blocks.register(0, 0, key=10)
+    assert not blocks.register(1, 0, key=10)
+    assert blocks.lookup(10) == blocks.table(0)[0]
+    blocks.free(1)
+    assert blocks.num_cached == 0
+
+
+def test_sharing_a_cached_block_revives_it() -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    (block,) = _cached(blocks, seq=0, keys=(10,))
+    blocks.allocate(seq=1, num_tokens=6, shared=(block,))
+    assert blocks.table(1)[0] == block
+    assert blocks.ref_count(block) == 1
+    assert (blocks.num_free, blocks.num_cached, blocks.num_in_use) == (2, 0, 2)
+
+
+def test_sharing_a_block_in_use_counts_both_owners() -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    blocks.allocate(seq=0, num_tokens=4)
+    blocks.register(0, 0, key=10)
+    (block,) = blocks.table(0)
+    blocks.allocate(seq=1, num_tokens=4, shared=(block,))
+    assert blocks.ref_count(block) == 2
+    blocks.free(0)
+    assert blocks.ref_count(block) == 1
+    assert blocks.num_cached == 0
+
+
+def test_only_a_block_with_a_key_is_shared() -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    blocks.allocate(seq=0, num_tokens=4)
+    (block,) = blocks.table(0)
+    with pytest.raises(ValueError, match="no key"):
+        blocks.allocate(seq=1, num_tokens=4, shared=(block,))
+
+
+def test_shared_blocks_are_distinct_and_cover_at_most_the_tokens() -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    a, b = _cached(blocks, seq=0, keys=(10, 11))
+    with pytest.raises(ValueError, match="twice"):
+        blocks.allocate(seq=1, num_tokens=8, shared=(a, a))
+    with pytest.raises(ValueError, match="more tokens"):
+        blocks.allocate(seq=1, num_tokens=7, shared=(a, b))
+    assert blocks.num_cached == 2
+
+
+def test_free_blocks_are_taken_before_cached_ones() -> None:
+    blocks = BlockManager(num_blocks=2, block_size=4)
+    _cached(blocks, seq=0, keys=(10,))
+    blocks.allocate(seq=1, num_tokens=4)
+    assert blocks.lookup(10) is not None
+    assert blocks.evictions == 0
+
+
+def test_an_empty_pool_evicts_the_least_recently_cached_block() -> None:
+    blocks = BlockManager(num_blocks=2, block_size=4)
+    (old,) = _cached(blocks, seq=0, keys=(10,))
+    blocks.allocate(seq=1, num_tokens=4)
+    blocks.register(1, 0, key=11)
+    blocks.free(1)
+    assert blocks.can_allocate(8)
+    blocks.allocate(seq=2, num_tokens=4)
+    assert blocks.table(2) == (old,)
+    assert blocks.lookup(10) is None
+    assert blocks.lookup(11) is not None
+    assert blocks.evictions == 1
+
+
+def test_a_freed_table_is_evicted_tail_first() -> None:
+    """A later block is useful only after every block before it, so it goes first."""
+    blocks = BlockManager(num_blocks=3, block_size=4)
+    head, _, tail = _cached(blocks, seq=0, keys=(10, 11, 12))
+    blocks.allocate(seq=1, num_tokens=4)
+    assert blocks.table(1) == (tail,)
+    assert blocks.lookup(10) == head
+
+
+def test_reviving_a_cached_block_does_not_count_it_as_room() -> None:
+    blocks = BlockManager(num_blocks=2, block_size=4)
+    a, b = _cached(blocks, seq=0, keys=(10, 11))
+    assert blocks.can_allocate(8, shared=(a,))
+    assert not blocks.can_allocate(9, shared=(a,))
+    with pytest.raises(OutOfBlocks):
+        blocks.allocate(seq=1, num_tokens=9, shared=(a,))
+    assert blocks.num_cached == 2
+    blocks.allocate(seq=1, num_tokens=8, shared=(a,))
+    assert blocks.table(1) == (a, b)
+    assert blocks.lookup(11) is None
+
+
+def test_a_hit_moves_a_block_to_the_back_of_the_eviction_order() -> None:
+    blocks = BlockManager(num_blocks=3, block_size=4)
+    (a,) = _cached(blocks, seq=0, keys=(10,))
+    (b,) = _cached(blocks, seq=1, keys=(11,))
+    blocks.allocate(seq=2, num_tokens=4, shared=(a,))
+    blocks.free(2)
+    blocks.allocate(seq=3, num_tokens=8)
+    assert blocks.lookup(11) is None
+    assert blocks.lookup(10) == a
+    assert b in blocks.table(3)
+
+
+def test_a_shared_block_is_not_evicted_to_make_room_for_its_own_sequence() -> None:
+    blocks = BlockManager(num_blocks=2, block_size=4)
+    (oldest,) = _cached(blocks, seq=0, keys=(10,))
+    (newer,) = _cached(blocks, seq=1, keys=(11,))
+    blocks.allocate(seq=2, num_tokens=8, shared=(oldest,))
+    assert blocks.table(2) == (oldest, newer)
+    assert blocks.lookup(10) == oldest

@@ -1,6 +1,6 @@
 # 0018: The gate accepts commits that keel's verdicts cover
 
-**Status:** accepted · **Task:** gate G1
+**Status:** accepted, amended by 0031 · **Task:** gate G1
 
 ## Context
 

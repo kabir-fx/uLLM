@@ -26,4 +26,5 @@ E8 asks for a logical, MLX-free block manager: a fixed pool of 16-token blocks, 
 ## Consequences
 
 - `tests/property/test_block_manager.py` runs allocate, share, append, register, free, preempt and fill-the-pool at random. After every operation it checks: each table has `ceil(tokens / block_size)` distinct blocks, so waste stays below one block; each ref count equals the number of tables holding the block, and none is negative; free + in use + cached equals the pool; a block in use keeps its key; a key finds its own contents or a Cached block; and the whole free and cached room can be allocated at once.
+- When every prompt block hits, E10 still recomputes the last prompt token, and a shared block is read-only. M3-T5 must therefore pass one block fewer as `shared` and let the last prompt block be the sequence's own.
 - `num_in_use` scans the ref counts, O(`num_blocks`). M3-T4 can keep a counter if a metric scrape needs one.

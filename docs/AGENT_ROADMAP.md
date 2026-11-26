@@ -325,7 +325,7 @@ Freeze these early. Lanes depend on them and nothing else.
 
 **E3 Stop check and streaming detokenizer.** Stop on the model's end tokens (`finish_reason: "stop"`), on `max_tokens` (`"length"`), and on stop strings: text that could be the start of a stop string is held back, and the stop string itself is never emitted. One streaming detokenizer per request, which holds back incomplete characters. *Proof:* unit tests including multi-byte characters and stop strings split across tokens.
 
-**E4 Request and state machine.** A request holds: id, prompt token IDs, sampling settings, `max_tokens`, stop strings, its output queue, optional tenant and cache salt, trace context, timestamps (arrival, admitted, first token, finished), the tokens generated so far, and its block table. States: `WAITING → PREFILLING → RUNNING → FINISHED`; `RUNNING → PREEMPTED → WAITING` (at the front); any state `→ ABORTED`. Illegal transitions raise. Each transition emits a telemetry event. `PREFILLING` carries progress so a prompt can be prefilled across several steps later (E13).
+**E4 Request and state machine.** A request holds: id, prompt token IDs, sampling settings, `max_tokens`, stop strings, its output queue, optional tenant and cache salt, trace context, timestamps (arrival, admitted, first token, finished), the tokens generated so far, and its block table, which the block manager holds for it (decision 0032). States: `WAITING → PREFILLING → RUNNING → FINISHED`; `RUNNING → PREEMPTED → WAITING` (at the front); any state `→ ABORTED`. Illegal transitions raise. Each transition emits a telemetry event. `PREFILLING` carries progress so a prompt can be prefilled across several steps later (E13).
 
 **E5 Engine loop and thread bridge.**
 

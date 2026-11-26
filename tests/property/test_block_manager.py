@@ -1,4 +1,4 @@
-"""Q2 for E8 (decision 0032): random allocate, free and preempt sequences, with every
+"""Q2 for E8 (decision 0032): random allocate, append, free and preempt sequences, with every
 invariant checked after each operation."""
 
 from collections import Counter
@@ -43,6 +43,22 @@ class BlockMachine(RuleBasedStateMachine):
         seq = list(self.tokens)[pick % len(self.tokens)]
         self.blocks.free(seq)
         del self.tokens[seq]
+
+    @precondition(lambda self: self.tokens)
+    @rule(pick=st.integers(0, 1 << 16))
+    def append(self, pick: int) -> None:
+        seq = list(self.tokens)[pick % len(self.tokens)]
+        needs_block = self.tokens[seq] % BLOCK_SIZE == 0
+        fits = not needs_block or self.blocks.num_free + self.blocks.num_cached > 0
+        assert self.blocks.can_append(seq) == fits
+        if not fits:
+            try:
+                self.blocks.append_slot(seq)
+            except OutOfBlocks:
+                return
+            raise AssertionError("append past the pool did not raise")
+        self.blocks.append_slot(seq)
+        self.tokens[seq] += 1
 
     @precondition(lambda self: self.tokens)
     @rule()

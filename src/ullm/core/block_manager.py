@@ -63,6 +63,18 @@ class BlockManager:
         table = _Table([self._take() for _ in range(self._blocks_for(num_tokens))], num_tokens)
         self._tables[seq] = table
 
+    def can_append(self, seq: SeqId) -> bool:
+        return self._tables[seq].num_tokens % self.block_size != 0 or bool(self._free)
+
+    def append_slot(self, seq: SeqId) -> None:
+        """Room for one more token: decode writes into the last block, or a new one when full."""
+        table = self._tables[seq]
+        if not self.can_append(seq):
+            raise OutOfBlocks(f"seq {seq} needs a block")
+        if table.num_tokens % self.block_size == 0:
+            table.blocks.append(self._take())
+        table.num_tokens += 1
+
     def free(self, seq: SeqId) -> None:
         for block in self._tables.pop(seq).blocks:
             self._refs[block] -= 1

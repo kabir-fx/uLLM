@@ -72,3 +72,26 @@ def test_the_block_size_is_configurable() -> None:
 def test_the_pool_and_the_block_are_not_empty(num_blocks: int, block_size: int) -> None:
     with pytest.raises(ValueError, match="at least 1"):
         BlockManager(num_blocks=num_blocks, block_size=block_size)
+
+
+def test_decode_fills_the_last_block_before_taking_another() -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    blocks.allocate(seq=0, num_tokens=3)
+    blocks.append_slot(0)
+    assert len(blocks.table(0)) == 1
+    blocks.append_slot(0)
+    assert len(blocks.table(0)) == 2
+
+
+def test_appending_needs_a_block_only_when_the_last_is_full() -> None:
+    blocks = BlockManager(num_blocks=2, block_size=4)
+    blocks.allocate(seq=0, num_tokens=4)
+    blocks.allocate(seq=1, num_tokens=3)
+    blocks.append_slot(1)
+    assert not blocks.can_append(0)
+    assert not blocks.can_append(1)
+    with pytest.raises(OutOfBlocks):
+        blocks.append_slot(0)
+    assert len(blocks.table(0)) == 1
+    blocks.free(1)
+    assert blocks.can_append(0)

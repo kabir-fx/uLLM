@@ -1,9 +1,10 @@
 """Q2 for E8 (decision 0032): random allocate, share, append, register, preempt, free and
 evict sequences, with every invariant checked after each operation.
 
-The model knows each sequence's token count and which key each of its blocks was
-given, so it can tell when the manager hands out, finds or forgets the wrong block.
-Eviction has no rule of its own: it happens whenever the free list runs out.
+The model knows each sequence's token count, which key each of its blocks was given,
+and the order in which blocks became Cached, so it can tell when the manager hands
+out, finds, forgets or evicts the wrong block. Eviction has no rule of its own: it
+happens whenever the free list runs out. Argument checks are the unit tests' job.
 """
 
 from collections import Counter
@@ -13,7 +14,7 @@ from hypothesis.stateful import RuleBasedStateMachine, invariant, precondition, 
 
 from ullm.core.block_manager import BlockManager, OutOfBlocks
 
-NUM_BLOCKS = 12
+NUM_BLOCKS = 6
 BLOCK_SIZE = 4
 KEYS = range(10)  # few, so keys collide and blocks are shared often
 
@@ -30,11 +31,19 @@ class BlockMachine(RuleBasedStateMachine):
         self.blocks = BlockManager(NUM_BLOCKS, BLOCK_SIZE)
         self.tokens: dict[int, int] = {}  # live seq -> its token count, in allocation order
         self.keys: dict[tuple[int, int], int] = {}  # (live seq, block index) -> its key
+        self.cached: list[int] = []  # the model's Cached blocks, least recently cached first
+        self.evictions = 0
         self.next_seq = 0
 
     @property
     def room(self) -> int:
         return self.blocks.num_free + self.blocks.num_cached
+
+    def _evict(self, num_new: int) -> None:
+        """New blocks come from the free list first, then from the oldest Cached blocks."""
+        evicted = max(0, num_new - self.blocks.num_free)
+        del self.cached[:evicted]
+        self.evictions += evicted
 
     def _pick(self, pick: int) -> int:
         return list(self.tokens)[pick % len(self.tokens)]
@@ -53,6 +62,8 @@ class BlockMachine(RuleBasedStateMachine):
                 assert after == before
                 return
             raise AssertionError("allocate past the pool did not raise")
+        self.cached = [b for b in self.cached if b not in shared]
+        self._evict(_blocks_for(num_tokens) - len(shared))
         self.blocks.allocate(seq, num_tokens, shared)
         assert self.blocks.table(seq)[: len(shared)] == shared
         self.tokens[seq] = num_tokens
@@ -60,6 +71,11 @@ class BlockMachine(RuleBasedStateMachine):
             self.keys[seq, index] = key
 
     def _release(self, seq: int) -> None:
+        keyed = {b for k in KEYS if (b := self.blocks.lookup(k)) is not None}
+        others = {b for s in self.tokens if s != seq for b in self.blocks.table(s)}
+        for block in reversed(self.blocks.table(seq)):
+            if block in keyed and block not in others:
+                self.cached.append(block)
         self.blocks.free(seq)
         del self.tokens[seq]
         self.keys = {k: v for k, v in self.keys.items() if k[0] != seq}
@@ -68,18 +84,15 @@ class BlockMachine(RuleBasedStateMachine):
     def allocate(self, num_tokens: int) -> None:
         self._allocate(num_tokens, (), ())
 
-    @rule(keys=st.lists(st.sampled_from(KEYS), min_size=1, max_size=4), extra=st.integers(0, 9))
-    def share(self, keys: list[int], extra: int) -> None:
-        """A prefix hit: the blocks found for the leading keys, then new blocks."""
-        hits: list[int] = []
-        for key in keys:
-            block = self.blocks.lookup(key)
-            if block is None or block in hits:
-                break
-            hits.append(block)
-        if hits:
-            found = keys[: len(hits)]
-            self._allocate(len(hits) * BLOCK_SIZE + extra, tuple(hits), tuple(found))
+    @rule(picks=st.lists(PICK, min_size=1, max_size=4), extra=st.integers(0, 2 * BLOCK_SIZE))
+    def share(self, picks: list[int], extra: int) -> None:
+        """A prefix hit: blocks found by keys that resolve now, then new blocks."""
+        found = {k: b for k in KEYS if (b := self.blocks.lookup(k)) is not None}
+        if not found:
+            return
+        keys = list(dict.fromkeys(list(found)[p % len(found)] for p in picks))
+        hits = tuple(found[k] for k in keys)
+        self._allocate(len(hits) * BLOCK_SIZE + extra, hits, tuple(keys))
 
     @precondition(lambda self: self.tokens)
     @rule(pick=PICK)
@@ -93,6 +106,8 @@ class BlockMachine(RuleBasedStateMachine):
             except OutOfBlocks:
                 return
             raise AssertionError("append past the pool did not raise")
+        if self.tokens[seq] % BLOCK_SIZE == 0:
+            self._evict(1)
         self.blocks.append_slot(seq)
         self.tokens[seq] += 1
 
@@ -121,6 +136,21 @@ class BlockMachine(RuleBasedStateMachine):
     @rule()
     def preempt_the_newest(self) -> None:
         self._release(max(self.tokens))
+
+    @precondition(lambda self: self.cached)
+    @rule(extra=st.integers(1, 2 * BLOCK_SIZE))
+    def share_the_oldest_cached_block(self, extra: int) -> None:
+        """The hit most at risk: the next block taken may evict it unless it is revived first."""
+        oldest = self.cached[0]
+        (key,) = (k for k in KEYS if self.blocks.lookup(k) == oldest)
+        self._allocate(BLOCK_SIZE + extra, (oldest,), (key,))
+
+    @rule()
+    def drain_the_free_list(self) -> None:
+        """Leaves only Cached blocks as room, so the next block taken is an eviction."""
+        if self.blocks.num_free:
+            self._allocate(self.blocks.num_free * BLOCK_SIZE, (), ())
+            assert self.blocks.num_free == 0
 
     @rule()
     def fill_the_pool(self) -> None:
@@ -166,6 +196,12 @@ class BlockMachine(RuleBasedStateMachine):
                 holders = {k for (s, i), k in self.keys.items() if self.blocks.table(s)[i] == block}
                 assert holders == {key}
         assert self.blocks.num_cached == cached
+
+    @invariant()
+    def eviction_takes_the_least_recently_cached_block(self) -> None:
+        cached = {b for k in KEYS if (b := self.blocks.lookup(k)) is not None}
+        assert {b for b in cached if self.blocks.ref_count(b) == 0} == set(self.cached)
+        assert self.blocks.evictions == self.evictions
 
 
 TestBlockManager = BlockMachine.TestCase

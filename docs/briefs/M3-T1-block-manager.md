@@ -1,6 +1,6 @@
 # M3-T1: Block manager
 
-**State:** in build. Read the Result when `/build` reports.
+**State:** DONE at `8cdccbb`. Read the Result, then run `/ship`.
 **Decision record:** [0032](../decisions/0032-block-manager.md) (the full design, for agents) · **Spec:** roadmap E8 and Q2, task M3-T1
 
 ## The goal
@@ -93,3 +93,24 @@ A new block can come from the Cached blocks when the free list is empty. If a sh
 </details>
 
 ## Result
+
+**State:** DONE. The proof is VERIFIED at `ba53dae`. The review is READY at `8cdccbb`, after the fixes. `make ci` passed at `8cdccbb`.
+
+**Proof.** The reviewer agent exercised seven claims from a fresh script that imports the module. All seven passed. For the main claim, the reviewer moved one loop in a copy of the module. The check then failed, and it passed again after the restore.
+
+**Bugs that the review found.**
+- `register` accepted the index -1. Thus the partial last block could take a key, and another sequence could then share it. A unit test failed first, and the fix refuses a negative index.
+- The property test reached the main claim in 2 of 5 runs. The model now keeps the order of Cached blocks, and a rule shares the oldest one. The mutant now fails in 10 of 10 runs.
+
+**Changes against the plan.**
+- E4 in the roadmap now says that the block manager holds the block table of a request.
+- Decision 0032 now tells M3-T5 how to share blocks when every prompt block hits.
+
+**Not proven.** Nothing calls the manager yet. M3-T3 and M3-T4 connect it to the engine.
+
+**Passes to later slices.** M3-T4 sizes the pool from a memory budget and adds the block metrics. `ref_count(-1)` gives the count of the last block, and nobody calls it with -1 now.
+
+**Read these yourself.**
+- `src/ullm/core/block_manager.py:71`: `allocate`. Look at the order: the shared blocks first, then the new blocks.
+- `src/ullm/core/block_manager.py:64`: `can_allocate`. A revived Cached block is not room.
+- `tests/property/test_block_manager.py:51`: `_allocate` and `_evict`. Look at how the model predicts each eviction.

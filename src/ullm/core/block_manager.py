@@ -101,7 +101,7 @@ class BlockManager:
         a key and becomes Free when released.
         """
         table = self._tables[seq]
-        if (index + 1) * self.block_size > table.num_tokens:
+        if index < 0 or (index + 1) * self.block_size > table.num_tokens:
             raise ValueError(f"block {index} of seq {seq} is not full")
         block = table.blocks[index]
         if block in self._key_of:

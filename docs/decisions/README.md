@@ -29,6 +29,7 @@ One short file per design decision, numbered in order (roadmap 3.3). A decision 
 | [0028](0028-benchmark-sweep.md) | The concurrency sweep: one per-chunk session per concurrency 1 to 16 against batched `mlx_lm.server` without prompt cache, uLLM at `--max-num-seqs 16` recorded per chunk; gaps explained by `bench.steps` from the recordings and the offline `scripts.step_costs` | M2-T6 |
 | [0029](0029-grafana-dashboard.md) | Grafana for `ullm serve` on the Mac: `make grafana` runs pinned Prometheus and Grafana in Docker on 127.0.0.1, scraping `host.docker.internal:8000` every 5 s, a name the server accepts on `GET /metrics` only; Grafana anonymous Viewer, login off, foreign `Host` redirected; one provisioned dashboard on metrics that exist now | M2-T11 |
 | [0030](0030-readme-claims-verify.md) | README v1: `bench.readme` writes the Sustained c1 to c8 table from the committed sweep between markers, and a ci-core test fails when it is stale; `make verify` runs equivalence at 128 tokens, the property tests, `ullm sim` and a bench smoke run; `make demo-gif` records the hosted replay | M2-T12 |
+| [0031](0031-gate-renumber-and-merge-commits.md) | `/gate` also accepts a commit after the verdicts that only renumbers decision, row or claim references outside docs, or a merge of the base with no hand-resolved hunk; amends 0018 | gate A |
 
 ## Template
 

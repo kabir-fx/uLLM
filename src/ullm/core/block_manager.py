@@ -63,7 +63,7 @@ class BlockManager:
 
     def can_allocate(self, num_tokens: int, shared: Sequence[BlockId] = ()) -> bool:
         """A shared block that is Cached leaves the cache, so it is not room for new blocks."""
-        self._check_shared(num_tokens, shared)
+        self._check_allocation(num_tokens, shared)
         revived = sum(self._refs[b] == 0 for b in shared)
         new = self._blocks_for(num_tokens) - len(shared)
         return new <= len(self._free) + len(self._cached) - revived
@@ -124,7 +124,7 @@ class BlockManager:
             else:
                 self._free.append(block)
 
-    def _check_shared(self, num_tokens: int, shared: Sequence[BlockId]) -> None:
+    def _check_allocation(self, num_tokens: int, shared: Sequence[BlockId]) -> None:
         if num_tokens < 1:
             raise ValueError("a sequence holds at least one token")
         if len(set(shared)) != len(shared):

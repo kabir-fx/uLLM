@@ -248,3 +248,11 @@ def test_a_shared_block_is_not_evicted_to_make_room_for_its_own_sequence() -> No
     blocks.allocate(seq=2, num_tokens=8, shared=(oldest,))
     assert blocks.table(2) == (oldest, newer)
     assert blocks.lookup(10) == oldest
+
+
+@pytest.mark.parametrize("index", [-1, 2])
+def test_register_takes_an_index_inside_the_table(index: int) -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    blocks.allocate(seq=0, num_tokens=6)
+    with pytest.raises(ValueError, match="not full"):
+        blocks.register(0, index, key=10)

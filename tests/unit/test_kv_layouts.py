@@ -140,3 +140,31 @@ def test_split_attention_equals_fused_attention_over_the_whole_context() -> None
     assert split.shape == whole.shape
     assert split.dtype == whole.dtype
     assert mx.allclose(split.astype(mx.float32), whole.astype(mx.float32), atol=2e-2).item()
+
+
+def test_each_round_starts_with_the_next_candidate(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The first candidate of a cell runs on a GPU clock the previous cell left; rotating the
+    # order spreads that over every candidate.
+    from scripts import kv_layouts
+
+    runner, tokenizer = mlx_loaded
+    tokens = kv_layouts.long_prompt(tokenizer, 33)
+    source = kv_layouts.prefill(runner.model, tokens)
+    real_build, order = kv_layouts.build, []
+
+    def recorded(kind: "kv_layouts.Candidate", *args: object) -> object:
+        order.append(kind)
+        return real_build(kind, *args)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(kv_layouts, "build", recorded)
+    kv_layouts.measure(
+        runner.model, tokens, source, rows=(1,), contexts=(32,), warmup=1, steps=2, rounds=4
+    )
+    n = len(kv_layouts.CANDIDATES)
+    starts = [order[i * n] for i in range(4)]
+    assert starts == list(kv_layouts.CANDIDATES)
+    assert all(
+        sorted(order[i * n : (i + 1) * n]) == sorted(kv_layouts.CANDIDATES) for i in range(4)
+    )

@@ -390,20 +390,22 @@ def measure(
     steps: int,
     rounds: int,
 ) -> tuple[tuple[Cell, ...], tuple[Join, ...]]:
-    """Every candidate once per round at each cell, in the same order, so drift in the GPU
-    clock reaches each alike. Row i of a cell holds ``context - i`` tokens of ``tokens`` and
-    decodes from token ``context - i``. Refuses a round where the candidates disagree on a
-    token at one row: they would not be doing the same work."""
+    """Every candidate once per round at each cell, each round starting one candidate later,
+    so drift in the GPU clock reaches each alike. Row i of a cell holds ``context - i`` tokens
+    of ``tokens`` and decodes from token ``context - i``. Refuses a round where the candidates
+    disagree on a token at one row: they would not be doing the same work."""
     cells = [(r, t) for t in contexts for r in rows if r * t <= MAX_SLOTS]
     times: dict[tuple[int, int, str], dict[str, list[float]]] = {}
     memory: dict[tuple[int, int, str], tuple[float, float]] = {}
     agree: dict[tuple[int, int, str], bool] = {}
-    for _ in range(rounds):
+    for round_ in range(rounds):
+        k = round_ % len(CANDIDATES)
+        order = CANDIDATES[k:] + CANDIDATES[:k]
         for r, t in cells:
             lengths = [t - i for i in range(r)]
             first = [tokens[n] for n in lengths]
             seen: dict[str, list[list[int]]] = {}
-            for kind in CANDIDATES:
+            for kind in order:
                 base = _settle()
                 caches = build(kind, source, lengths)
                 mx.eval(*[a for cache in caches for a in _arrays(cache)])
@@ -418,7 +420,8 @@ def measure(
                 entry["median_ms"].append(statistics.median(ms))
                 _, top = memory.get(key, (0.0, 0.0))
                 memory[key] = (held / MIB, max(top, peak / MIB))
-                agree[key] = agree.get(key, True) and seen[kind] == seen["e7"]
+            for kind in CANDIDATES:
+                agree[(r, t, kind)] = agree.get((r, t, kind), True) and seen[kind] == seen["e7"]
             if r == 1 and any(out != seen["e7"] for out in seen.values()):
                 raise RuntimeError("the candidates generated different tokens for one row")
             if r >= 2:

@@ -25,9 +25,7 @@ def test_each_candidate_and_cell_is_timed_and_reported(
     tokens = kv_layouts.long_prompt(tokenizer, 64 + 1)
     source = kv_layouts.prefill(runner.model, tokens)
     cells, joins = kv_layouts.measure(
-        runner.model,
-        tokens,
-        source,
+        kv_layouts.InProcess(runner.model, tokens, source),
         rows=(1, 2, 3),
         contexts=(40, 64),
         warmup=1,
@@ -83,7 +81,12 @@ def test_candidates_that_disagree_at_one_row_are_refused(
     monkeypatch.setattr(kv_layouts, "decode", second_is_off_by_one)
     with pytest.raises(RuntimeError, match="different tokens"):
         kv_layouts.measure(
-            runner.model, tokens, source, rows=(1,), contexts=(32,), warmup=1, steps=3, rounds=1
+            kv_layouts.InProcess(runner.model, tokens, source),
+            rows=(1,),
+            contexts=(32,),
+            warmup=1,
+            steps=3,
+            rounds=1,
         )
 
 
@@ -160,7 +163,12 @@ def test_each_round_starts_with_the_next_candidate(
 
     monkeypatch.setattr(kv_layouts, "build", recorded)
     kv_layouts.measure(
-        runner.model, tokens, source, rows=(1,), contexts=(32,), warmup=1, steps=2, rounds=4
+        kv_layouts.InProcess(runner.model, tokens, source),
+        rows=(1,),
+        contexts=(32,),
+        warmup=1,
+        steps=2,
+        rounds=4,
     )
     n = len(kv_layouts.CANDIDATES)
     starts = [order[i * n] for i in range(4)]
@@ -168,3 +176,21 @@ def test_each_round_starts_with_the_next_candidate(
     assert all(
         sorted(order[i * n : (i + 1) * n]) == sorted(kv_layouts.CANDIDATES) for i in range(4)
     )
+
+
+def test_a_sample_from_a_fresh_process_matches_one_in_this_process(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    from scripts import kv_layouts
+
+    runner, tokenizer = mlx_loaded
+    tokens = kv_layouts.long_prompt(tokenizer, 41)
+    here = kv_layouts.InProcess(runner.model, tokens, kv_layouts.prefill(runner.model, tokens))
+    isolated = kv_layouts.Isolated()
+    for kind in ("e7", "b"):
+        want = here.decode(2, 40, kind, 1, 3)
+        got = isolated.decode(2, 40, kind, 1, 3)
+        assert got.tokens == want.tokens
+        assert got.mean_ms > 0
+        assert got.held_mib > 0
+    assert isolated.membership(2, 40, "leave") > 0

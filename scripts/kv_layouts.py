@@ -21,12 +21,13 @@ alone, against the fused kernel over the padded batch that E7 holds.
 import argparse
 import gc
 import statistics
+import subprocess
 import sys
 import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, Protocol, cast
 
 import mlx.core as mx
 from bench import conditions
@@ -380,10 +381,84 @@ def _settle() -> int:
     return mx.get_active_memory()
 
 
+Membership = Literal["join-e7", "join-b", "leave"]
+MEMBERSHIP: tuple[Membership, ...] = ("join-e7", "join-b", "leave")
+
+
+class Sample(Frozen):
+    """One candidate decoding one cell once."""
+
+    tokens: list[list[int]]
+    mean_ms: float
+    median_ms: float
+    held_mib: float
+    peak_mib: float
+
+
+class Sampler(Protocol):
+    def decode(
+        self, rows: int, context: int, kind: Candidate, warmup: int, steps: int
+    ) -> Sample: ...
+
+    def membership(self, rows: int, context: int, op: Membership) -> float: ...
+
+
+class InProcess:
+    """Samples in this process, from one prefilled KV."""
+
+    def __init__(self, model: Any, tokens: Sequence[int], source: LayerKVs) -> None:
+        self.model, self.tokens, self.source = model, tokens, source
+
+    def decode(self, rows: int, context: int, kind: Candidate, warmup: int, steps: int) -> Sample:
+        lengths = _lengths(rows, context)
+        base = _settle()
+        caches = build(kind, self.source, lengths)
+        mx.eval(*[a for cache in caches for a in _arrays(cache)])
+        held = mx.get_active_memory() - base
+        mx.reset_peak_memory()
+        out, ms = decode(self.model, caches, [self.tokens[n] for n in lengths], warmup, steps)
+        peak = mx.get_peak_memory() - base
+        return Sample(
+            tokens=out,
+            mean_ms=statistics.fmean(ms),
+            median_ms=statistics.median(ms),
+            held_mib=held / MIB,
+            peak_mib=peak / MIB,
+        )
+
+    def membership(self, rows: int, context: int, op: Membership) -> float:
+        _settle()
+        lengths = _lengths(rows, context)
+        if op == "leave":
+            return _leave_ms(self.source, lengths)
+        return _join_ms("e7" if op == "join-e7" else "b", self.source, lengths)
+
+
+class Isolated:
+    """Samples each in a fresh process. MLX frees buffers back to its allocator, but the
+    process footprint keeps its high-water mark: in one process, the 8-row cells at 2,048
+    tokens grew it past 10 GB and the system killed the run."""
+
+    def _run(self, *args: object) -> str:
+        command = [sys.executable, "-m", "scripts.kv_layouts", "--worker", *map(str, args)]
+        done = subprocess.run(command, capture_output=True, text=True, check=False)
+        if done.returncode != 0:
+            raise RuntimeError(f"worker {args} exited {done.returncode}: {done.stderr[-2000:]}")
+        return done.stdout.strip().splitlines()[-1]
+
+    def decode(self, rows: int, context: int, kind: Candidate, warmup: int, steps: int) -> Sample:
+        return Sample.model_validate_json(self._run("decode", rows, context, kind, warmup, steps))
+
+    def membership(self, rows: int, context: int, op: Membership) -> float:
+        return float(self._run("membership", rows, context, op))
+
+
+def _lengths(rows: int, context: int) -> list[int]:
+    return [context - i for i in range(rows)]
+
+
 def measure(
-    model: Any,
-    tokens: Sequence[int],
-    source: LayerKVs,
+    sampler: Sampler,
     rows: Sequence[int],
     contexts: Sequence[int],
     warmup: int,
@@ -392,56 +467,37 @@ def measure(
 ) -> tuple[tuple[Cell, ...], tuple[Join, ...]]:
     """Every candidate once per round at each cell, each round starting one candidate later,
     so drift in the GPU clock reaches each alike. Row i of a cell holds ``context - i`` tokens
-    of ``tokens`` and decodes from token ``context - i``. Refuses a round where the candidates
-    disagree on a token at one row: they would not be doing the same work."""
+    and decodes from token ``context - i``. Refuses a round where the candidates disagree on a
+    token at one row: they would not be doing the same work."""
     cells = [(r, t) for t in contexts for r in rows if r * t <= MAX_SLOTS]
-    times: dict[tuple[int, int, str], dict[str, list[float]]] = {}
-    memory: dict[tuple[int, int, str], tuple[float, float]] = {}
+    samples: dict[tuple[int, int, str], list[Sample]] = {}
     agree: dict[tuple[int, int, str], bool] = {}
+    ops: dict[tuple[int, int, str], list[float]] = {}
     for round_ in range(rounds):
         k = round_ % len(CANDIDATES)
         order = CANDIDATES[k:] + CANDIDATES[:k]
         for r, t in cells:
-            lengths = [t - i for i in range(r)]
-            first = [tokens[n] for n in lengths]
             seen: dict[str, list[list[int]]] = {}
             for kind in order:
-                base = _settle()
-                caches = build(kind, source, lengths)
-                mx.eval(*[a for cache in caches for a in _arrays(cache)])
-                held = mx.get_active_memory() - base
-                mx.reset_peak_memory()
-                seen[kind], ms = decode(model, caches, first, warmup, steps)
-                peak = mx.get_peak_memory() - base
-                del caches
-                key = (r, t, kind)
-                entry = times.setdefault(key, {"mean_ms": [], "median_ms": []})
-                entry["mean_ms"].append(statistics.fmean(ms))
-                entry["median_ms"].append(statistics.median(ms))
-                _, top = memory.get(key, (0.0, 0.0))
-                memory[key] = (held / MIB, max(top, peak / MIB))
+                sample = sampler.decode(r, t, kind, warmup, steps)
+                samples.setdefault((r, t, kind), []).append(sample)
+                seen[kind] = sample.tokens
             for kind in CANDIDATES:
                 agree[(r, t, kind)] = agree.get((r, t, kind), True) and seen[kind] == seen["e7"]
             if r == 1 and any(out != seen["e7"] for out in seen.values()):
                 raise RuntimeError("the candidates generated different tokens for one row")
             if r >= 2:
-                for joiner in JOINERS:
-                    _settle()
-                    entry = times.setdefault((r, t, "join-" + joiner), {"join_ms": []})
-                    entry["join_ms"].append(_join_ms(joiner, source, lengths))
-                _settle()
-                times.setdefault((r, t, "leave"), {"leave_ms": []})["leave_ms"].append(
-                    _leave_ms(source, lengths)
-                )
+                for op in MEMBERSHIP:
+                    ops.setdefault((r, t, op), []).append(sampler.membership(r, t, op))
     out_cells = tuple(
         Cell(
             rows=r,
             context=t,
             candidate=kind,
-            mean_ms=tuple(times[(r, t, kind)]["mean_ms"]),
-            median_ms=tuple(times[(r, t, kind)]["median_ms"]),
-            held_mib=memory[(r, t, kind)][0],
-            peak_mib=memory[(r, t, kind)][1],
+            mean_ms=tuple(s.mean_ms for s in samples[(r, t, kind)]),
+            median_ms=tuple(s.median_ms for s in samples[(r, t, kind)]),
+            held_mib=samples[(r, t, kind)][-1].held_mib,
+            peak_mib=max(s.peak_mib for s in samples[(r, t, kind)]),
             same_tokens=agree[(r, t, kind)],
         )
         for r, t in cells
@@ -452,14 +508,28 @@ def measure(
             rows=r,
             context=t,
             candidate=kind,
-            join_ms=tuple(times[(r, t, "join-" + kind)]["join_ms"]),
-            leave_ms=tuple(times[(r, t, "leave")]["leave_ms"]) if kind == "e7" else (),
+            join_ms=tuple(ops[(r, t, "join-" + kind)]),
+            leave_ms=tuple(ops[(r, t, "leave")]) if kind == "e7" else (),
         )
         for r, t in cells
         if r >= 2
         for kind in JOINERS
     )
     return out_cells, joins
+
+
+def _worker(args: Sequence[str]) -> int:
+    """One sample, printed as the last line of stdout, for ``Isolated``."""
+    runner, tokenizer = load_mlx(DEFAULT_MODEL)
+    rows, context = int(args[1]), int(args[2])
+    tokens = long_prompt(tokenizer, context + 1)
+    sampler = InProcess(runner.model, tokens, prefill(runner.model, tokens))
+    if args[0] == "decode":
+        kind = cast(Candidate, args[3])
+        print(sampler.decode(rows, context, kind, int(args[4]), int(args[5])).model_dump_json())
+    else:
+        print(sampler.membership(rows, context, cast(Membership, args[3])))
+    return 0
 
 
 def _segment(q: mx.array, k: mx.array, v: mx.array, scale: float) -> tuple[mx.array, mx.array]:
@@ -719,6 +789,9 @@ def prefill(model: Any, tokens: Sequence[int]) -> LayerKVs:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv[:1] == ["--worker"]:
+        return _worker(argv[1:])
     parser = argparse.ArgumentParser(prog="scripts.kv_layouts")
     parser.add_argument("--out", type=Path, required=True, help="directory for the two files")
     parser.add_argument("--rounds", type=int, default=ROUNDS)
@@ -728,16 +801,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--prefixes", type=int, nargs="+", default=PREFIXES)
     args = parser.parse_args(argv)
     started = datetime.now(UTC)
-    runner, tokenizer = load_mlx(DEFAULT_MODEL)
-    model = runner.model
-    tokens = long_prompt(tokenizer, max(args.contexts) + 1)
-    source = prefill(model, tokens)
-    cells, joins = measure(
-        model, tokens, source, args.rows, args.contexts, WARMUP, args.steps, args.rounds
-    )
-    del source
-    _settle()
-    shape = model.args
+    cells, joins = measure(Isolated(), args.rows, args.contexts, WARMUP, args.steps, args.rounds)
+    runner, _ = load_mlx(DEFAULT_MODEL)
+    shape = runner.model.args
     attention = measure_attention(
         args.prefixes,
         ATTENTION_ROWS,

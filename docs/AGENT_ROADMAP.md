@@ -374,7 +374,7 @@ Freeze these early. Lanes depend on them and nothing else.
 
 The spike measures, on the real model, decode step time against batch size and context length for each candidate and for E7, plus the memory each really uses. *Decision rule:* in order of simplicity (A, then B), take the first whose decode step time at B=8 with 1k-token contexts is within about 20% of E7. C is prototyped only far enough to estimate its gain. If neither A nor B qualifies, stop and discuss with the author. Whatever is chosen, report A's measured cost as the "gather tax". The result is implemented behind a `KVStore` interface. *Proof:* equivalence against E7.
 
-*Decided (decision 0033, M3-T2):* B. At B=8 and 1k tokens, B is 0.97 of E7 and A is 3.83 (the gather tax). B holds about 1.76 times E7's KV memory, because the working tensor and the blocks each hold a copy. C's split attention is slower than the fused kernel with MLX's own operations (`bench/results/m3/kv-layout/`).
+*Decided (decision 0033, M3-T2):* B. At B=8 and 1k tokens, B is 0.91 of E7 and A is 3.56 (the gather tax). At B=8 and 1k tokens, B holds 1.78 times E7's KV memory, because the working tensor and the blocks each hold a copy. C's split attention is slower than the fused kernel with MLX's own operations (`bench/results/m3/kv-layout/`).
 
 **E10 Prefix caching.**
 

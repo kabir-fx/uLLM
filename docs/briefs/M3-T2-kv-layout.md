@@ -39,8 +39,8 @@ This spike measures which physical KV layout the block store will use. It change
 ## What you get at the end
 
 - The run: `bench/results/m3/kv-layout/kv-layout.md`. To run it again: `uv run python -m scripts.kv_layouts --out <dir>`, on AC power.
-- The decision: layout B. At 8 rows and 1,024 tokens, B takes 25.19 ms per step and E7 takes 25.86 ms.
-- The gather tax: layout A takes 99.09 ms there, 3.83 times E7.
+- The decision: layout B. At 8 rows and 1,024 tokens, B takes 24.06 ms per step and E7 takes 26.38 ms.
+- The gather tax: layout A takes 93.85 ms there, 3.56 times E7.
 - `tests/unit/test_kv_layouts.py` proves that A, A2 and B give the model the same batch as E7. It also proves that the split attention of C equals one fused attention.
 - The tests also prove that the script refuses a run where the layouts give different tokens at one row.
 
@@ -67,7 +67,7 @@ You approved the plan with A2 and a cap of 16 rows at 1,024 tokens. You can stil
 
 ## What can go wrong
 
-- B holds about twice the KV of A, because the working tensor and the blocks each hold a copy. At 16 rows and 1,024 tokens, B holds 4,006 MiB and E7 holds 2,246 MiB. M3-T4 must count both copies.
+- B holds about twice the KV of A, because the working tensor and the blocks each hold a copy. At 16 rows and 1,024 tokens, B holds 4,006 MiB and E7 holds 2,250 MiB. M3-T4 must count both copies.
 - C is slower than the fused kernel in every measured cell. A gain for C needs an attention kernel of our own.
 - The cause of the memory growth in one process is not known. A long server run with mixed sizes can show the same growth.
 
@@ -83,7 +83,7 @@ You approved the plan with A2 and a cap of 16 rows at 1,024 tokens. You can stil
 
 ## Learn from this slice
 
-A gather copies every row's KV in each step. Thus its cost grows with rows and context. It is 1.11 times E7 at 1 × 512 and 4.83 times at 8 × 2,048.
+A gather copies every row's KV in each step. Thus its cost grows with rows and context. It is 1.16 times E7 at 1 × 512 and 4.63 times at 8 × 2,048.
 
 Layout B moves the copy off the decode path. It copies a block once when the block fills, and it gathers a row only when the row joins. The cost is memory, not time.
 

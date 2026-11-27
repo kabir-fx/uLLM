@@ -22,6 +22,7 @@ from ullm.core.engine import (
     Ticket,
 )
 from ullm.runner.base import (
+    BlockId,
     DecodePlan,
     PrefillPlan,
     RunnerInfo,
@@ -75,6 +76,7 @@ class Checked:
     arrivals: list[ev.ReqArrived]
     inner: FakeRunner = field(default_factory=lambda: FakeRunner(INFO, FAST, lambda s: None))
     written: dict[SeqId, int] = field(default_factory=dict)  # KV slots per held sequence
+    tables: dict[SeqId, tuple[BlockId, ...]] = field(default_factory=dict)  # the last planned
     adds: int = 0
     releases: int = 0
     violations: list[str] = field(default_factory=list)
@@ -87,10 +89,13 @@ class Checked:
         self.adds += 1
         self.written[seq] = 0
 
-    def release(self, seq: SeqId) -> None:
-        self.inner.release(seq)
+    def release(self, seq: SeqId, freed: tuple[BlockId, ...]) -> None:
+        self.inner.release(seq, freed)
         self.releases += 1
         del self.written[seq]
+        table = self.tables.pop(seq, ())
+        if sorted(freed) != sorted(table):
+            self.violations.append(f"seq {seq} freed {freed}, its table was {table}")
 
     def execute(self, plan: StepPlan) -> StepResult:
         """Records a broken limit instead of raising: the engine fails a step that raises."""
@@ -103,13 +108,18 @@ class Checked:
         if rows * reservation > self.config.max_kv_slots:
             self.violations.append(f"{rows} rows x reservation {reservation} reserved")
         match plan:
-            case PrefillPlan(seq=seq, token_ids=token_ids):
+            case PrefillPlan(seq=seq, token_ids=token_ids, blocks=blocks):
                 self.written[seq] = len(token_ids)
-            case DecodePlan(seqs=seqs):
+                self.tables[seq] = blocks
+            case DecodePlan(seqs=seqs, blocks=blocks):
+                self.tables.update(zip(seqs, blocks, strict=True))
                 if sorted(seqs) != sorted(self.written):
                     self.violations.append(f"decode of {seqs}, held {sorted(self.written)}")
                 for s in seqs:
                     self.written[s] += 1
+        held = [b for table in self.tables.values() for b in table]
+        if len(held) != len(set(held)):
+            self.violations.append(f"two held sequences share a block: {self.tables}")
         if rows * max(self.written.values()) > self.config.max_kv_slots:
             self.violations.append(f"{rows} rows x {max(self.written.values())} slots written")
         return self.inner.execute(plan)

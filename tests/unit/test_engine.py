@@ -412,7 +412,7 @@ def test_a_failed_prefill_releases_its_sequence_and_fails_only_that_request() ->
 
 
 class _ReleaseFails(RecordingRunner):
-    def release(self, seq: int) -> None:
+    def release(self, seq: int, freed: tuple[int, ...]) -> None:
         raise RuntimeError("a bug in release")
 
 

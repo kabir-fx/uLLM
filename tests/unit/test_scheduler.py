@@ -18,7 +18,7 @@ BIG = 1 << 20  # a slot budget that never binds
 
 
 def _scheduler(max_num_seqs: int = 1, max_kv_slots: int = BIG) -> Scheduler:
-    return Scheduler(max_num_seqs=max_num_seqs, max_kv_slots=max_kv_slots)
+    return Scheduler(max_num_seqs=max_num_seqs, max_kv_slots=max_kv_slots, block_size=4)
 
 
 def _request(
@@ -45,7 +45,7 @@ def test_the_oldest_waiting_request_is_admitted_and_prefilled_first() -> None:
     assert step is not None
     assert step.admitted is a
     assert step.rows == (a,)
-    assert step.plan == PrefillPlan(seq=0, token_ids=(0, 1), start=0)
+    assert step.plan == PrefillPlan(seq=0, token_ids=(0, 1), start=0, blocks=(0,))
     assert a.state is RequestState.PREFILLING
     assert b.state is RequestState.WAITING
     assert (scheduler.waiting, scheduler.running) == (1, 1)
@@ -62,7 +62,7 @@ def test_a_running_request_decodes_while_the_next_waits_for_room() -> None:
     assert step is not None
     assert step.admitted is None
     assert step.rows == (a,)
-    assert step.plan == DecodePlan(seqs=(0,), token_ids=(5,))
+    assert step.plan == DecodePlan(seqs=(0,), token_ids=(5,), blocks=((0,),))
     assert b.state is RequestState.WAITING
 
 
@@ -130,7 +130,7 @@ def test_requests_join_one_per_step_up_to_max_num_seqs_then_decode_together() ->
     assert step is not None
     assert step.admitted is None
     assert step.rows == (a, b)
-    assert step.plan == DecodePlan(seqs=(0, 1), token_ids=(5, 6))
+    assert step.plan == DecodePlan(seqs=(0, 1), token_ids=(5, 6), blocks=((0,), (1,)))
     assert c.state is RequestState.WAITING
     assert (scheduler.waiting, scheduler.running) == (1, 2)
 
@@ -145,7 +145,7 @@ def test_a_new_request_prefills_alone_while_the_running_ones_wait_a_step() -> No
     assert step is not None
     assert step.admitted is b
     assert step.rows == (b,)
-    assert step.plan == PrefillPlan(seq=1, token_ids=(1, 1), start=0)
+    assert step.plan == PrefillPlan(seq=1, token_ids=(1, 1), start=0, blocks=(1,))
 
 
 def test_the_head_waits_while_its_reservation_would_overfill_the_batch() -> None:
@@ -201,3 +201,30 @@ def test_no_request_skips_ahead_of_a_head_that_does_not_fit() -> None:
     assert step is not None
     assert step.admitted is None
     assert (head.state, behind.state) == (RequestState.WAITING, RequestState.WAITING)
+
+
+# Block tables (decision 0034)
+
+
+def test_each_plan_carries_the_block_table_after_its_step() -> None:
+    scheduler = _scheduler(max_num_seqs=2)
+    a = _request(0, prompt_len=7)
+    scheduler.add(a)
+    assert _admit_and_prefill(scheduler, 5) is a
+    step = scheduler.schedule(0.0)  # writes token 8 of 8: still two blocks of 4
+    assert step is not None
+    assert step.plan == DecodePlan(seqs=(0,), token_ids=(5,), blocks=((0, 1),))
+    a.append(6, 0.0)
+    step = scheduler.schedule(0.0)  # token 9 takes a third block
+    assert step is not None
+    assert step.plan == DecodePlan(seqs=(0,), token_ids=(6,), blocks=((0, 1, 2),))
+
+
+def test_removing_a_running_request_frees_its_blocks_and_a_waiting_one_has_none() -> None:
+    scheduler = _scheduler()
+    a, b = _request(0, prompt_len=5), _request(1)
+    scheduler.add(a)
+    scheduler.add(b)
+    _admit_and_prefill(scheduler, 5)
+    assert scheduler.remove(b) == ()
+    assert sorted(scheduler.remove(a)) == [0, 1]

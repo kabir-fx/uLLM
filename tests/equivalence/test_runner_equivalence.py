@@ -17,9 +17,10 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from tests.equivalence.divergence import divergence
+from tests.plans import Plans
 
 from ullm.models import DEFAULT_MODEL
-from ullm.runner.base import DecodePlan, PrefillPlan, SamplingParams, Tokenizer
+from ullm.runner.base import SamplingParams, Tokenizer
 
 if TYPE_CHECKING:
     from ullm.runner.mlx_runner import MLXRunner, MLXTokenizer
@@ -41,12 +42,13 @@ def golden() -> dict[str, Any]:
 
 
 def _generate(runner: "MLXRunner", seq: int, prompt: tuple[int, ...], max_tokens: int) -> list[int]:
+    plans = Plans()
     eos = runner.info().eos_token_ids
     runner.add(seq, GREEDY)
-    tokens = list(runner.execute(PrefillPlan(seq=seq, token_ids=prompt, start=0)).tokens)
+    tokens = list(runner.execute(plans.prefill(seq=seq, token_ids=prompt, start=0)).tokens)
     while tokens[-1] not in eos and len(tokens) < max_tokens:
-        tokens += runner.execute(DecodePlan(seqs=(seq,), token_ids=(tokens[-1],))).tokens
-    runner.release(seq)
+        tokens += runner.execute(plans.decode(seqs=(seq,), token_ids=(tokens[-1],))).tokens
+    runner.release(seq, plans.release(seq))
     return tokens
 
 

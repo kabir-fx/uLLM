@@ -1,6 +1,7 @@
 """A runner wrapper that records what the engine asked of it, for the engine and bridge tests."""
 
 from ullm.runner.base import (
+    BlockId,
     DecodePlan,
     PrefillPlan,
     Runner,
@@ -29,8 +30,8 @@ class RecordingRunner:
         self.adds += 1
         self.live.add(seq)
 
-    def release(self, seq: SeqId) -> None:
-        self.inner.release(seq)
+    def release(self, seq: SeqId, freed: tuple[BlockId, ...]) -> None:
+        self.inner.release(seq, freed)
         self.releases += 1
         self.live.discard(seq)
 

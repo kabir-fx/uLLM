@@ -5,8 +5,9 @@ from typing import Any
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from tests.plans import Plans
 
-from ullm.runner.base import DecodePlan, PrefillPlan, RunnerInfo, SamplingParams
+from ullm.runner.base import RunnerInfo, SamplingParams
 from ullm.runner.fake_runner import FakeDetokenizer, FakeRunner, FakeTokenizer, Latency
 
 INFO = RunnerInfo(
@@ -22,9 +23,10 @@ def _sampling(seed: int | None) -> SamplingParams:
 
 
 def _generate(runner: FakeRunner, seq: int, prompt: tuple[int, ...], n: int) -> list[int]:
-    out = list(runner.execute(PrefillPlan(seq=seq, token_ids=prompt, start=0)).tokens)
+    plans = Plans()
+    out = list(runner.execute(plans.prefill(seq=seq, token_ids=prompt, start=0)).tokens)
     while len(out) < n:
-        out += runner.execute(DecodePlan(seqs=(seq,), token_ids=(out[-1],))).tokens
+        out += runner.execute(plans.decode(seqs=(seq,), token_ids=(out[-1],))).tokens
     return out
 
 
@@ -56,19 +58,19 @@ def test_the_sequence_id_alone_changes_the_tokens() -> None:
     assert _alone(1, 42) != _alone(2, 42)
 
 
-def test_a_batch_returns_each_rows_own_tokens_in_plan_order() -> None:
+def test_a_batch_returns_each_rows_own_tokens_in_plan_order(plans: Plans) -> None:
     expected = {seq: _alone(seq, None, 10) for seq in (1, 2, 3)}
 
     batched = _runner()
     for seq in (1, 2, 3):
         batched.add(seq, _sampling(None))
     got = {
-        seq: list(batched.execute(PrefillPlan(seq=seq, token_ids=(1, 2, 3), start=0)).tokens)
+        seq: list(batched.execute(plans.prefill(seq=seq, token_ids=(1, 2, 3), start=0)).tokens)
         for seq in (1, 2, 3)
     }
     order = (3, 1, 2)
     for _ in range(9):
-        step = batched.execute(DecodePlan(seqs=order, token_ids=tuple(got[s][-1] for s in order)))
+        step = batched.execute(plans.decode(seqs=order, token_ids=tuple(got[s][-1] for s in order)))
         for seq, token in zip(order, step.tokens, strict=True):
             got[seq].append(token)
     assert got == expected
@@ -79,24 +81,24 @@ def test_a_batch_returns_each_rows_own_tokens_in_plan_order() -> None:
     [frozenset({3, 9}), frozenset({9, 3, 0}), frozenset({5, 70})],
     ids=["two", "unsorted", "partly-outside"],
 )
-def test_every_non_eos_id_is_reachable_and_eos_never_is(eos: frozenset[int]) -> None:
+def test_every_non_eos_id_is_reachable_and_eos_never_is(eos: frozenset[int], plans: Plans) -> None:
     info = RunnerInfo(model_id="f", vocab_size=12, eos_token_ids=eos, max_model_len=4096)
     runner = FakeRunner(info, LATENCY, sleep=lambda s: None)
     seen: set[int] = set()
     for seq in range(200):
         runner.add(seq, _sampling(None))
         seen |= set(_generate(runner, seq, (1,), 8))
-        runner.release(seq)  # a decode names every decoding sequence (0019)
+        runner.release(seq, plans.release(seq))  # a decode names every decoding sequence (0019)
     assert seen == set(range(12)) - eos
 
 
-def test_a_refused_add_leaves_nothing_behind() -> None:
+def test_a_refused_add_leaves_nothing_behind(plans: Plans) -> None:
     runner = _runner()
     not_sampling: Any = None
     with pytest.raises(AttributeError):
         runner.add(1, not_sampling)
     runner.add(1, _sampling(None))
-    runner.execute(PrefillPlan(seq=1, token_ids=(1,), start=0))
+    runner.execute(plans.prefill(seq=1, token_ids=(1,), start=0))
 
 
 @given(
@@ -110,27 +112,27 @@ def test_tokens_are_in_the_vocabulary_and_never_eos(seed: int, seq: int, n: int)
         assert token not in INFO.eos_token_ids
 
 
-def test_steps_sleep_and_report_the_modelled_time() -> None:
+def test_steps_sleep_and_report_the_modelled_time(plans: Plans) -> None:
     sleeps: list[float] = []
     runner = _runner(sleeps)
     for seq in (1, 2):
         runner.add(seq, _sampling(None))
-    prefill = runner.execute(PrefillPlan(seq=1, token_ids=(1,) * 10, start=0, sample=False))
-    runner.execute(PrefillPlan(seq=2, token_ids=(1,), start=0))
-    decode = runner.execute(DecodePlan(seqs=(1, 2), token_ids=(3, 4)))
+    prefill = runner.execute(plans.prefill(seq=1, token_ids=(1,) * 10, start=0, sample=False))
+    runner.execute(plans.prefill(seq=2, token_ids=(1,), start=0))
+    decode = runner.execute(plans.decode(seqs=(1, 2), token_ids=(3, 4)))
     assert (prefill.forward_ms, prefill.total_ms) == (10.0, 10.0)
     assert (decode.forward_ms, decode.total_ms) == (14.0, 14.0)
     assert sleeps == pytest.approx([0.010, 0.0055, 0.014])
 
 
-def test_a_token_is_keyed_by_its_position_however_it_was_reached() -> None:
+def test_a_token_is_keyed_by_its_position_however_it_was_reached(plans: Plans) -> None:
     runner = _runner()
     runner.add(1, _sampling(None))
-    prefilled = runner.execute(PrefillPlan(seq=1, token_ids=(1,) * 6, start=0)).tokens
-    runner.release(1)
+    prefilled = runner.execute(plans.prefill(seq=1, token_ids=(1,) * 6, start=0)).tokens
+    runner.release(1, plans.release(1))
     runner.add(1, _sampling(None))
-    runner.execute(PrefillPlan(seq=1, token_ids=(1,) * 5, start=0, sample=False))
-    decoded = runner.execute(DecodePlan(seqs=(1,), token_ids=(1,))).tokens
+    runner.execute(plans.prefill(seq=1, token_ids=(1,) * 5, start=0, sample=False))
+    decoded = runner.execute(plans.decode(seqs=(1,), token_ids=(1,))).tokens
     assert decoded == prefilled
 
 

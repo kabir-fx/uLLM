@@ -144,7 +144,7 @@ class Engine:
         self._deliver = deliver
         self._emit = emit
         self._clock = clock or TelemetryClock.start()
-        self._scheduler = Scheduler(config.max_num_seqs, config.max_kv_slots)
+        self._scheduler = Scheduler(config.max_num_seqs, config.max_kv_slots, self._info.block_size)
         self._live: dict[str, Request] = {}
         self._next_seq = 0
         self._steps = 0
@@ -243,9 +243,9 @@ class Engine:
     def _forget(self, req: Request, held: bool) -> None:
         """An ended request leaves ``_live`` first, so the bug handler never aborts it."""
         del self._live[req.rid]
-        self._scheduler.remove(req)
+        freed = self._scheduler.remove(req)
         if held:
-            self._runner.release(req.seq)
+            self._runner.release(req.seq, freed)
 
     def _step_event(self, scheduled: Scheduled, ms: float, t: float) -> ev.Step:
         match scheduled.plan:

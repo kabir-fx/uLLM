@@ -10,9 +10,8 @@ from collections import OrderedDict, deque
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from ullm.runner.base import SeqId
+from ullm.runner.base import BlockId, SeqId
 
-BlockId = int
 BlockKey = int
 
 
@@ -112,7 +111,9 @@ class BlockManager:
         self._block_of[key] = block
         return True
 
-    def free(self, seq: SeqId) -> None:
+    def free(self, seq: SeqId) -> tuple[BlockId, ...]:
+        """The blocks that became Free: their contents are no longer needed (decision 0034)."""
+        freed = []
         # Tail first: a later block is useful only after every block before it,
         # so it should be evicted first.
         for block in reversed(self._tables.pop(seq).blocks):
@@ -123,6 +124,8 @@ class BlockManager:
                 self._cached[block] = None
             else:
                 self._free.append(block)
+                freed.append(block)
+        return tuple(freed)
 
     def _check_allocation(self, num_tokens: int, shared: Sequence[BlockId]) -> None:
         if num_tokens < 1:

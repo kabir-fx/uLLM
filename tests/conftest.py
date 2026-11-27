@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from hypothesis import HealthCheck, settings
+from tests.plans import Plans
 
 from ullm.models import DEFAULT_MODEL
 
@@ -43,3 +44,9 @@ def mlx_loaded() -> "tuple[MLXRunner, MLXTokenizer]":
             pytest.fail(f"{DEFAULT_MODEL.repo} is not downloaded and ULLM_REQUIRE_MODEL=1")
         pytest.skip(f"{DEFAULT_MODEL.repo} is not downloaded: run `make models`")
     return load_mlx(DEFAULT_MODEL)
+
+
+@pytest.fixture
+def plans() -> Plans:
+    """C3 v2 plans with block tables, one set of tables per test."""
+    return Plans()

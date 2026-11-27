@@ -57,14 +57,13 @@ def _forced_misses(model: Any, prompt: list[int], tokens: Sequence[int]) -> list
     return misses
 
 
-@pytest.mark.parametrize("max_num_seqs", [1, 2, 4, 8])
-def test_greedy_tokens_through_the_engine_match_mlx_lm_at_each_batch_size(
-    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", max_num_seqs: int
-) -> None:
-    from scripts.make_goldens import golden_path, reference
-
-    runner, tokenizer = mlx_loaded
-    cases: list[dict[str, Any]] = json.loads(golden_path(DEFAULT_MODEL).read_text())["cases"]
+def _through_the_engine(
+    runner: "MLXRunner",
+    tokenizer: "MLXTokenizer",
+    cases: list[dict[str, Any]],
+    max_num_seqs: int,
+) -> list[list[int]]:
+    """Each case's greedy tokens, all submitted at once; checks the run's own invariants."""
     recording = RecordingRunner(runner)
     events: list[ev.Event] = []
 
@@ -86,11 +85,33 @@ def test_greedy_tokens_through_the_engine_match_mlx_lm_at_each_batch_size(
     replies = asyncio.run(main())
     assert all(isinstance(outputs[-1], Finished) for _, outputs in replies)
     assert max(len(seqs) for seqs, _ in recording.steps) == max_num_seqs
+    assert check_trace(frames_from(events, "r1")).problems == []
+    assert recording.adds == recording.releases == len(cases)
     sampled = tokens_by_rid(events, recording.steps)
+    return [sampled[rid] for rid, _ in replies]
+
+
+@pytest.mark.parametrize("max_num_seqs", [1, 2, 4, 8])
+def test_greedy_tokens_through_the_engine_match_mlx_lm_at_each_batch_size(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", max_num_seqs: int
+) -> None:
+    """Both KV layouts (rule 1, decision 0034). The block layout must give exactly the
+    contiguous layout's tokens, so mlx-lm scores them once for both."""
+    from scripts.make_goldens import golden_path, reference
+
+    from ullm.runner.mlx_runner import MLXRunner
+
+    runner, tokenizer = mlx_loaded
+    cases: list[dict[str, Any]] = json.loads(golden_path(DEFAULT_MODEL).read_text())["cases"]
+    contiguous = MLXRunner(runner.model, runner.info(), kv="contiguous")
+    tokens = _through_the_engine(runner, tokenizer, cases, max_num_seqs)
+    assert tokens == _through_the_engine(contiguous, tokenizer, cases, max_num_seqs), (
+        "the block layout differs from the contiguous layout"
+    )
     eos = runner.info().eos_token_ids
     failures = []
-    for (rid, _), case in zip(replies, cases, strict=True):
-        got, name = sampled[rid], f"{case['id']} ({rid})"
+    for got, case in zip(tokens, cases, strict=True):
+        name = case["id"]
         assert len(got) == TOKENS or got[-1] in eos, f"{name} stopped early"
         if max_num_seqs == 1:
             want, margins, _ = reference(
@@ -103,5 +124,3 @@ def test_greedy_tokens_through_the_engine_match_mlx_lm_at_each_batch_size(
                 f"{name}, {m}" for m in _forced_misses(runner.model, case["prompt_ids"], got)
             ]
     assert not failures, "the engine differs from mlx-lm:\n" + "\n".join(failures)
-    assert check_trace(frames_from(events, "r1")).problems == []
-    assert recording.adds == recording.releases == len(cases)

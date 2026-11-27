@@ -73,10 +73,15 @@ class BlockMachine(RuleBasedStateMachine):
     def _release(self, seq: int) -> None:
         keyed = {b for k in KEYS if (b := self.blocks.lookup(k)) is not None}
         others = {b for s in self.tokens if s != seq for b in self.blocks.table(s)}
+        freed = []
         for block in reversed(self.blocks.table(seq)):
-            if block in keyed and block not in others:
+            if block in others:
+                continue
+            if block in keyed:
                 self.cached.append(block)
-        self.blocks.free(seq)
+            else:
+                freed.append(block)
+        assert self.blocks.free(seq) == tuple(freed)
         del self.tokens[seq]
         self.keys = {k: v for k, v in self.keys.items() if k[0] != seq}
 

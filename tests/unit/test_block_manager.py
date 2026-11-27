@@ -51,6 +51,17 @@ def test_a_sequence_is_allocated_once() -> None:
         blocks.allocate(seq=0, num_tokens=1)
 
 
+def test_free_names_only_the_blocks_no_other_table_still_holds() -> None:
+    blocks = BlockManager(num_blocks=4, block_size=4)
+    blocks.allocate(seq=0, num_tokens=4)
+    assert blocks.register(0, 0, key=10)
+    (shared,) = blocks.table(0)
+    blocks.allocate(seq=1, num_tokens=6, shared=(shared,))
+    own = blocks.table(1)[1]
+    assert blocks.free(1) == (own,)
+    assert blocks.ref_count(shared) == 1
+
+
 def test_freeing_an_unknown_sequence_raises() -> None:
     with pytest.raises(KeyError):
         BlockManager(num_blocks=1).free(0)
@@ -111,8 +122,8 @@ def test_a_freed_block_with_a_key_is_cached_and_one_without_is_free() -> None:
     blocks = BlockManager(num_blocks=4, block_size=4)
     blocks.allocate(seq=0, num_tokens=6)
     assert blocks.register(0, 0, key=10)
-    first, _ = blocks.table(0)
-    blocks.free(0)
+    first, second = blocks.table(0)
+    assert blocks.free(0) == (second,)
     assert (blocks.num_free, blocks.num_cached, blocks.num_in_use) == (3, 1, 0)
     assert blocks.lookup(10) == first
 

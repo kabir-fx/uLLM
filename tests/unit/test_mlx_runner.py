@@ -71,7 +71,7 @@ def test_without_a_seed_each_sequence_draws_its_own(
 def _batched(runner: "MLXRunner", orders: list[tuple[int, ...]]) -> dict[int, list[int]]:
     """Four prompts of different lengths, prefilled one by one, then one decode per plan
     order; each sequence's tokens."""
-    plans = Plans()
+    plans = Plans(runner.info().block_size)
     prompts = {201: PROMPT, 202: PROMPT[:9], 203: (9707, 11, 1879), 204: PROMPT[3:]}
     got: dict[int, list[int]] = {}
     for seq, prompt in prompts.items():
@@ -97,6 +97,22 @@ def test_a_batch_gives_each_sequence_its_tokens_in_plan_order_whatever_the_order
     assert all(len(tokens) == 13 for tokens in in_order.values())
 
 
+@pytest.mark.parametrize("block_size", [16, 3])
+def test_the_block_layout_gives_the_contiguous_layouts_tokens(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", block_size: int
+) -> None:
+    """Joins gather from blocks, so equal tokens mean the blocks held the KV exactly (E9)."""
+    from ullm.runner.mlx_runner import MLXRunner
+
+    loaded, _ = mlx_loaded
+    info = dataclasses.replace(loaded.info(), block_size=block_size)
+    forward: tuple[int, ...] = (201, 202, 203, 204)
+    shuffled: tuple[int, ...] = (204, 202, 201, 203)
+    orders = [forward] * 3 + [shuffled] * 3
+    blocks = _batched(MLXRunner(loaded.model, info, kv="blocks"), orders)
+    assert blocks == _batched(MLXRunner(loaded.model, info, kv="contiguous"), orders)
+
+
 def test_greedy_picks_the_argmax_of_log_probabilities_not_of_logits(plans: Plans) -> None:
     import mlx.core as mx
 
@@ -115,7 +131,7 @@ def test_greedy_picks_the_argmax_of_log_probabilities_not_of_logits(plans: Plans
             return logits
 
     info = RunnerInfo("stub", QWEN3_VOCAB, frozenset(), max_model_len=8)
-    runner = MLXRunner(Stub(), info)
+    runner = MLXRunner(Stub(), info, kv="contiguous")  # the stub writes no KV to cut into blocks
     runner.add(1, GREEDY)
     assert runner.execute(plans.prefill(seq=1, token_ids=(1,), start=0)).tokens == (5,)
 

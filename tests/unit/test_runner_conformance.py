@@ -287,12 +287,13 @@ def test_a_prefill_names_one_block_per_block_size_tokens(runner: Runner, plans: 
 def test_a_decode_names_each_rows_table_after_the_step(runner: Runner, plans: Plans) -> None:
     runner.add(1, GREEDY)
     (token,) = runner.execute(plans.prefill(seq=1, token_ids=(5, 6, 7), start=0)).tokens
+    (first,) = plans.table(1)
     with pytest.raises(ValueError, match="block"):
-        runner.execute(DecodePlan(seqs=(1,), token_ids=(token,), blocks=((7, 8),)))
-    runner.execute(DecodePlan(seqs=(1,), token_ids=(token,), blocks=((7,),)))
+        runner.execute(DecodePlan(seqs=(1,), token_ids=(token,), blocks=((first, 9),)))
+    runner.execute(DecodePlan(seqs=(1,), token_ids=(token,), blocks=((first,),)))
     with pytest.raises(ValueError, match="block"):
-        runner.execute(DecodePlan(seqs=(1,), token_ids=(token,), blocks=((7,),)))
-    runner.execute(DecodePlan(seqs=(1,), token_ids=(token,), blocks=((7, 8),)))
+        runner.execute(DecodePlan(seqs=(1,), token_ids=(token,), blocks=((first,),)))
+    runner.execute(DecodePlan(seqs=(1,), token_ids=(token,), blocks=((first, 9),)))
 
 
 @pytest.mark.parametrize("bad", [[0], (True,), ("0",), None])

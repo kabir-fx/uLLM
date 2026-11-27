@@ -80,7 +80,11 @@ class Model:
     def decode(self, joiners: list[int], fails: bool) -> None:
         seqs = [s for s in self.reference if s not in self.prefilling] + joiners
         for seq in seqs:
-            self.blocks.append_slot(seq)
+            if seq in self.allocated:
+                self.blocks.append_slot(seq)
+            else:  # C3 lets a sequence decode with no prefill
+                self.blocks.allocate(seq, 1)
+                self.allocated.add(seq)
         tables = {seq: self.blocks.table(seq) for seq in seqs}
         batches = {name: kv.decode(tables) for name, kv in self.stores.items()}
         order = batches["blocks"].seqs
@@ -190,8 +194,7 @@ def test_both_layouts_keep_each_sequence_intact_and_blocks_free_with_it(steps: l
             case "prefill" if prefilling:
                 model.prefill(prefilling[pick % len(prefilling)], size, fails)
             case "decode" if live:
-                started = [s for s in prefilling if model._held(s)]
-                joiners = [s for i, s in enumerate(started) if pick >> i & 1]
+                joiners = [s for i, s in enumerate(prefilling) if pick >> i & 1]
                 if decoding or joiners:
                     model.decode(joiners, fails)
             case "release" if live:

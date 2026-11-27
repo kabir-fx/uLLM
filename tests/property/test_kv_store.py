@@ -116,12 +116,15 @@ class Model:
 
     def check_held(self) -> None:
         """``BlockKV`` holds a block only while a live sequence's table names it, and holds
-        each full block of a live sequence as it is. So is a prefilling one's partial block."""
+        each full block of a live sequence as it is. So is a prefilling one's partial block.
+        A decoding one's partial block is only in the batch."""
         held = self.stores["blocks"]._blocks
         assert set(held) <= {b for seq in self.allocated for b in self.blocks.table(seq)}
         for seq in self.allocated:
             n = self._held(seq)
             stored = -(-n // BLOCK) if seq in self.prefilling else n // BLOCK
+            if seq not in self.prefilling and n % BLOCK:
+                assert self.blocks.table(seq)[n // BLOCK] not in held
             for index, block in enumerate(self.blocks.table(seq)[:stored]):
                 span = slice(index * BLOCK, min((index + 1) * BLOCK, n))
                 for (keys, values), (ref_keys, ref_values) in zip(

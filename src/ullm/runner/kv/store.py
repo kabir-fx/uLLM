@@ -107,11 +107,7 @@ class BlockKV:
 
     def decode(self, tables: Mapping[SeqId, tuple[BlockId, ...]]) -> BatchKV:
         self._decoding, self._step = True, None
-        self._batch = _joined(
-            self._batch,
-            tables,
-            lambda seq: self._gathered(seq, tables[seq], self._held.pop(seq, 0)),
-        )
+        self._batch = _joined(self._batch, tables, lambda seq: self._joining(seq, tables[seq]))
         self._step = _Decode(self._batch, dict(tables))
         return self._batch
 
@@ -136,6 +132,15 @@ class BlockKV:
         if self._decoding:
             self._batch = None
         self._step = None
+
+    def _joining(self, seq: SeqId, table: tuple[BlockId, ...]) -> BatchKV:
+        """The row gathered from its blocks. Its partial last block leaves the store: from
+        here on that block grows in the batch, and the store's copy would go stale."""
+        n = self._held.pop(seq, 0)
+        row = self._gathered(seq, table, n)
+        if n % self._size:
+            self._blocks.pop(table[n // self._size])
+        return row
 
     def _gathered(self, seq: SeqId, table: tuple[BlockId, ...], n: int) -> BatchKV:
         """A one-row batch of the first ``n`` tokens in ``table``'s blocks."""

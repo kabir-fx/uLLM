@@ -47,26 +47,31 @@ class ContiguousKV:
         self._n_layers = n_layers
         self._prefilling: dict[SeqId, BatchKV] = {}
         self._batch: BatchKV | None = None
-        self._prefilled: BatchKV | None = None  # the last step's prefill cache, if it was one
+        self._decoding = False  # the last step's kind, set before anything in it can raise
+        self._prefilled: BatchKV | None = None  # the last prefill's cache
 
     def prefill(self, seq: SeqId, start: int, blocks: tuple[BlockId, ...]) -> list[LayerKV]:
+        self._decoding, self._prefilled = False, None
         row = self._prefilling.setdefault(seq, BatchKV.empty(seq, self._n_layers))
         self._prefilled = row
         return row.layers
 
     def decode(self, tables: Mapping[SeqId, tuple[BlockId, ...]]) -> BatchKV:
-        self._prefilled = None
-        joiners = [seq for seq in tables if seq in self._prefilling]
+        self._decoding, self._prefilled = True, None
+        held = self._batch.seqs if self._batch is not None else ()
+        joiners = [seq for seq in tables if seq not in held]
         if joiners:
-            rows = [(self._batch, s) for s in self._batch.seqs] if self._batch is not None else []
-            rows += [(self._prefilling.pop(seq), seq) for seq in joiners]
+            rows = [(self._batch, s) for s in held] if self._batch is not None else []
+            for seq in joiners:
+                row = self._prefilling.pop(seq, None) or BatchKV.empty(seq, self._n_layers)
+                rows.append((row, seq))
             self._batch = BatchKV.pack(rows)
         if self._batch is None:
             raise AssertionError("a valid decode names at least one sequence")
         return self._batch
 
     def written(self) -> list[mx.array]:
-        if self._prefilled is None:
+        if self._decoding or self._prefilled is None:
             return []
         return [a for kv in self._prefilled.layers for a in (kv.keys, kv.values) if a is not None]
 
@@ -77,7 +82,7 @@ class ContiguousKV:
     def fail(self) -> None:
         # A failed prefill leaves its own row, which release drops. A failed decode failed
         # every row of the batch.
-        if self._prefilled is None:
+        if self._decoding:
             self._batch = None
 
 
@@ -97,20 +102,23 @@ class BlockKV:
         self._blocks: dict[BlockId, list[tuple[mx.array, mx.array]]] = {}
         self._held: dict[SeqId, int] = {}  # tokens of each prefilling sequence
         self._batch: BatchKV | None = None
-        self._step: _Prefill | _Decode | None = None
+        self._decoding = False  # the last step's kind, set before anything in it can raise
+        self._step: _Prefill | _Decode | None = None  # what written() copies
 
     def prefill(self, seq: SeqId, start: int, blocks: tuple[BlockId, ...]) -> list[LayerKV]:
+        self._decoding, self._step = False, None
         row = self._gathered(seq, blocks, start)
         self._step = _Prefill(seq, start, blocks, row)
         return row.layers
 
     def decode(self, tables: Mapping[SeqId, tuple[BlockId, ...]]) -> BatchKV:
+        self._decoding, self._step = True, None
         held = self._batch.seqs if self._batch is not None else ()
         joiners = [seq for seq in tables if seq not in held]
         if joiners:
             rows = [(self._batch, s) for s in held] if self._batch is not None else []
             for seq in joiners:
-                rows.append((self._gathered(seq, tables[seq], self._held.pop(seq)), seq))
+                rows.append((self._gathered(seq, tables[seq], self._held.pop(seq, 0)), seq))
             self._batch = BatchKV.pack(rows)
         if self._batch is None:
             raise AssertionError("a valid decode names at least one sequence")
@@ -134,7 +142,8 @@ class BlockKV:
             self._blocks.pop(block, None)
 
     def fail(self) -> None:
-        if isinstance(self._step, _Decode):
+        # A failed decode failed every row of the batch. A failed prefill wrote no block.
+        if self._decoding:
             self._batch = None
         self._step = None
 

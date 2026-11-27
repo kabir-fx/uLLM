@@ -97,6 +97,15 @@ def test_a_batch_gives_each_sequence_its_tokens_in_plan_order_whatever_the_order
     assert all(len(tokens) == 13 for tokens in in_order.values())
 
 
+def test_an_unknown_kv_layout_is_refused(mlx_loaded: "tuple[MLXRunner, MLXTokenizer]") -> None:
+    from ullm.runner.mlx_runner import MLXRunner
+
+    loaded, _ = mlx_loaded
+    layout: Any = "block"
+    with pytest.raises(ValueError, match="layout"):
+        MLXRunner(loaded.model, loaded.info(), kv=layout)
+
+
 @pytest.mark.parametrize("block_size", [16, 3])
 def test_the_block_layout_gives_the_contiguous_layouts_tokens(
     mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", block_size: int

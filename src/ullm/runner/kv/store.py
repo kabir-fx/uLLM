@@ -9,7 +9,7 @@ the running batch is E7's contiguous working tensor. ``ContiguousKV`` is E7
 alone, the reference that rule 1 compares it against.
 """
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -51,23 +51,17 @@ class ContiguousKV:
         self._prefilled: BatchKV | None = None  # the last prefill's cache
 
     def prefill(self, seq: SeqId, start: int, blocks: tuple[BlockId, ...]) -> list[LayerKV]:
-        self._decoding, self._prefilled = False, None
-        row = self._prefilling.setdefault(seq, BatchKV.empty(seq, self._n_layers))
-        self._prefilled = row
-        return row.layers
+        self._decoding = False
+        self._prefilled = self._prefilling.setdefault(seq, BatchKV.empty(seq, self._n_layers))
+        return self._prefilled.layers
 
     def decode(self, tables: Mapping[SeqId, tuple[BlockId, ...]]) -> BatchKV:
         self._decoding, self._prefilled = True, None
-        held = self._batch.seqs if self._batch is not None else ()
-        joiners = [seq for seq in tables if seq not in held]
-        if joiners:
-            rows = [(self._batch, s) for s in held] if self._batch is not None else []
-            for seq in joiners:
-                row = self._prefilling.pop(seq, None) or BatchKV.empty(seq, self._n_layers)
-                rows.append((row, seq))
-            self._batch = BatchKV.pack(rows)
-        if self._batch is None:
-            raise AssertionError("a valid decode names at least one sequence")
+        self._batch = _joined(
+            self._batch,
+            tables,
+            lambda seq: self._prefilling.pop(seq, None) or BatchKV.empty(seq, self._n_layers),
+        )
         return self._batch
 
     def written(self) -> list[mx.array]:
@@ -113,15 +107,11 @@ class BlockKV:
 
     def decode(self, tables: Mapping[SeqId, tuple[BlockId, ...]]) -> BatchKV:
         self._decoding, self._step = True, None
-        held = self._batch.seqs if self._batch is not None else ()
-        joiners = [seq for seq in tables if seq not in held]
-        if joiners:
-            rows = [(self._batch, s) for s in held] if self._batch is not None else []
-            for seq in joiners:
-                rows.append((self._gathered(seq, tables[seq], self._held.pop(seq, 0)), seq))
-            self._batch = BatchKV.pack(rows)
-        if self._batch is None:
-            raise AssertionError("a valid decode names at least one sequence")
+        self._batch = _joined(
+            self._batch,
+            tables,
+            lambda seq: self._gathered(seq, tables[seq], self._held.pop(seq, 0)),
+        )
         self._step = _Decode(self._batch, dict(tables))
         return self._batch
 
@@ -206,6 +196,23 @@ def _copied(layer: LayerKV, row: int, begin: int, end: int) -> tuple[mx.array, m
     keys = mx.contiguous(layer.keys[row, :, begin:end, :])
     values = mx.contiguous(layer.values[row, :, begin:end, :])
     return keys, values
+
+
+def _joined(
+    batch: BatchKV | None,
+    tables: Mapping[SeqId, tuple[BlockId, ...]],
+    row_of: Callable[[SeqId], BatchKV],
+) -> BatchKV:
+    """The batch with a row for each sequence in ``tables`` it lacks, from ``row_of``."""
+    held = batch.seqs if batch is not None else ()
+    joiners = [seq for seq in tables if seq not in held]
+    if joiners:
+        rows = [(batch, s) for s in held] if batch is not None else []
+        rows += [(row_of(seq), seq) for seq in joiners]
+        batch = BatchKV.pack(rows)
+    if batch is None:
+        raise AssertionError("a valid decode names at least one sequence")
+    return batch
 
 
 def _without(batch: BatchKV | None, seq: SeqId) -> BatchKV | None:

@@ -229,6 +229,29 @@ def test_a_failed_batch_fails_every_sequence_in_it(
     runner.execute(plans.decode(seqs=(3,), token_ids=(5,)))
 
 
+def test_a_failed_prefill_leaves_the_decoding_batch_intact(
+    built: tuple[Runner, Breakable], plans: Plans
+) -> None:
+    runner, breakable = built
+
+    def decode_seq_1(fail_a_prefill: bool) -> list[int]:
+        runner.add(1, GREEDY)
+        tokens = list(runner.execute(plans.prefill(seq=1, token_ids=(5, 6, 7), start=0)).tokens)
+        tokens += runner.execute(plans.decode(seqs=(1,), token_ids=(tokens[-1],))).tokens
+        if fail_a_prefill:
+            runner.add(2, GREEDY)
+            breakable.armed = True
+            with pytest.raises(RuntimeError, match="injected"):
+                runner.execute(plans.prefill(seq=2, token_ids=(5, 6), start=0))
+            runner.release(2, plans.release(2))
+        for _ in range(3):
+            tokens += runner.execute(plans.decode(seqs=(1,), token_ids=(tokens[-1],))).tokens
+        runner.release(1, plans.release(1))
+        return tokens
+
+    assert decode_seq_1(fail_a_prefill=True) == decode_seq_1(fail_a_prefill=False)
+
+
 # Invariant 2: a batch decodes together (decision 0019)
 
 

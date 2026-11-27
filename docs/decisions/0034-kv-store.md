@@ -124,6 +124,15 @@ What the store does not do: decide which blocks a sequence gets, count free bloc
 
 ## Consequences
 
+As built, with these changes to the sketch above:
+
+- `MLXRunner(model, info, kv="blocks" | "contiguous")` builds its own store, not one passed in. The store then takes `info.block_size`, the size the core builds its tables from, so the two cannot disagree. `load_mlx` takes the default, `"blocks"`.
+- `fail()` drops the working batch only when the step that raised was a decode. Each store records the step's kind before anything in the step can raise. A failed prefill leaves the batch as it was: its rows did not fail.
+- A decode may name a sequence that never prefilled (C3 allows it). Both stores give it an empty row. `test_runner_conformance.py` found this on `BlockKV`, and the widened property test then found it on `ContiguousKV`.
+- `RunnerInfo.block_size` defaults to 16, E8's size.
+- Runner tests build plans through `tests/plans.py` (`Plans`), which grows each sequence's table from the tokens its plans name. The conformance tests use 4-token blocks, so a sequence crosses a block boundary within `max_model_len` 8.
+- Measured on the author's M4, AC power. One prefill, 12 rounds alternating the layouts' order, median of the last 10: `BlockKV` costs +0.58 ms (1.015×) at 64 tokens, +1.62 ms (1.010×) at 256, +38.10 ms (1.075×) at 1,024 and +19.55 ms (1.017×) at 2,048 over `ContiguousKV` (a scratch script, not committed). `make bench-smoke`: four pairs, the base at `e41a11f` and the branch. The first three ran base first, and order dominated. With 90 s cooldowns and the branch first, TTFT p50 is 181.9 ms against 172.2, p99 314.9 against 286.7, and TPOT p50 15.8 against 14.8 (the pull request carries the tables).
+
 - C3 is v2. `FakeRunner`, `RecordingRunner` and the `sim` runner take `freed` and report `block_size`.
 - `MLXRunner(model, info, kv)` takes its store. `load_mlx` passes `BlockKV`. No CLI flag selects the layout: only the equivalence test needs E7.
 - Decision 0032 point 8 changes in this one respect: the engine builds its manager in M3-T3. Sizing from a memory budget and the metrics stay in M3-T4.

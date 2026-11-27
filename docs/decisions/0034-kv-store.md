@@ -46,7 +46,7 @@ A test that compares the two layouts:
 
 ```python
 blocks, _ = mlx_loaded  # load_mlx gives the block store
-contiguous = MLXRunner(blocks.model, blocks.info(), ContiguousKV(len(blocks.model.layers)))
+contiguous = MLXRunner(blocks.model, blocks.info(), kv="contiguous")
 ```
 
 ## Shape
@@ -94,7 +94,7 @@ Two adapters:
   - `prefill`: a fresh one-row cache. With `start > 0`, it is gathered from the first `ceil(start / block_size)` blocks, cut to `start` tokens. `written` then cuts every block the prefill touched, `start // block_size` onward, out of the cache with `mx.contiguous`, the partial last block included, and the cache is dropped. Between steps, a prefilling sequence's KV is only in its blocks.
   - `decode`: each joiner is gathered from its table into a one-row `BatchKV`, then `BatchKV.pack` builds the working batch as E7 does. `written` copies `table[-1]` out of the working tensor for each row whose length reached a multiple of `block_size`.
   - `release`: the row leaves the working batch by a repack, as in E7, and the `freed` blocks are dropped.
-  - Invariant: every full block of a live sequence is in the store and equals its KV. A decoding sequence's partial last block is only in the working tensor.
+  - Invariant: every full block of a live sequence is in the store and equals its KV. A decoding sequence's partial last block is only in the working tensor: a joining row's partial block leaves the store at the join, so no stale copy stays for M3-T6 to gather.
 
 `MLXRunner` keeps sampling, the ledger, timings and the one `mx.eval` per step (rule 4). It holds no KV of its own. `prefill` with `start > 0` is the path M3-T5's prefix hits and M3-T6's re-prefill take, with shared blocks in the table. In M3-T3 only a chunked prefill (`sample=False`) takes it, and only tests send one.
 
@@ -103,7 +103,7 @@ What the store does not do: decide which blocks a sequence gets, count free bloc
 ## Failure and operation
 
 - **Twice.** A second `add`, `release` or prefill of a decoding sequence raises in the ledger, before the store sees it.
-- **A raise halfway.** The ledger fails every sequence in the plan (invariant 4). `MLXRunner` calls `fail()`: the working batch and the pending block copies go. A failed sequence's blocks may be stale. Its only legal call is `release`, which drops the `freed` blocks.
+- **A raise halfway.** The ledger fails every sequence in the plan (invariant 4). `MLXRunner` calls `fail()`. A failed decode drops the working batch. A failed prefill leaves it. A step that raised in its eval has already written its blocks, and they belong to failed sequences. A failed sequence's only legal call is `release`, which drops the `freed` blocks.
 - **Concurrent writers.** None: one engine thread (rule 2). A shared block (M3-T5) is full, so no decode writes into it (decision 0032 point 3).
 - **Trust boundary.** Plans come from the core, not from clients. The ledger checks types and table lengths. It does not check that ids are in range or unshared: the manager's property tests own that.
 - **In production.** Equivalence (Q3) at batch 1, 2, 4 and 8 for both adapters, and B's tokens equal to E7's. `make bench-smoke` before and after. MLX's memory after a long run (the existing `test_a_long_request_leaves_little_freed_memory_held_for_reuse`) must hold with the store.
@@ -131,8 +131,9 @@ As built, with these changes to the sketch above:
 - A decode may name a sequence that never prefilled (C3 allows it). Both stores give it an empty row. `test_runner_conformance.py` found this on `BlockKV`, and the widened property test then found it on `ContiguousKV`.
 - `RunnerInfo.block_size` defaults to 16, E8's size.
 - Runner tests build plans through `tests/plans.py` (`Plans`), which grows each sequence's table from the tokens its plans name. The conformance tests use 4-token blocks, so a sequence crosses a block boundary within `max_model_len` 8.
-- Measured on the author's M4, AC power. One prefill, 12 rounds alternating the layouts' order, median of the last 10: `BlockKV` costs +0.58 ms (1.015×) at 64 tokens, +1.62 ms (1.010×) at 256, +38.10 ms (1.075×) at 1,024 and +19.55 ms (1.017×) at 2,048 over `ContiguousKV` (a scratch script, not committed). `make bench-smoke`: four pairs, the base at `e41a11f` and the branch. The first three ran base first, and order dominated. With 90 s cooldowns and the branch first, TTFT p50 is 181.9 ms against 172.2, p99 314.9 against 286.7, and TPOT p50 15.8 against 14.8 (the pull request carries the tables).
+- An unknown `kv` value raises `ValueError`, so a typo cannot fall back to E7.
+- Performance: the pull request carries `make bench-smoke` before and after. Its smoke runs vary more with run order and the machine's heat than with the layout, so this record quotes no figure from them. A throwaway timing of one prefill on each layout was not committed, so it gives no figure here either. M3-T9's benchmarks measure the layout's cost.
 
 - C3 is v2. `FakeRunner`, `RecordingRunner` and the `sim` runner take `freed` and report `block_size`.
-- `MLXRunner(model, info, kv)` takes its store. `load_mlx` passes `BlockKV`. No CLI flag selects the layout: only the equivalence test needs E7.
+- No CLI flag selects the layout: only the equivalence tests need E7.
 - Decision 0032 point 8 changes in this one respect: the engine builds its manager in M3-T3. Sizing from a memory budget and the metrics stay in M3-T4.

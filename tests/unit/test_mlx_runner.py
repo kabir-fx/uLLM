@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
+from tests.plans import Plans
 
 from ullm.runner.base import DecodePlan, PrefillPlan, RunnerInfo, SamplingParams
 
@@ -40,11 +41,12 @@ PROMPT = (
 
 
 def _generate(runner: "MLXRunner", seq: int, sampling: SamplingParams, n: int = 24) -> list[int]:
+    plans = Plans()
     runner.add(seq, sampling)
-    tokens = list(runner.execute(PrefillPlan(seq=seq, token_ids=PROMPT, start=0)).tokens)
+    tokens = list(runner.execute(plans.prefill(seq=seq, token_ids=PROMPT, start=0)).tokens)
     while len(tokens) < n:
-        tokens += runner.execute(DecodePlan(seqs=(seq,), token_ids=(tokens[-1],))).tokens
-    runner.release(seq)
+        tokens += runner.execute(plans.decode(seqs=(seq,), token_ids=(tokens[-1],))).tokens
+    runner.release(seq, plans.release(seq))
     return tokens
 
 
@@ -69,17 +71,18 @@ def test_without_a_seed_each_sequence_draws_its_own(
 def _batched(runner: "MLXRunner", orders: list[tuple[int, ...]]) -> dict[int, list[int]]:
     """Four prompts of different lengths, prefilled one by one, then one decode per plan
     order; each sequence's tokens."""
+    plans = Plans()
     prompts = {201: PROMPT, 202: PROMPT[:9], 203: (9707, 11, 1879), 204: PROMPT[3:]}
     got: dict[int, list[int]] = {}
     for seq, prompt in prompts.items():
         runner.add(seq, GREEDY)
-        got[seq] = list(runner.execute(PrefillPlan(seq=seq, token_ids=prompt, start=0)).tokens)
+        got[seq] = list(runner.execute(plans.prefill(seq=seq, token_ids=prompt, start=0)).tokens)
     for order in orders:
-        step = runner.execute(DecodePlan(seqs=order, token_ids=tuple(got[s][-1] for s in order)))
+        step = runner.execute(plans.decode(seqs=order, token_ids=tuple(got[s][-1] for s in order)))
         for seq, token in zip(order, step.tokens, strict=True):
             got[seq].append(token)
     for seq in prompts:
-        runner.release(seq)
+        runner.release(seq, plans.release(seq))
     return got
 
 
@@ -94,7 +97,7 @@ def test_a_batch_gives_each_sequence_its_tokens_in_plan_order_whatever_the_order
     assert all(len(tokens) == 13 for tokens in in_order.values())
 
 
-def test_greedy_picks_the_argmax_of_log_probabilities_not_of_logits() -> None:
+def test_greedy_picks_the_argmax_of_log_probabilities_not_of_logits(plans: Plans) -> None:
     import mlx.core as mx
 
     from ullm.runner.mlx_runner import MLXRunner
@@ -114,16 +117,16 @@ def test_greedy_picks_the_argmax_of_log_probabilities_not_of_logits() -> None:
     info = RunnerInfo("stub", QWEN3_VOCAB, frozenset(), max_model_len=8)
     runner = MLXRunner(Stub(), info)
     runner.add(1, GREEDY)
-    assert runner.execute(PrefillPlan(seq=1, token_ids=(1,), start=0)).tokens == (5,)
+    assert runner.execute(plans.prefill(seq=1, token_ids=(1,), start=0)).tokens == (5,)
 
 
 @pytest.mark.parametrize(
     ("plan", "forwards"),
     [
-        (PrefillPlan(seq=1, token_ids=(9707, 11, 1879), start=0, sample=False), 1),
-        (PrefillPlan(seq=1, token_ids=(9707, 11, 1879), start=0), 2),
-        (PrefillPlan(seq=1, token_ids=(9707,), start=0), 1),
-        (DecodePlan(seqs=(1,), token_ids=(9707,)), 1),
+        (PrefillPlan(seq=1, token_ids=(9707, 11, 1879), start=0, blocks=(0,), sample=False), 1),
+        (PrefillPlan(seq=1, token_ids=(9707, 11, 1879), start=0, blocks=(0,)), 2),
+        (PrefillPlan(seq=1, token_ids=(9707,), start=0, blocks=(0,)), 1),
+        (DecodePlan(seqs=(1,), token_ids=(9707,), blocks=((0,),)), 1),
     ],
     ids=["unsampled", "sampled", "one-token", "decode"],
 )
@@ -207,7 +210,10 @@ def test_control_tokens_inside_a_message_render_as_text(
 
 @pytest.mark.parametrize("sample", [True, False], ids=["sampled", "unsampled"])
 def test_a_failure_inside_the_eval_fails_the_sequence(
-    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", monkeypatch: pytest.MonkeyPatch, sample: bool
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+    monkeypatch: pytest.MonkeyPatch,
+    sample: bool,
+    plans: Plans,
 ) -> None:
     import mlx.core as mx
 
@@ -224,14 +230,15 @@ def test_a_failure_inside_the_eval_fails_the_sequence(
 
     monkeypatch.setattr(mx, "eval", fail_once)
     with pytest.raises(RuntimeError, match="injected"):
-        runner.execute(PrefillPlan(seq=1, token_ids=(9707, 11), start=0, sample=sample))
+        runner.execute(plans.prefill(seq=1, token_ids=(9707, 11), start=0, sample=sample))
     with pytest.raises(ValueError, match="failed"):
-        runner.execute(PrefillPlan(seq=1, token_ids=(9707,), start=0))
-    runner.release(1)
+        runner.execute(plans.prefill(seq=1, token_ids=(9707,), start=0))
+    runner.release(1, plans.release(1))
 
 
 def test_a_long_request_leaves_little_freed_memory_held_for_reuse(
     mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+    plans: Plans,
 ) -> None:
     import mlx.core as mx
 
@@ -239,10 +246,10 @@ def test_a_long_request_leaves_little_freed_memory_held_for_reuse(
     # Workload A's first request: 571 prompt tokens, 266 out. Without a cache limit, MLX held
     # 4.79 GB of freed buffers after it, in a 16 GB machine shared with mlx-lm and the router.
     runner.add(1, GREEDY)
-    token = runner.execute(PrefillPlan(seq=1, token_ids=tuple(range(1000, 1571)), start=0)).tokens
+    token = runner.execute(plans.prefill(seq=1, token_ids=tuple(range(1000, 1571)), start=0)).tokens
     for _ in range(265):
-        token = runner.execute(DecodePlan(seqs=(1,), token_ids=token)).tokens
-    runner.release(1)
+        token = runner.execute(plans.decode(seqs=(1,), token_ids=token)).tokens
+    runner.release(1, plans.release(1))
     assert mx.get_cache_memory() < 512 * 2**20
 
 
@@ -334,7 +341,7 @@ def test_only_a_byte_level_tokenizer_is_accepted() -> None:
 
 
 def test_each_sampled_token_is_keyed_by_the_position_it_takes(
-    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]", plans: Plans
 ) -> None:
     from ullm.runner.mlx_runner import MLXRunner
     from ullm.runner.sampler import SampleRow, sample
@@ -352,9 +359,9 @@ def test_each_sampled_token_is_keyed_by_the_position_it_takes(
     hot = SamplingParams(temperature=1.5, top_p=1.0, top_k=0, seed=99)
     runner = MLXRunner(Recording(), loaded.info())
     runner.add(1, hot)
-    tokens = list(runner.execute(PrefillPlan(seq=1, token_ids=PROMPT, start=0)).tokens)
+    tokens = list(runner.execute(plans.prefill(seq=1, token_ids=PROMPT, start=0)).tokens)
     for _ in range(6):
-        tokens += runner.execute(DecodePlan(seqs=(1,), token_ids=(tokens[-1],))).tokens
+        tokens += runner.execute(plans.decode(seqs=(1,), token_ids=(tokens[-1],))).tokens
     # The prefill runs as two forwards (decision 0008); the last logits of each step sample.
     step_logits = [seen[1], *seen[2:]]
     for n, (logits, token) in enumerate(zip(step_logits, tokens, strict=True)):

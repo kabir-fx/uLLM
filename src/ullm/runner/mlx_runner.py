@@ -15,6 +15,7 @@ from tokenizers import decoders
 
 from ullm.models import ModelSpec
 from ullm.runner.base import (
+    BlockId,
     DecodePlan,
     PrefillPlan,
     RunnerInfo,
@@ -146,8 +147,8 @@ class MLXRunner:
         seed = secrets.randbits(64) if sampling.seed is None else sampling.seed
         self._sampling[seq] = (sampling, seed)
 
-    def release(self, seq: SeqId) -> None:
-        self._ledger.release(seq)
+    def release(self, seq: SeqId, freed: tuple[BlockId, ...]) -> None:
+        self._ledger.release(seq, freed)
         del self._sampling[seq]
         if self._prefilling.pop(seq, None) is None and self._batch and seq in self._batch.seqs:
             rest = [(self._batch, s) for s in self._batch.seqs if s != seq]

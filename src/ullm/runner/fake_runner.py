@@ -12,6 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from ullm.runner.base import (
+    BlockId,
     DecodePlan,
     PrefillPlan,
     RunnerInfo,
@@ -63,8 +64,8 @@ class FakeRunner:
         self._ledger.add(seq)
         self._seeds[seq] = seed
 
-    def release(self, seq: SeqId) -> None:
-        self._ledger.release(seq)
+    def release(self, seq: SeqId, freed: tuple[BlockId, ...]) -> None:
+        self._ledger.release(seq, freed)
         del self._seeds[seq]
 
     def execute(self, plan: StepPlan) -> StepResult:

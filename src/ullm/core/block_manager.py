@@ -10,9 +10,8 @@ from collections import OrderedDict, deque
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from ullm.runner.base import SeqId
+from ullm.runner.base import BlockId, SeqId
 
-BlockId = int
 BlockKey = int
 
 

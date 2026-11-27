@@ -4,7 +4,15 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from ullm.runner.base import DecodePlan, PrefillPlan, RunnerInfo, SeqId, StepPlan, require_ints
+from ullm.runner.base import (
+    BlockId,
+    DecodePlan,
+    PrefillPlan,
+    RunnerInfo,
+    SeqId,
+    StepPlan,
+    require_ints,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,8 +34,11 @@ class SeqLedger:
             raise ValueError(f"sequence {seq} is already added")
         self._seqs[seq] = _Live(held=0, decoding=False)
 
-    def release(self, seq: SeqId) -> None:
+    def release(self, seq: SeqId, freed: tuple[BlockId, ...]) -> None:
         require_ints("seq", (seq,))
+        if type(freed) is not tuple:
+            raise ValueError(f"freed must be a tuple, got {type(freed).__name__}")
+        require_ints("freed block ids", freed)
         self._live(seq)
         del self._seqs[seq]
 
@@ -56,7 +67,7 @@ class SeqLedger:
 
     def _check(self, plan: StepPlan) -> dict[SeqId, int]:
         match plan:
-            case PrefillPlan(seq=seq, token_ids=token_ids, start=start):
+            case PrefillPlan(seq=seq, token_ids=token_ids, start=start, blocks=blocks):
                 live = self._entry(seq)
                 if live.decoding:
                     raise ValueError(
@@ -68,8 +79,10 @@ class SeqLedger:
                         f"sequence {seq} holds {live.held} tokens; prefill start {start}"
                     )
                 growth = {seq: live.held + len(token_ids)}
-            case DecodePlan(seqs=seqs, token_ids=token_ids):
+                tables = {seq: blocks}
+            case DecodePlan(seqs=seqs, token_ids=token_ids, blocks=blocks):
                 growth = {seq: self.held(seq) + 1 for seq in seqs}
+                tables = dict(zip(seqs, blocks, strict=True))
                 omitted = sorted(
                     s
                     for s, live in self._seqs.items()
@@ -91,6 +104,13 @@ class SeqLedger:
             raise ValueError(
                 f"token ids {bad} are outside the vocabulary [0, {self._info.vocab_size})"
             )
+        size = self._info.block_size
+        for seq, held in growth.items():
+            if len(tables[seq]) != -(-held // size):
+                raise ValueError(
+                    f"sequence {seq} holds {held} tokens after this step, which take "
+                    f"{-(-held // size)} blocks of {size}; the plan names {len(tables[seq])}"
+                )
         return growth
 
     def _live(self, seq: SeqId) -> SeqId:

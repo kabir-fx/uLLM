@@ -1,4 +1,4 @@
-"""C3: the runner protocol, v1 (decisions 0003 and 0008).
+"""C3: the runner protocol, v2 (decisions 0003, 0008 and 0034).
 
 The boundary between the core, which makes every decision, and the runner,
 which owns every tensor. The core says which sequences run and which tokens
@@ -21,7 +21,9 @@ Invariants every runner keeps, and every caller may rely on:
    until ``release`` (decision 0019). A ``PrefillPlan`` is legal only while its
    sequence is prefilling. A ``DecodePlan`` names every decoding sequence that
    has not failed, in any order, and may name prefilling ones, which then
-   decode too.
+   decode too. Each plan carries the block table of each sequence it names, as
+   it stands after the step: ``ceil(tokens / block_size)`` ids, from the core's
+   block manager. ``release`` names the blocks that became Free.
 3. ``StepResult.tokens`` has one entry per sampled row, in plan order.
 4. An ``execute`` that fails after validation, in the forward pass or the
    eval, marks every sequence in the plan as failed. The only legal call for a
@@ -50,6 +52,7 @@ def _require_tuple(name: str, value: object) -> None:
 
 
 SeqId = int  # engine-internal; the core maps request ids to these
+BlockId = int  # the core's block manager hands these out; the runner maps them to KV
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +97,7 @@ class RunnerInfo:
     vocab_size: int
     eos_token_ids: frozenset[int]
     max_model_len: int
+    block_size: int = 16  # tokens per KV block; the core sizes its block tables by it
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,11 +107,14 @@ class PrefillPlan:
     seq: SeqId
     token_ids: tuple[int, ...]  # the tokens to run this step
     start: int  # position of token_ids[0]: 0, or more after a prefix hit or an earlier chunk
+    blocks: tuple[BlockId, ...]  # the sequence's block table after this step
     sample: bool = True  # false for a chunk that is not the last (E13)
 
     def __post_init__(self) -> None:
         _require_tuple("token_ids", self.token_ids)
+        _require_tuple("blocks", self.blocks)
         require_ints("seq, start and token ids", (self.seq, self.start, *self.token_ids))
+        require_ints("block ids", self.blocks)
         if type(self.sample) is not bool:
             raise ValueError(f"sample must be a bool, got {self.sample!r}")
         if not self.token_ids:
@@ -122,15 +129,22 @@ class DecodePlan:
 
     seqs: tuple[SeqId, ...]  # batch order
     token_ids: tuple[int, ...]  # each sequence's last token, fed back
+    blocks: tuple[tuple[BlockId, ...], ...]  # each sequence's block table after this step
 
     def __post_init__(self) -> None:
         _require_tuple("seqs", self.seqs)
         _require_tuple("token_ids", self.token_ids)
+        _require_tuple("blocks", self.blocks)
         require_ints("seqs and token ids", (*self.seqs, *self.token_ids))
+        for table in self.blocks:
+            _require_tuple("a block table", table)
+            require_ints("block ids", table)
         if not self.seqs:
             raise ValueError("a decode step needs at least one sequence")
         if len(self.seqs) != len(self.token_ids):
             raise ValueError("one input token per sequence")
+        if len(self.seqs) != len(self.blocks):
+            raise ValueError("one block table per sequence")
         if len(set(self.seqs)) != len(self.seqs):
             raise ValueError("a sequence appears twice in one decode step")
 
@@ -157,8 +171,9 @@ class Runner(Protocol):
         """Run one step. With ``sample`` set, a multi-token prefill samples once, at its end."""
         ...
 
-    def release(self, seq: SeqId) -> None:
-        """Free everything the runner holds for the sequence."""
+    def release(self, seq: SeqId, freed: tuple[BlockId, ...]) -> None:
+        """Free everything the runner holds for the sequence, and the contents of ``freed``:
+        the blocks that became Free. A block still shared or Cached is not among them."""
         ...
 
 

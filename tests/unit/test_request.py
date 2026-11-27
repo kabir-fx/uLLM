@@ -5,7 +5,7 @@ import pytest
 from ullm.core.engine import Submit
 from ullm.core.request import TRANSITIONS, IllegalTransition, Request, RequestState
 from ullm.core.stop import StopCheck
-from ullm.runner.base import DecodePlan, PrefillPlan, SamplingParams
+from ullm.runner.base import PrefillPlan, SamplingParams
 from ullm.runner.fake_runner import FakeDetokenizer
 from ullm.telemetry import events as ev
 
@@ -158,14 +158,14 @@ def test_admit_outside_waiting_raises(state: RequestState) -> None:
 
 def test_plans_feed_the_prompt_then_the_last_token() -> None:
     req, _ = _in_state(S.PREFILLING)
-    assert req.prefill_plan() == PrefillPlan(seq=4, token_ids=(5, 6, 7), start=0)
+    assert req.prefill_plan(blocks=(2,)) == PrefillPlan(
+        seq=4, token_ids=(5, 6, 7), start=0, blocks=(2,)
+    )
     assert req.kv_tokens == 0
     req.append(9, 12.0)
     assert req.prefilled == 3
     assert req.kv_tokens == 3
-    assert DecodePlan(seqs=(req.seq,), token_ids=(req.decode_input(),)) == DecodePlan(
-        seqs=(4,), token_ids=(9,)
-    )
+    assert req.decode_input() == 9
     req.append(8, 13.0)
     assert req.kv_tokens == 4  # the token just sampled is not in the KV yet
     assert req.decode_input() == 8

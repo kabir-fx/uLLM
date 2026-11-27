@@ -9,7 +9,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Final, Literal
 
 from ullm.core.stop import Chunk, StopCheck
-from ullm.runner.base import PrefillPlan, SamplingParams, SeqId
+from ullm.runner.base import BlockId, PrefillPlan, SamplingParams, SeqId
 from ullm.telemetry import events as ev
 
 if TYPE_CHECKING:
@@ -134,9 +134,12 @@ class Request:
             ev.ReqAborted(t=t, rid=self.rid, reason=reason, completion_tokens=len(self._output))
         )
 
-    def prefill_plan(self) -> PrefillPlan:
+    def prefill_plan(self, blocks: tuple[BlockId, ...]) -> PrefillPlan:
         return PrefillPlan(
-            seq=self._seq, token_ids=self.prompt[self.prefilled :], start=self.prefilled
+            seq=self._seq,
+            token_ids=self.prompt[self.prefilled :],
+            start=self.prefilled,
+            blocks=blocks,
         )
 
     def decode_input(self) -> int:

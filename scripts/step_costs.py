@@ -25,8 +25,9 @@ from bench.schema import Frozen, RunEnv, load_workload
 from mlx_lm.generate import generate_step
 from mlx_lm.models.cache import make_prompt_cache
 
+from ullm.core.block_manager import BlockManager
 from ullm.models import DEFAULT_MODEL
-from ullm.runner.base import DecodePlan, PrefillPlan, SamplingParams
+from ullm.runner.base import DecodePlan, PrefillPlan, SamplingParams, StepResult
 from ullm.runner.mlx_runner import MLXRunner, load_mlx
 
 ROWS = (1, 2, 4, 8, 16)
@@ -113,14 +114,25 @@ def batch(
     then one row leaves and the rest decode ``n`` steps more. Returns row 0's tokens up to the
     leave, and the medians."""
     seqs = tuple(range(rows))
+    size = runner.info().block_size
+    blocks = BlockManager(rows * -(-(len(prompt) + 2 * n) // size), size)
     last = []
     for seq in seqs:
         runner.add(seq, GREEDY)
-        last.append(runner.execute(PrefillPlan(seq, tuple(prompt), 0)).tokens[0])
+        blocks.allocate(seq, len(prompt))
+        plan = PrefillPlan(seq, tuple(prompt), 0, blocks.table(seq))
+        last.append(runner.execute(plan).tokens[0])
+
+    def decode(rows: tuple[int, ...]) -> StepResult:
+        for seq in rows:
+            blocks.append_slot(seq)
+        tables = tuple(blocks.table(seq) for seq in rows)
+        return runner.execute(DecodePlan(rows, tuple(last), tables))
+
     first = [last[0]]
     forward, total = [], []
     for _ in range(n - 1):
-        result = runner.execute(DecodePlan(seqs, tuple(last)))
+        result = decode(seqs)
         last = list(result.tokens)
         first.append(last[0])
         forward.append(result.forward_ms)
@@ -130,17 +142,17 @@ def batch(
         "total_ms": statistics.median(total[1:]),
         "join_ms": total[0] - statistics.median(total[1:]),
     }
-    runner.release(seqs[-1])
+    runner.release(seqs[-1], blocks.free(seqs[-1]))
     rest, last = seqs[:-1], last[:-1]
     if rest:
         after = []
         for _ in range(n - 1):
-            result = runner.execute(DecodePlan(rest, tuple(last)))
+            result = decode(rest)
             last = list(result.tokens)
             after.append(result.total_ms)
         medians["leave_ms"] = after[0] - statistics.median(after[1:])
     for seq in rest:
-        runner.release(seq)
+        runner.release(seq, blocks.free(seq))
     return first, medians
 
 

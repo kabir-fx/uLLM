@@ -1,6 +1,6 @@
 # M3-T2: KV layout on the real model
 
-**State:** in build. Read the decision record and the results, then wait for the Result.
+**State:** built, not shipped. Read the Result, then type `/ship`.
 **Decision record:** [0033](../decisions/0033-kv-layout.md) (the full design, for agents) · **Spec:** roadmap E9, task M3-T2
 
 ## The goal
@@ -98,3 +98,25 @@ E7 always ran first in each cell, on the GPU clock that the previous cell left. 
 </details>
 
 ## Result
+
+**State:** DONE. The proof is VERIFIED at `846ee56`. The review is READY at `846ee56`, after the fixes to `9ccf822`. `make ci` passed at `9ccf822`.
+
+**Proof.** The verifier ran the tests and the script on the real model. Every claim passed. The full run that the decision uses came after the fixes, at `e36837a`, on AC power with the machine idle.
+
+**Bugs that the review found.**
+- The join timer included building the held batch. At 8 rows and 1,024 tokens, E7's join fell from 107.68 ms to 48.38 ms after the fix.
+- B's block store had no test. Two new tests catch three mutations: no copies, no flush in the step, and the wrong block copied.
+- The report header and C's text said things the code did not do.
+
+**Changes against the plan.**
+- Each round starts with the next layout. E7 ran first in each cell before, and the order biased the times.
+- Each sample runs in a fresh process. One process kept its memory peak, and the system killed the run.
+
+**Not proven.** The cause of the memory growth in one process is not found. The re-run's join figures were checked by me, not by the verifier.
+
+**Passes to later slices.** M3-T3 builds B behind `KVStore`, with equivalence against E7. M3-T4 sizes the pool and the working tensor from one budget that counts both copies.
+
+**Read these yourself.**
+- `scripts/kv_layouts.py:221`: `WriteThroughLayer.update_and_fetch`. A block is copied when it fills.
+- `scripts/kv_layouts.py:329`: the step's `mx.eval(y, *_flush(caches))`. The flush puts B's copies in its time.
+- `scripts/kv_layouts.py:344`: `_join_ms`. The held batch is evaluated before the clock starts.

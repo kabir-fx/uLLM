@@ -1,6 +1,6 @@
 # M3-T3: KV store behind its interface
 
-**State:** in build. You approved the design and its three recommended answers.
+**State:** DONE at `5c4fd61`. Read the Result, then run `/ship`.
 **Decision record:** [0034](../decisions/0034-kv-store.md) (the full design, for agents) · **Spec:** roadmap E9 and Q3, task M3-T3
 
 ## The goal
@@ -100,3 +100,33 @@ Admission holds rows × the longest reservation to `max_kv_slots`. Each row need
 </details>
 
 ## Result
+
+**State:** DONE. The proof is VERIFIED at `e72a2a2`, and the verifier ran it. The review is READY at `5c4fd61`, from two reviewer agents and the fixes below. `make ci` passed at `5c4fd61`.
+
+**Changes against the plan:**
+
+- `MLXRunner` builds its own store from a `kv` name, `"blocks"` or `"contiguous"`. The store then takes `info.block_size`, so it cannot disagree with the core. An unknown name raises.
+- `fail()` drops the working batch only after a failed decode. A failed prefill leaves the batch as it was.
+- Runner tests build their plans through `tests/plans.py`.
+
+**Bugs found:**
+
+- A decode can name a sequence that never prefilled. Both stores failed on it. The conformance tests found it on `BlockKV`, and the property test found it on `ContiguousKV`.
+- A joining row left its partial last block in the store, where the copy went stale. M3-T6 would read it. The break-it reviewer found it, and the property test now checks it.
+- Two comments and decision 0034 said things that the code did not do. Decision 0034 also quoted figures from a script that is not committed.
+
+**Proof:** the verifier ran the engine, the server and the model.
+
+- Equivalence passes for both layouts at batch 1, 2, 4 and 8. Zeros in the block store make it fail.
+- A wrong block table fails before any forward. MLX memory returns to its start after 200 requests.
+- Claim 3 said 8 concurrent replies equal each reply alone. That claim failed at the base commit too, from the batch near-ties of decision 0021. Head gives the same replies as the base.
+
+**Not proven:** a prefix hit with shared blocks. M3-T5 brings it. `make bench-smoke` varied more with run order and heat than with the layout. The pull request carries the four pairs.
+
+**Passes to later slices:** M3-T4 sizes the pool from memory and admits by free blocks. A `--max-kv-slots` of 10^9 now builds a pool of 2.9 GB at startup. M3-T4 removes that cost.
+
+**Read these yourself:**
+
+- `src/ullm/runner/kv/store.py`, `BlockKV._cut` and `_copy_filled`: which block ids get which tokens.
+- `src/ullm/runner/kv/store.py`, `BlockKV._joining`: the partial block that leaves the store.
+- `src/ullm/core/scheduler.py`, the pool size: why slot admission cannot run the pool out.

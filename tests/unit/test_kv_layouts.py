@@ -71,9 +71,9 @@ def test_candidates_that_disagree_at_one_row_are_refused(
     calls: list[None] = []
 
     def second_is_off_by_one(
-        *args: object, **kwargs: object
+        model: object, caches: list[object], first: list[int], warmup: int, steps: int
     ) -> tuple[list[list[int]], list[float]]:
-        out, ms = real(*args, **kwargs)  # type: ignore[arg-type]
+        out, ms = real(model, caches, first, warmup, steps)
         calls.append(None)
         shift = 1 if len(calls) == 2 else 0
         return [[t + shift for t in row] for row in out], ms
@@ -157,9 +157,11 @@ def test_each_round_starts_with_the_next_candidate(
     source = kv_layouts.prefill(runner.model, tokens)
     real_build, order = kv_layouts.build, []
 
-    def recorded(kind: "kv_layouts.Candidate", *args: object) -> object:
+    def recorded(
+        kind: "kv_layouts.Candidate", source: "kv_layouts.LayerKVs", lengths: list[int]
+    ) -> list[object]:
         order.append(kind)
-        return real_build(kind, *args)  # type: ignore[arg-type]
+        return real_build(kind, source, lengths)
 
     monkeypatch.setattr(kv_layouts, "build", recorded)
     kv_layouts.measure(

@@ -26,18 +26,18 @@ for r in rows:
 plan = DecodePlan(seqs=..., token_ids=..., blocks=tuple(self._blocks.table(r.seq) for r in rows))
 
 # an ended request (Engine._forget)
-freed = self._scheduler.remove(req)          # the blocks that became Free
+freed = self._scheduler.remove(req)  # the blocks that became Free
 self._runner.release(req.seq, freed)
 ```
 
 The runner, inside `MLXRunner.execute`:
 
 ```python
-cache = self._kv.prefill(plan.seq, plan.start, plan.blocks)      # list[LayerKV]
+cache = self._kv.prefill(plan.seq, plan.start, plan.blocks)  # list[LayerKV]
 logits = self.model(x, cache=cache)
 mx.eval(sampled, *self._kv.written())
 
-batch = self._kv.decode(dict(zip(plan.seqs, plan.blocks)))       # BatchKV, joiners gathered in
+batch = self._kv.decode(dict(zip(plan.seqs, plan.blocks)))  # BatchKV, joiners gathered in
 logits = self.model(x, cache=batch.layers)
 mx.eval(sampled, *self._kv.written())
 ```
@@ -45,7 +45,7 @@ mx.eval(sampled, *self._kv.written())
 A test that compares the two layouts:
 
 ```python
-blocks, _ = mlx_loaded                                  # load_mlx gives the block store
+blocks, _ = mlx_loaded  # load_mlx gives the block store
 contiguous = MLXRunner(blocks.model, blocks.info(), ContiguousKV(len(blocks.model.layers)))
 ```
 

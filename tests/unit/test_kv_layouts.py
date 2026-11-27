@@ -117,6 +117,34 @@ def test_a_candidate_fetches_the_padded_batch_that_e7_fetches(
             got = got_layer.update_and_fetch(new_k, new_v)
             assert mx.array_equal(want[0], got[0]), step
             assert mx.array_equal(want[1], got[1]), step
+    if kind == "b":
+        for want_layer, got_layer in zip(e7, other, strict=True):
+            for i, n in enumerate(got_layer.lengths):
+                start = int(want_layer.pads[i].item())
+                full = n - n % kv_layouts.BLOCK
+                for table, held in (
+                    (got_layer.tables_k, want_layer.keys),
+                    (got_layer.tables_v, want_layer.values),
+                ):
+                    stored = mx.concatenate(table[i], axis=1)
+                    assert mx.array_equal(stored, held[i, :, start : start + full, :]), i
+
+
+def test_b_copies_each_filled_block_inside_the_step_that_fills_it(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    from scripts import kv_layouts
+
+    runner, tokenizer = mlx_loaded
+    tokens = kv_layouts.long_prompt(tokenizer, 41)
+    source = kv_layouts.prefill(runner.model, tokens)
+    lengths = [40, 33]
+    caches = kv_layouts.build("b", source, lengths)
+    for steps in range(1, 18):
+        kv_layouts.decode(runner.model, caches, [tokens[n] for n in lengths], 0, 1)
+        for cache in caches:
+            assert cache.pending == [], steps
+            assert [len(t) for t in cache.tables_k] == [(n + steps) // 16 for n in lengths]
 
 
 def test_split_attention_equals_fused_attention_over_the_whole_context() -> None:

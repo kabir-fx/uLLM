@@ -13,7 +13,7 @@ from the same state:
   of each block as it fills. A row joins by a gather from its blocks.
 
 Candidate C (shared-prefix segments, attention merged across them) is timed as attention
-alone, against the fused kernel over the padded batch that E7 holds.
+alone, against the fused kernel over each row's whole context, the prefix copied into every row.
 
     uv run python -m scripts.kv_layouts --out bench/results/m3/kv-layout
 """
@@ -91,7 +91,7 @@ class Attention(Frozen):
     prefix: int
     rows: int
     tail: int
-    fused_ms: tuple[float, ...]  # mx.fast.scaled_dot_product_attention over the padded batch
+    fused_ms: tuple[float, ...]  # mx.fast.scaled_dot_product_attention, prefix copied per row
     manual_ms: tuple[float, ...]  # the same context, one segment, through matmul and logsumexp
     split_ms: tuple[float, ...]  # C: the prefix read once for every row, then each row's tail
     max_abs_diff: float  # split against fused, first layer
@@ -346,6 +346,7 @@ def _join_ms(kind: Joiner, source: LayerKVs, lengths: Sequence[int]) -> float:
     prefill batch, B's from a gather of its blocks."""
     *held, n = lengths
     batch = _e7(source, held)
+    mx.eval(*[a for layer in batch.layers for a in _arrays(layer)])
     joiner = len(held)
     if kind == "e7":
         prefilled = _e7(source, [n])
@@ -355,7 +356,7 @@ def _join_ms(kind: Joiner, source: LayerKVs, lengths: Sequence[int]) -> float:
         packed = BatchKV.pack([*((batch, s) for s in batch.seqs), (row, joiner)])
     else:
         tables = [(_blocks(k[0, :, :n, :]), _blocks(v[0, :, :n, :])) for k, v in source]
-        mx.eval(*[b for ks, vs in tables for b in ks + vs], *_arrays(batch.layers[0]))
+        mx.eval(*[b for ks, vs in tables for b in ks + vs])
         start = time.perf_counter()
         layers = []
         for ks, vs in tables:
@@ -673,7 +674,8 @@ def report(run: KVLayouts) -> str:
         "rounds of each round's value, [lowest, highest] round.",
         f"- Commit `{e.commit[:12]}`{' (dirty tree)' if e.dirty else ''}. {e.chip}, "
         f"{e.memory_gb:g} GB, macOS {e.macos}. AC {e.power.on_ac}, Low Power Mode "
-        f"{e.power.low_power_mode}. Not a B5 session: it compares layouts in one process.",
+        f"{e.power.low_power_mode}. Not a B5 session: it compares layouts on one machine, "
+        "each sample in a fresh process.",
         "",
         "## Decode step, mean ms over the timed steps",
         "",
@@ -741,7 +743,8 @@ def report(run: KVLayouts) -> str:
         "## Candidate C: attention alone, ms per decode step",
         "",
         "Every layer's attention for one decode token per row, random bf16 K and V. Fused: "
-        "`mx.fast.scaled_dot_product_attention` over the padded batch. Manual: the same "
+        "`mx.fast.scaled_dot_product_attention` over each row's prefix and tail, the prefix "
+        "copied into every row, with no padding. Manual: the same "
         "context as one segment through matmul and log-sum-exp. Split: the shared prefix "
         "read once for every row, merged with each row's tail.",
         "",

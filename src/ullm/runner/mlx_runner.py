@@ -137,9 +137,14 @@ class MLXRunner:
         self._info = info
         self._ledger = SeqLedger(info)
         n_layers = len(model.layers)
-        self._kv: KVStore = (
-            BlockKV(n_layers, info.block_size) if kv == "blocks" else ContiguousKV(n_layers)
-        )
+        self._kv: KVStore
+        match kv:
+            case "blocks":
+                self._kv = BlockKV(n_layers, info.block_size)
+            case "contiguous":
+                self._kv = ContiguousKV(n_layers)
+            case _:
+                raise ValueError(f"unknown KV layout {kv!r}")
         self._sampling: dict[SeqId, tuple[SamplingParams, int]] = {}
 
     def info(self) -> RunnerInfo:

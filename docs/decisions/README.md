@@ -31,6 +31,7 @@ One short file per design decision, numbered in order (roadmap 3.3). A decision 
 | [0030](0030-readme-claims-verify.md) | README v1: `bench.readme` writes the Sustained c1 to c8 table from the committed sweep between markers, and a ci-core test fails when it is stale; `make verify` runs equivalence at 128 tokens, the property tests, `ullm sim` and a bench smoke run; `make demo-gif` records the hosted replay | M2-T12 |
 | [0031](0031-gate-renumber-and-merge-commits.md) | `/gate` also accepts a commit after the verdicts that only renumbers decision, row or claim references outside docs, or a merge of the base with no hand-resolved hunk; amends 0018 | gate A |
 | [0032](0032-block-manager.md) | Block manager (E8): `BlockManager` owns each `SeqId`'s table; sharing goes through `allocate(..., shared=...)` and only blocks with a key are shared; keys are opaque until E10; eviction is implicit, least recently cached first, a freed table tail first; sizing and metrics in M3-T4 | M3-T1 |
+| [0033](0033-kv-layout.md) | KV layout (E9): B, the E7 working tensor plus blocks copied out as they fill; A's gather tax is 3.56× at B=8, 1k tokens; B holds 1.78× E7's KV memory there; C shows no gain with MLX's own operations | M3-T2 |
 
 ## Template
 

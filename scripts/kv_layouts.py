@@ -379,7 +379,7 @@ def _leave_ms(source: LayerKVs, lengths: Sequence[int]) -> float:
 def _settle() -> int:
     gc.collect()
     mx.clear_cache()
-    return mx.get_active_memory()
+    return int(mx.get_active_memory())
 
 
 Membership = Literal["join-e7", "join-b", "leave"]

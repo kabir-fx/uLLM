@@ -128,7 +128,8 @@ class BlockKV:
             self._blocks.pop(block, None)
 
     def fail(self) -> None:
-        # A failed decode failed every row of the batch. A failed prefill wrote no block.
+        # A failed decode failed every row of the batch. A failed prefill's blocks belong to
+        # its failed sequence, which release drops.
         if self._decoding:
             self._batch = None
         self._step = None

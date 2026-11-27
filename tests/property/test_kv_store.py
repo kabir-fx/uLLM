@@ -9,7 +9,7 @@ writes into it, then ``written()`` into one eval. Block tables come from a real
 
 import importlib
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import pytest
 from hypothesis import given, settings
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 LAYERS, HEADS, DIM = batch_test.LAYERS, batch_test.HEADS, batch_test.DIM
 BLOCK = 4
 Reference = dict[int, list[tuple["Array", "Array"]]]
+Failure = Literal["forward", "eval"] | None  # where a failing step raises
 
 
 @dataclass
@@ -55,7 +56,7 @@ class Model:
         ]
         self.next_seq += 1
 
-    def prefill(self, seq: int, n: int, fails: bool) -> None:
+    def prefill(self, seq: int, n: int, fails: Failure) -> None:
         start = self._held(seq)
         if start == 0:
             self.blocks.allocate(seq, n)
@@ -68,7 +69,7 @@ class Model:
             layers = kv.prefill(seq, start, self.blocks.table(seq))
             _write(layers, new)
             if fails:
-                kv.fail()
+                _fail(kv, fails)
                 continue
             mx.eval(kv.written())
             _check_row(layers, 0, self.reference[seq], new)
@@ -77,7 +78,7 @@ class Model:
         else:
             self._extend({seq: 0}, new)
 
-    def decode(self, joiners: list[int], fails: bool) -> None:
+    def decode(self, joiners: list[int], fails: Failure) -> None:
         seqs = [s for s in self.reference if s not in self.prefilling] + joiners
         for seq in seqs:
             if seq in self.allocated:
@@ -93,7 +94,7 @@ class Model:
         for name, kv in self.stores.items():
             _write(batches[name].layers, new)
             if fails:
-                kv.fail()
+                _fail(kv, fails)
             else:
                 mx.eval(kv.written())
         self.prefilling -= set(joiners)
@@ -147,6 +148,13 @@ class Model:
             ]
 
 
+def _fail(kv: Any, where: Failure) -> None:
+    """A step that raises in its forward, before ``written()``, or in its eval, after it."""
+    if where == "eval":
+        kv.written()
+    kv.fail()
+
+
 def _write(layers: list["LayerKV"], new: list[tuple["Array", "Array"]]) -> None:
     """What the model's attention does to the cache in a forward."""
     for layer, (keys, values) in zip(layers, new, strict=True):
@@ -169,7 +177,7 @@ def _check_row(
         assert mx.array_equal(layer.values[row : row + 1, :, :n], want_values).item()
 
 
-Step = tuple[str, int, int, bool]
+Step = tuple[str, int, int, Failure]
 
 
 @settings(deadline=None)
@@ -179,7 +187,7 @@ Step = tuple[str, int, int, bool]
             st.sampled_from(["add", "prefill", "decode", "release"]),
             st.integers(0, 2**16),
             st.integers(1, 3 * BLOCK + 1),
-            st.integers(0, 9).map(lambda n: n == 0),  # one step in ten fails
+            st.sampled_from([None] * 8 + ["forward", "eval"]),  # one step in five fails
         ),
         min_size=1,
         max_size=30,

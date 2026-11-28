@@ -25,7 +25,7 @@ EngineConfig(kv_pool_bytes=2 * 2**30)  # 1,170 blocks at 1,835,008 bytes per blo
 
 # a scrape
 health = client.health()   # Health(alive, in_flight, waiting, running, kv=KvUsage(...))
-metrics.render(health)
+metrics.render(waiting=health.waiting, running=health.running, kv=health.kv)
 # ullm_kv_blocks{state="free"} 2380.0
 # ullm_kv_blocks{state="in_use"} 180.0
 # ullm_kv_blocks{state="cached"} 0.0
@@ -44,7 +44,7 @@ metrics.render(health)
    - `ullm_kv_blocks{state}` with `free`, `in_use`, `cached`. KV utilisation is `in_use / sum` in PromQL, not a second series.
    - `ullm_kv_waste_ratio`: `empty_slots / (in_use × block_size)`, 0 with no block in use.
    - `ullm_kv_max_concurrent_seqs`: `min(max_num_seqs, num_blocks // ceil(max_model_len / block_size))`, the requests the pool can hold at the longest legal reservation. It is set once from `hello`'s figures.
-   `Metrics.render` takes the `Health`, not loose ints.
+   `Metrics.render` takes the `KvUsage` beside `waiting` and `running`.
 7. **`hello.kv`** gets `block_size`, `num_blocks` and `capacity_tokens = num_blocks × block_size`. 0020 point 5 kept `capacity_tokens` null because the terminal divides unpadded `step.kv_tokens` by it. The pool counts unpadded tokens too, so the quotient is now KV utilisation. C2 stays v1: these fields exist and default to null.
 8. **Grafana.** One "KV usage" panel in `deploy/grafana/dashboards/ullm.json`: blocks in use and Cached as a share of the pool, and the waste ratio, in percent.
 
@@ -75,4 +75,14 @@ What this does not do: admit by prompt blocks with a watermark, preempt, or boun
 
 ## Consequences
 
-To be filled in when built.
+As built, with these changes to the sketch above:
+
+- `Metrics.render(waiting=, running=, kv=)` takes the `KvUsage`, not the whole `Health`: `ullm.telemetry` then imports only the MLX-free `ullm.core.block_manager`, not the client.
+- `ullm_kv_max_concurrent_seqs` is set when `Metrics.observe` sees `hello`, from its `limits` and `kv`. It is 0 before `hello`. No new wiring carries the figure.
+- `pool_blocks(config, info)` in `ullm.core.engine` sizes the pool. `Engine` builds its `Scheduler` from it, and `EngineClient` builds its idle `Load` from it before the engine thread starts, so `health()` is never without `kv`. After the engine exits, `health()` reports that idle pool again.
+- `KvUsage` carries `block_size`, so `waste_ratio` is a property of the value.
+- The pool no longer adds `max_num_seqs` blocks (decision 0034's sizing): admission now checks the pool, so the margin has no job.
+- `load_mlx` takes the KV dtype from the embedding: `scales` for a quantized one, `weight` otherwise. On the three cached Qwen3-0.6B variants (bf16, 8-bit, 4-bit) it gives 114,688 bytes a token, equal to the K and V a forward wrote, measured with a throwaway script. `test_the_block_store_holds_the_reported_kv_bytes_for_each_token` holds it for the default model.
+- `/health`'s JSON gains a `kv` object, because `Health` is a dataclass that `asdict` serialises.
+- The terminal's KV figure now divides `step.kv_tokens` by the pool's `capacity_tokens`, so it shows KV use as a share of the pool.
+- A `--max-kv-slots` of 10^9 still builds a pool of 62.5 million blocks at startup, as in M3-T3, because the default pool follows the slot budget.

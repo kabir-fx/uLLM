@@ -40,7 +40,7 @@ The agent measured one fact before the design. On mlx-lm with the bf16 model, th
 
 ## What you get at the end
 
-Run `make evals MODEL=qwen3-0.6b-bf16`. The command writes a results directory under `evals/results/m4/`. The agent commits one bf16 run as the proof of the harness.
+Run `make evals EVAL_MODEL=qwen3-0.6b-bf16`. The command writes a results directory under `evals/results/m4/`. The agent commits one bf16 run as the proof of the harness.
 
 New tests:
 
@@ -69,7 +69,7 @@ You chose GSM8K, WikiText-2 and the move of tool calls to M6-T2. You can still c
 
 - The prompt is the question, then "Please reason step by step, and put your final answer within \boxed{}." This is the usual prompt for Qwen math tasks. The agent did not tune it on the eval set.
 - The harness sends one request at a time, with `--max-num-seqs 1`. Batches change the bf16 arithmetic, so a near-tie can flip one token (decision 0021). One at a time, a second run gives the same answers.
-- `max_tokens` is 512. An answer that the cap cuts off counts as wrong.
+- `max_tokens` is 512. The scorer reads a reply that the cap cuts off as it stands. A closed box before the cut can still be correct.
 - The tokens per second include prefill and the HTTP round trip. These figures come from one run without the B5 checks, so they are not a benchmark claim.
 
 ## What can go wrong

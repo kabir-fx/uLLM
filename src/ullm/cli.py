@@ -118,6 +118,7 @@ def _serve(args: argparse.Namespace) -> int:
         engine=EngineConfig(
             max_num_seqs=args.max_num_seqs,
             max_kv_slots=args.max_kv_slots,
+            kv_pool_bytes=None if args.kv_pool_gib is None else int(args.kv_pool_gib * 2**30),
             max_in_flight=args.max_in_flight,
         ),
         record=args.record,
@@ -156,6 +157,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=int,
         default=EngineConfig().max_kv_slots,
         help="padded KV slots the batch may reserve; at least the model's max_model_len",
+    )
+    serve.add_argument(
+        "--kv-pool-gib",
+        type=float,
+        help="memory for the KV block pool; default as many tokens as --max-kv-slots",
     )
     serve.add_argument("--max-in-flight", type=int, default=EngineConfig().max_in_flight)
     serve.add_argument("--fake", action="store_true", help="FakeRunner and FakeTokenizer: no model")

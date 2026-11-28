@@ -60,7 +60,8 @@ def _kv_bytes_per_token(model: Any) -> int:
     layers: int = args.num_hidden_layers
     heads: int = args.num_key_value_heads
     head_dim: int = args.head_dim
-    return 2 * layers * heads * head_dim * dtype.size
+    size: int = dtype.size
+    return 2 * layers * heads * head_dim * size
 
 
 # Every apply_chat_template parameter except the template inputs tools and documents, as of

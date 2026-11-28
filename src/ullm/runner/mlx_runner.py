@@ -47,8 +47,17 @@ def load_mlx(spec: ModelSpec) -> tuple["MLXRunner", "MLXTokenizer"]:
         vocab_size=model.args.vocab_size,  # the logits width, larger than the tokenizer
         eos_token_ids=frozenset(wrapped.eos_token_ids),
         max_model_len=model.args.max_position_embeddings,
+        kv_bytes_per_token=_kv_bytes_per_token(model),
     )
     return MLXRunner(model, info), MLXTokenizer(wrapped, info.vocab_size)
+
+
+def _kv_bytes_per_token(model: Any) -> int:
+    """K and V in every layer. They take the activations' dtype: a quantized embedding
+    gives its scales' dtype, a plain one its weight's."""
+    args, embed = model.args, model.model.embed_tokens
+    dtype = getattr(embed, "scales", embed.weight).dtype
+    return 2 * args.num_hidden_layers * args.num_key_value_heads * args.head_dim * dtype.size
 
 
 # Every apply_chat_template parameter except the template inputs tools and documents, as of

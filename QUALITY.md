@@ -47,7 +47,7 @@ Each may only move in the direction shown. Record the new value when a change im
 ## Review standards
 
 - Each rule in roadmap 3.2 that no check above covers holds for the change: one owner thread (2), `mx.eval` before any timing (4), the engine thread never blocks (5), low-cardinality labels (6), fair benchmarks (7), no invented numbers (8), tests ship with behaviour (9), local binding and no secrets (14).
-- `core` plus `runner` stays near 2,500 lines (rule 10). Today: 2,117. Count: `find src/ullm/core src/ullm/runner -name '*.py' | xargs wc -l`.
+- `core` plus `runner` stays near 2,500 lines (rule 10). Today: 2,226. Count: `find src/ullm/core src/ullm/runner -name '*.py' | xargs wc -l`.
 - A Makefile target that is not built yet exits 2 and names the task that builds it (decision 0001).
 - Every GitHub Action is pinned to a commit SHA, with its release named in a comment (decision 0005).
 - A new CI check goes into its job's `make ci-*` target, not into `ci.yml` (decision 0007).

@@ -348,6 +348,7 @@ Freeze these early. Lanes depend on them and nothing else.
 5. Hand the plan to the runner (C3).
 
 - Admission limits, checked per waiting request: `max_num_seqs` (start at 16), a prefill token budget per step (start at 2,048; it takes effect with chunked prefill, E13: while a step prefills one whole prompt, the budget is `max_model_len`, decision 0010), and from M3 enough free blocks for the prompt after prefix hits plus a small safety watermark. These are starting values to tune from the concurrency sweep.
+- *Until preemption (M3-T6), decision 0035:* each admitted request reserves the blocks for `prompt + max_tokens`, beside decision 0020's padded slot bound, because a decode that finds the pool empty has no legal move without E11. M3-T6 replaces the reservation with the prompt-plus-watermark rule above.
 - The ordering policy is an interface: FCFS now, fair share later (E16).
 - Known trade-off: a long prefill stalls every decoder for that step (visible on workload C). E13 fixes it.
 - *Metrics:* waiting queue length, batch size per step, step time by kind, tokens per step.

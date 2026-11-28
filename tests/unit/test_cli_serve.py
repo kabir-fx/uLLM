@@ -3,6 +3,7 @@
 from typing import Any
 
 import pytest
+import uvicorn
 
 from ullm import cli
 from ullm.server.app import ServeConfig
@@ -15,7 +16,7 @@ def _config(monkeypatch: pytest.MonkeyPatch, *flags: str) -> ServeConfig:
         built.append(config)
 
     monkeypatch.setattr(cli, "create_app", create_app)
-    monkeypatch.setattr(cli.uvicorn, "run", lambda app, **kwargs: None)
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: None)
     assert cli.main(["serve", "--fake", *flags]) == 0
     (config,) = built
     return config

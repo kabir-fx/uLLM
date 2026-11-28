@@ -191,7 +191,7 @@ def test_the_kv_gauges_are_the_pool_given_at_render() -> None:
     assert _value(idle, "ullm_kv_waste_ratio") == 0
 
 
-def _hello(max_num_seqs: int, num_blocks: int) -> ev.Hello:
+def _hello(max_num_seqs: int, num_blocks: int, max_model_len: int = 256) -> ev.Hello:
     return ev.Hello(
         t=0.0,
         replica="r1",
@@ -200,7 +200,9 @@ def _hello(max_num_seqs: int, num_blocks: int) -> ev.Hello:
         version="0",
         commit=None,
         epoch_unix_ms=0,
-        limits=ev.Limits(max_num_seqs=max_num_seqs, max_prefill_tokens=256, max_model_len=256),
+        limits=ev.Limits(
+            max_num_seqs=max_num_seqs, max_prefill_tokens=max_model_len, max_model_len=max_model_len
+        ),
         kv=ev.KvInfo(block_size=16, num_blocks=num_blocks, capacity_tokens=num_blocks * 16),
         machine=None,
     )
@@ -217,6 +219,12 @@ def test_max_concurrent_seqs_is_how_many_max_model_len_requests_the_pool_holds(
     assert _value(_samples(m), "ullm_kv_max_concurrent_seqs") == 0  # before hello
     m.observe([_hello(max_num_seqs, num_blocks)], 0)  # max_model_len 256: 16 blocks
     assert _value(_samples(m), "ullm_kv_max_concurrent_seqs") == want
+
+
+def test_a_partial_last_block_counts_toward_max_concurrent_seqs() -> None:
+    m = Metrics()
+    m.observe([_hello(16, num_blocks=31, max_model_len=250)], 0)  # 250 tokens take 16 blocks
+    assert _value(_samples(m), "ullm_kv_max_concurrent_seqs") == 1
 
 
 def test_two_instances_keep_separate_counts() -> None:

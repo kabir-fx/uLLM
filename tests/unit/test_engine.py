@@ -376,6 +376,10 @@ def test_the_engine_refuses_a_pool_that_a_legal_request_could_never_fit() -> Non
     _engine(SIZED, EngineConfig(kv_pool_bytes=16 * 1600))
     with pytest.raises(ValueError, match="kv_pool_bytes"):
         _engine(SIZED, EngineConfig(kv_pool_bytes=16 * 1600 - 1))
+    # 250 tokens still take 16 blocks: the last one is partial.
+    odd = dataclasses.replace(SIZED, max_model_len=250)
+    with pytest.raises(ValueError, match="kv_pool_bytes"):
+        _engine(odd, EngineConfig(max_kv_slots=250, kv_pool_bytes=15 * 1600))
 
 
 def test_every_load_carries_the_pool_and_an_idle_engine_holds_no_block() -> None:

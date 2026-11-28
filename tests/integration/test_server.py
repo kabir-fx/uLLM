@@ -246,6 +246,9 @@ def test_health_reports_a_dead_engine_and_requests_get_503() -> None:
         health = http.get("/health")
         assert health.status_code == 503
         assert health.json()["alive"] is False
+        # A dead engine holds no KV: the client reports the idle pool (0035).
+        assert health.json()["kv"]["free"] == health.json()["kv"]["num_blocks"]
+        assert health.json()["kv"]["in_use"] == 0
         refused = http.post("/v1/chat/completions", json=body())
         assert error_of(refused)[:2] == (503, "engine_unavailable")
         assert refused.headers["retry-after"] == "1"

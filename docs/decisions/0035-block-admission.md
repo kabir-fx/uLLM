@@ -20,8 +20,10 @@ and sum(blocks_for(r.kv_reservation) for r in running + [req]) <= self._blocks.n
 
 # startup
 EngineConfig(max_num_seqs=16, max_kv_slots=40_960, kv_pool_bytes=None)  # pool: 2,560 blocks
-EngineConfig(kv_pool_bytes=2 * 2**30)  # 1,170 blocks at 1,835,008 bytes per block
-# ullm serve --kv-pool-gib 2
+EngineConfig(kv_pool_bytes=8 * 2**30)  # 4,681 blocks at 1,835,008 bytes per block
+# ullm serve --kv-pool-gib 8
+# ullm serve --kv-pool-gib 2 refuses to start: 1,170 blocks, under the 2,560 that one
+# request of max_model_len 40,960 reserves
 
 # a scrape
 health = client.health()   # Health(alive, in_flight, waiting, running, kv=KvUsage(...))

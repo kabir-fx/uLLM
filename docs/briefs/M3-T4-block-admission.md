@@ -39,7 +39,8 @@ One block costs 1,835,008 bytes on Qwen3-0.6B. That is 16 slots of 114,688 bytes
 
 ## What you get at the end
 
-- `ullm serve --kv-pool-gib 2` starts with 1,170 blocks. The command `curl 127.0.0.1:8000/metrics | grep kv_` shows the gauges.
+- `ullm serve --kv-pool-gib 8` starts with 4,681 blocks. The command `curl 127.0.0.1:8000/metrics | grep kv_` shows the gauges.
+- `ullm serve --kv-pool-gib 2` stops at startup. Its 1,170 blocks cannot hold one request of 40,960 tokens, which needs 2,560 blocks.
 - `make grafana` shows the "KV usage" panel next to the M2 panels.
 - Unit tests show that a head which overfills the pool waits, and that no request skips it.
 - The scheduler property test checks that allocation never runs out of blocks at any pool size.

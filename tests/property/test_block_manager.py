@@ -180,8 +180,20 @@ class BlockMachine(RuleBasedStateMachine):
     @invariant()
     def free_used_and_cached_add_up_to_the_pool(self) -> None:
         used = len({b for seq in self.tokens for b in self.blocks.table(seq)})
-        assert self.blocks.num_in_use == used
+        referenced = sum(self.blocks.ref_count(b) > 0 for b in range(NUM_BLOCKS))
+        assert self.blocks.num_in_use == used == referenced
         assert self.blocks.num_free + self.blocks.num_in_use + self.blocks.num_cached == NUM_BLOCKS
+
+    @invariant()
+    def usage_counts_the_empty_slots_of_every_last_block(self) -> None:
+        usage = self.blocks.usage()
+        assert (usage.free, usage.in_use, usage.cached) == (
+            self.blocks.num_free,
+            self.blocks.num_in_use,
+            self.blocks.num_cached,
+        )
+        empty = sum(_blocks_for(n) * BLOCK_SIZE - n for n in self.tokens.values())
+        assert usage.empty_slots == empty
 
     @invariant()
     def a_block_in_use_keeps_its_key(self) -> None:

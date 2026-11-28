@@ -7,7 +7,7 @@ that finished them, so a reply's last chunk is not delayed a step.
 from collections import deque
 from dataclasses import dataclass
 
-from ullm.core.block_manager import BlockManager
+from ullm.core.block_manager import BlockManager, KvUsage
 from ullm.core.request import Request
 from ullm.runner.base import BlockId, DecodePlan, StepPlan
 
@@ -20,12 +20,11 @@ class Scheduled:
 
 
 class Scheduler:
-    def __init__(self, max_num_seqs: int, max_kv_slots: int, block_size: int) -> None:
+    def __init__(
+        self, max_num_seqs: int, max_kv_slots: int, block_size: int, num_blocks: int
+    ) -> None:
         self._max_num_seqs = max_num_seqs
         self._max_kv_slots = max_kv_slots
-        # Admission holds rows x the longest reservation to max_kv_slots, and each row wastes
-        # under one block, so this pool never runs out (decision 0034). M3-T4 admits by blocks.
-        num_blocks = -(-max_kv_slots // block_size) + max_num_seqs
         self._blocks = BlockManager(num_blocks, block_size)
         self._waiting: deque[Request] = deque()
         self._running: list[Request] = []  # admitted: prefilling or running
@@ -37,6 +36,9 @@ class Scheduler:
     @property
     def running(self) -> int:
         return len(self._running)
+
+    def kv_usage(self) -> KvUsage:
+        return self._blocks.usage()
 
     def add(self, req: Request) -> None:
         self._waiting.append(req)
@@ -76,8 +78,14 @@ class Scheduler:
         return None
 
     def _fits(self, req: Request) -> bool:
-        """Every row is padded to the longest, and nothing preempts a row until M3, so the
-        batch is held to rows x the longest reservation (decision 0020)."""
-        rows = len(self._running) + 1
-        longest = max(r.kv_reservation for r in (*self._running, req))
-        return rows <= self._max_num_seqs and rows * longest <= self._max_kv_slots
+        """Nothing preempts a row until M3-T6, so each row reserves the most it can hold.
+        The working tensor pads every row to the longest (decision 0020), and the pool holds
+        each row's blocks (decision 0035): a row that is admitted never runs either out."""
+        batch = (*self._running, req)
+        longest = max(r.kv_reservation for r in batch)
+        blocks = sum(-(-r.kv_reservation // self._blocks.block_size) for r in batch)
+        return (
+            len(batch) <= self._max_num_seqs
+            and len(batch) * longest <= self._max_kv_slots
+            and blocks <= self._blocks.num_blocks
+        )

@@ -93,6 +93,20 @@ def test_ullm_serve_passes_max_kv_slots_to_the_engine() -> None:
     assert "max_kv_slots 4095 is below max_model_len 4096" in run.stdout + run.stderr
 
 
+def test_ullm_serve_passes_the_kv_pool_to_the_engine() -> None:
+    # The fake runner has no KV bytes, so the engine refuses a pool in bytes at startup.
+    run = subprocess.run(
+        [sys.executable, "-m", "ullm.cli", "serve", "--fake", "--kv-pool-gib", "0.5"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert run.returncode != 0
+    assert "kv_pool_bytes is set, but runner fake has no kv_bytes_per_token" in (
+        run.stdout + run.stderr
+    )
+
+
 def test_ullm_serve_passes_max_num_seqs_to_the_engine() -> None:
     run = subprocess.run(
         [sys.executable, "-m", "ullm.cli", "serve", "--fake", "--max-num-seqs", "0"],

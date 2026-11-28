@@ -5,14 +5,16 @@ from typing import Literal
 import pytest
 from prometheus_client.parser import text_string_to_metric_families
 
+from ullm.core.block_manager import KvUsage
 from ullm.telemetry import events as ev
 from ullm.telemetry.metrics import Metrics
 
 Samples = dict[tuple[str, frozenset[tuple[str, str]]], float]
+IDLE = KvUsage.idle(num_blocks=8, block_size=16)
 
 
-def _samples(metrics: Metrics, waiting: int = 0, running: int = 0) -> Samples:
-    text = metrics.render(waiting=waiting, running=running).decode()
+def _samples(metrics: Metrics, waiting: int = 0, running: int = 0, kv: KvUsage = IDLE) -> Samples:
+    text = metrics.render(waiting=waiting, running=running, kv=kv).decode()
     return {
         (s.name, frozenset(s.labels.items())): s.value
         for family in text_string_to_metric_families(text)
@@ -86,7 +88,7 @@ def test_no_series_is_labelled_by_request() -> None:
         0,
     )
     labels = {key for _, labels in _samples(m) for key, _ in labels}
-    assert labels <= {"finish_reason", "reason", "kind", "le"}
+    assert labels <= {"finish_reason", "reason", "kind", "state", "le"}
 
 
 def test_tokens_count_the_work_of_each_step() -> None:
@@ -175,6 +177,54 @@ def test_the_gauges_are_the_load_given_at_render() -> None:
     assert _value(samples, "ullm_batch_size") == 2
     samples = _samples(m)
     assert (_value(samples, "ullm_queue_depth"), _value(samples, "ullm_batch_size")) == (0, 0)
+
+
+def test_the_kv_gauges_are_the_pool_given_at_render() -> None:
+    kv = KvUsage(num_blocks=10, block_size=4, free=5, in_use=4, cached=1, empty_slots=3)
+    samples = _samples(Metrics(), kv=kv)
+    assert _value(samples, "ullm_kv_blocks", state="free") == 5
+    assert _value(samples, "ullm_kv_blocks", state="in_use") == 4
+    assert _value(samples, "ullm_kv_blocks", state="cached") == 1
+    assert _value(samples, "ullm_kv_waste_ratio") == 3 / 16
+    idle = _samples(Metrics())
+    assert _value(idle, "ullm_kv_blocks", state="free") == 8
+    assert _value(idle, "ullm_kv_waste_ratio") == 0
+
+
+def _hello(max_num_seqs: int, num_blocks: int, max_model_len: int = 256) -> ev.Hello:
+    return ev.Hello(
+        t=0.0,
+        replica="r1",
+        model="fake",
+        source="engine",
+        version="0",
+        commit=None,
+        epoch_unix_ms=0,
+        limits=ev.Limits(
+            max_num_seqs=max_num_seqs, max_prefill_tokens=max_model_len, max_model_len=max_model_len
+        ),
+        kv=ev.KvInfo(block_size=16, num_blocks=num_blocks, capacity_tokens=num_blocks * 16),
+        machine=None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("max_num_seqs", "num_blocks", "want"),
+    [(16, 40, 2), (16, 47, 2), (16, 2560, 16), (1, 16, 1)],
+)
+def test_max_concurrent_seqs_is_how_many_max_model_len_requests_the_pool_holds(
+    max_num_seqs: int, num_blocks: int, want: int
+) -> None:
+    m = Metrics()
+    assert _value(_samples(m), "ullm_kv_max_concurrent_seqs") == 0  # before hello
+    m.observe([_hello(max_num_seqs, num_blocks)], 0)  # max_model_len 256: 16 blocks
+    assert _value(_samples(m), "ullm_kv_max_concurrent_seqs") == want
+
+
+def test_a_partial_last_block_counts_toward_max_concurrent_seqs() -> None:
+    m = Metrics()
+    m.observe([_hello(16, num_blocks=31, max_model_len=250)], 0)  # 250 tokens take 16 blocks
+    assert _value(_samples(m), "ullm_kv_max_concurrent_seqs") == 1
 
 
 def test_two_instances_keep_separate_counts() -> None:

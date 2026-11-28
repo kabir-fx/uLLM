@@ -9,6 +9,7 @@ from typing import get_args
 
 from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
 
+from ullm.core.block_manager import KvUsage
 from ullm.telemetry import events as ev
 
 NAMESPACE = "ullm"
@@ -40,8 +41,8 @@ class Metrics:
         def counter(name: str, doc: str, labels: Sequence[str] = ()) -> Counter:
             return Counter(name, doc, labels, namespace=NAMESPACE, registry=self._registry)
 
-        def gauge(name: str, doc: str) -> Gauge:
-            return Gauge(name, doc, namespace=NAMESPACE, registry=self._registry)
+        def gauge(name: str, doc: str, labels: Sequence[str] = ()) -> Gauge:
+            return Gauge(name, doc, labels, namespace=NAMESPACE, registry=self._registry)
 
         self._ttft = histogram("ttft_seconds", "Arrival to first token.", TTFT_BUCKETS)
         self._tpot = histogram(
@@ -56,6 +57,14 @@ class Metrics:
         self._queue = histogram("queue_wait_seconds", "Arrival to admission.", QUEUE_BUCKETS)
         self._queue_depth = gauge("queue_depth", "Requests waiting for admission.")
         self._batch_size = gauge("batch_size", "Requests admitted and running.")
+        self._kv_blocks = gauge("kv_blocks", "KV blocks in the pool, by state.", ["state"])
+        self._kv_waste = gauge(
+            "kv_waste_ratio", "Unwritten slots in last blocks over the slots in use."
+        )
+        self._kv_max_seqs = gauge(
+            "kv_max_concurrent_seqs",
+            "Requests of max_model_len tokens the pool holds at once, at most max_num_seqs.",
+        )
         self._prompt = counter("prompt_tokens", "Prompt tokens prefilled.")
         self._generation = counter("generation_tokens", "Tokens sampled.")
         self._cache_hit = counter("prefix_cache_hit_tokens", "Prompt tokens served from cache.")
@@ -99,9 +108,16 @@ class Metrics:
                     self._aborts.labels(reason).inc()
                 case ev.ReqPreempted():
                     self._preemptions.inc()
+                case ev.Hello(limits=limits, kv=ev.KvInfo(block_size=int(size), num_blocks=int(n))):
+                    per_request = -(-limits.max_model_len // size)
+                    self._kv_max_seqs.set(min(limits.max_num_seqs, n // per_request))
 
-    def render(self, *, waiting: int, running: int) -> bytes:
+    def render(self, *, waiting: int, running: int, kv: KvUsage) -> bytes:
         """The text exposition, with the gauges set to the engine's load now."""
         self._queue_depth.set(waiting)
         self._batch_size.set(running)
+        self._kv_blocks.labels("free").set(kv.free)
+        self._kv_blocks.labels("in_use").set(kv.in_use)
+        self._kv_blocks.labels("cached").set(kv.cached)
+        self._kv_waste.set(kv.waste_ratio)
         return generate_latest(self._registry)

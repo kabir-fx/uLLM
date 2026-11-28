@@ -1,5 +1,6 @@
-"""E6 (decisions 0010 and 0020): FCFS admission within ``max_num_seqs`` and the padded KV
-slot budget, one prefill per step, else one decode of every running request."""
+"""E6 (decisions 0010, 0020 and 0035): FCFS admission within ``max_num_seqs``, the padded KV
+slot budget and the block pool, one prefill per step, else one decode of every running
+request."""
 
 import pytest
 
@@ -15,10 +16,13 @@ GREEDY = SamplingParams(temperature=0.0, top_p=1.0, top_k=0, seed=None)
 
 
 BIG = 1 << 20  # a slot budget that never binds
+POOL = 1 << 12  # blocks: a pool that never binds in these tests
 
 
-def _scheduler(max_num_seqs: int = 1, max_kv_slots: int = BIG) -> Scheduler:
-    return Scheduler(max_num_seqs=max_num_seqs, max_kv_slots=max_kv_slots, block_size=4)
+def _scheduler(max_num_seqs: int = 1, max_kv_slots: int = BIG, num_blocks: int = POOL) -> Scheduler:
+    return Scheduler(
+        max_num_seqs=max_num_seqs, max_kv_slots=max_kv_slots, block_size=4, num_blocks=num_blocks
+    )
 
 
 def _request(
@@ -228,3 +232,71 @@ def test_removing_a_running_request_frees_its_blocks_and_a_waiting_one_has_none(
     _admit_and_prefill(scheduler, 5)
     assert scheduler.remove(b) == ()
     assert sorted(scheduler.remove(a)) == [0, 1]
+
+
+# Admission by reserved blocks (decision 0035): 4-token blocks
+
+
+def test_the_head_waits_while_its_reserved_blocks_would_overfill_the_pool() -> None:
+    scheduler = _scheduler(max_num_seqs=4, num_blocks=5)
+    a = _request(0, prompt_len=2, max_tokens=8)  # reserves 10 slots: 3 blocks
+    b = _request(1, prompt_len=4, max_tokens=8)  # reserves 12 slots: 3 blocks, 6 > 5
+    scheduler.add(a)
+    scheduler.add(b)
+    _admit_and_prefill(scheduler, 5)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is None
+    assert b.state is RequestState.WAITING
+    scheduler.remove(a)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is b
+
+
+def test_reservations_that_fill_the_pool_exactly_admit() -> None:
+    scheduler = _scheduler(max_num_seqs=4, num_blocks=6)
+    scheduler.add(_request(0, prompt_len=2, max_tokens=8))  # 3 blocks
+    scheduler.add(_request(1, prompt_len=4, max_tokens=8))  # 3 blocks
+    _admit_and_prefill(scheduler, 5)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is not None
+    assert step.admitted.seq == 1
+
+
+def test_a_reservation_counts_whole_blocks() -> None:
+    scheduler = _scheduler(max_num_seqs=4, num_blocks=3)
+    scheduler.add(_request(0, prompt_len=1, max_tokens=4))  # 5 slots: 2 blocks
+    scheduler.add(_request(1, prompt_len=1, max_tokens=4))  # 10 slots fit 12, 4 blocks do not
+    _admit_and_prefill(scheduler, 5)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is None
+
+
+def test_no_request_skips_ahead_of_a_head_the_pool_cannot_hold() -> None:
+    scheduler = _scheduler(max_num_seqs=4, num_blocks=6)
+    a = _request(0, prompt_len=2, max_tokens=8)  # 3 blocks
+    head = _request(1, prompt_len=8, max_tokens=8)  # 4 blocks: 7 > 6
+    behind = _request(2, prompt_len=1, max_tokens=1)  # 1 block would fit
+    for req in (a, head, behind):
+        scheduler.add(req)
+    _admit_and_prefill(scheduler, 5)
+    step = scheduler.schedule(0.0)
+    assert step is not None
+    assert step.admitted is None
+    assert (head.state, behind.state) == (RequestState.WAITING, RequestState.WAITING)
+
+
+def test_a_request_decodes_to_its_reservation_in_a_pool_that_holds_exactly_it() -> None:
+    scheduler = _scheduler(num_blocks=3)
+    a = _request(0, prompt_len=2, max_tokens=8)  # reserves 10 slots: 3 blocks
+    scheduler.add(a)
+    _admit_and_prefill(scheduler, 5)
+    for _ in range(7):  # the last decode writes slot 9 of 10, in the third block
+        step = scheduler.schedule(0.0)
+        assert step is not None
+        assert step.rows == (a,)
+        a.append(6, 0.0)
+    assert scheduler.kv_usage().free == 0

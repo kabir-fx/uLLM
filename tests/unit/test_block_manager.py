@@ -267,3 +267,20 @@ def test_register_takes_an_index_inside_the_table(index: int) -> None:
     blocks.allocate(seq=0, num_tokens=6)
     with pytest.raises(ValueError, match="not full"):
         blocks.register(0, index, key=10)
+
+
+def test_usage_counts_each_state_and_the_empty_slots_of_last_blocks() -> None:
+    blocks = BlockManager(num_blocks=8)
+    blocks.allocate(seq=0, num_tokens=33)  # 3 blocks, 15 slots empty
+    blocks.allocate(seq=1, num_tokens=16)  # 1 full block
+    blocks.register(seq=1, index=0, key=7)
+    blocks.free(1)  # Cached
+    usage = blocks.usage()
+    assert (usage.num_blocks, usage.free, usage.in_use, usage.cached) == (8, 4, 3, 1)
+    assert usage.empty_slots == 15
+    assert usage.waste_ratio == 15 / 48
+
+
+def test_an_idle_pool_wastes_nothing() -> None:
+    usage = BlockManager(num_blocks=2).usage()
+    assert (usage.free, usage.in_use, usage.empty_slots, usage.waste_ratio) == (2, 0, 0, 0.0)

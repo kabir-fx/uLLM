@@ -98,6 +98,7 @@ class RunnerInfo:
     eos_token_ids: frozenset[int]
     max_model_len: int
     block_size: int = 16  # tokens per KV block; the core sizes its block tables by it
+    kv_bytes_per_token: int | None = None  # None: no real KV, so no pool from bytes (0035)
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,4 +1,4 @@
-"""Perplexity over a fixed text (Q5, decision 0035). ``ullm serve`` returns no logprobs, so
+"""Perplexity over a fixed text (Q5, decision 0036). ``ullm serve`` returns no logprobs, so
 this runs the model's forward pass directly: it measures the weights, not the server."""
 
 import math

@@ -1,4 +1,4 @@
-"""Exact match on GSM8K (Q5, decision 0035): the gold answer follows ``####``, and the model's
+"""Exact match on GSM8K (Q5, decision 0036): the gold answer follows ``####``, and the model's
 answer is the last number in its last ``\\boxed{}``. Two answers match as numbers."""
 
 import re

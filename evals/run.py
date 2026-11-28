@@ -1,4 +1,4 @@
-"""One eval run for one pinned model (Q5, decision 0035): perplexity on WikiText-2, then exact
+"""One eval run for one pinned model (Q5, decision 0036): perplexity on WikiText-2, then exact
 match on GSM8K through ``ullm serve``. Writes ``result.json``, ``items.jsonl``, ``env.json``
 and ``server.log`` into a new results directory.
 

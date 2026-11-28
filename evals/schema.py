@@ -1,4 +1,4 @@
-"""The shape of an eval run's results (Q5, decision 0035): ``result.json`` holds one
+"""The shape of an eval run's results (Q5, decision 0036): ``result.json`` holds one
 ``EvalResult``, and ``items.jsonl`` holds one ``ItemResult`` per GSM8K item."""
 
 from collections.abc import Sequence

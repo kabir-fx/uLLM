@@ -1,5 +1,5 @@
 """Q5: what the exact-match part sends for one GSM8K item, how it scores the reply, and how
-the run's counts follow from the items (decision 0035)."""
+the run's counts follow from the items (decision 0036)."""
 
 import asyncio
 import json

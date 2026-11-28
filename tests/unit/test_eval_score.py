@@ -1,4 +1,4 @@
-"""Q5: how an exact-match answer is read from a reply and from GSM8K's gold (decision 0035)."""
+"""Q5: how an exact-match answer is read from a reply and from GSM8K's gold (decision 0036)."""
 
 from decimal import Decimal
 

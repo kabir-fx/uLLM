@@ -110,7 +110,7 @@ EVAL_MODEL ?= qwen3-0.6b-bf16
 EVAL_OUT ?= evals/results/m4/$(EVAL_MODEL)
 
 .PHONY: evals
-evals: ## Q5 evals for one model (decision 0035): EVAL_MODEL=<key>, EVAL_OUT=<new directory>
+evals: ## Q5 evals for one model (decision 0036): EVAL_MODEL=<key>, EVAL_OUT=<new directory>
 	$(UV) python -m evals.run --model $(EVAL_MODEL) --out $(EVAL_OUT)
 
 .PHONY: models goldens goldens-check

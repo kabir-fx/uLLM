@@ -1,7 +1,7 @@
 # M4-T1: Eval harness and datasets
 
 **State:** DONE at `d90027e`. Type `/ship` to open the pull request.
-**Decision record:** [0035](../decisions/0035-eval-harness.md) (the full design, for agents) · **Spec:** roadmap M4-T1 (Q5)
+**Decision record:** [0036](../decisions/0036-eval-harness.md) (the full design, for agents) · **Spec:** roadmap M4-T1 (Q5)
 
 ## The goal
 
@@ -111,7 +111,7 @@ The verifier ran all eight claims on the real server and the real models. It bro
 
 The reviewer found four problems:
 
-- The scorer ignored an earlier closed box when the last box had no end. The decision said otherwise. Decision 0035 now states the rule of the code, and a test holds it.
+- The scorer ignored an earlier closed box when the last box had no end. The decision said otherwise. Decision 0036 now states the rule of the code, and a test holds it.
 - The brief gave the wrong make variable and the wrong rule for cut-off replies.
 - No test held the rule of one request at a time. Two new tests now hold it.
 - An `--out` path to a file gave a traceback. The run now refuses it.

@@ -1,5 +1,5 @@
 """Q5: uLLM's perplexity equals mlx-lm's own ``eval_ppl`` on the same windows of the same
-text, on the real model (decision 0035)."""
+text, on the real model (decision 0036)."""
 
 import math
 import os

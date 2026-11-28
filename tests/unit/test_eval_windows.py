@@ -1,4 +1,4 @@
-"""Q5: perplexity scores whole windows of the text and drops its short tail (decision 0035)."""
+"""Q5: perplexity scores whole windows of the text and drops its short tail (decision 0036)."""
 
 from evals.perplexity import windows
 

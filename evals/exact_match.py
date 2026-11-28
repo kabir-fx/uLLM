@@ -1,4 +1,4 @@
-"""Exact match on GSM8K through ``ullm serve`` (Q5, decision 0035): one request at a time,
+"""Exact match on GSM8K through ``ullm serve`` (Q5, decision 0036): one request at a time,
 greedy, thinking off, so a second run on the same machine gives the same replies."""
 
 import asyncio

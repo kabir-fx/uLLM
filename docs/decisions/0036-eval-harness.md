@@ -1,4 +1,4 @@
-# 0035: Eval harness: GSM8K exact match through `ullm serve`, WikiText-2 perplexity on the weights
+# 0036: Eval harness: GSM8K exact match through `ullm serve`, WikiText-2 perplexity on the weights
 
 **Status:** accepted · **Task:** M4-T1 (Q5)
 

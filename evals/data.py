@@ -1,4 +1,4 @@
-"""The committed eval datasets (Q5, decision 0035). Each loads only while its bytes have the
+"""The committed eval datasets (Q5, decision 0036). Each loads only while its bytes have the
 sha256 recorded here, so an edited copy cannot change a score unnoticed. The sources and
 licenses are in each folder's README.md."""
 

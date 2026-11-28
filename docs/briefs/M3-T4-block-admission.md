@@ -1,6 +1,6 @@
 # M3-T4: Admission by free blocks, memory metrics, KV usage panel
 
-**State:** NOT DONE. The Grafana claim waits for Docker. Read the Result.
+**State:** DONE at `4b04699`. Read the Result, then run `/ship`.
 **Decision record:** [0035](../decisions/0035-block-admission.md) (the full design, for agents) · **Spec:** roadmap E6, E8 and O3, task M3-T4
 
 ## The goal
@@ -106,7 +106,7 @@ The sum of the reservations is at most the row count times the longest reservati
 
 ## Result
 
-State: NOT DONE. The review is READY at `84cbecc`, and its fix commits run to `b15a51a`. The proof is INCONCLUSIVE at `84cbecc`. Claims 1 to 6 passed. Claim 7, the Grafana panel with live data, did not run because the Docker daemon was off. `make ci` passed at `b15a51a`.
+State: DONE. The review is READY at `84cbecc`, and its fix commits run to `b15a51a`. The proof is VERIFIED. Claims 1 to 6 passed at `84cbecc`. Claim 7 passed at `4b04699` after you started Docker: the panel's three queries gave data under load. `make ci` passed at `b15a51a`.
 
 Changes against the plan:
 - `/health` now carries a `kv` object. C4 and decision 0011 planned that for M3.
@@ -122,7 +122,6 @@ Bugs that review found:
 All four are fixed. A test now fails on each named mutation and passes without it.
 
 What is not proven:
-- The panel queries against a live Prometheus.
 - The KV bytes for the quantized models.
 - The block check under real-model load. At the default pool, the slot bound binds first.
 

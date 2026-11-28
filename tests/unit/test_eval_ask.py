@@ -8,7 +8,7 @@ from decimal import Decimal
 import httpx2
 import pytest
 from evals.data import Item
-from evals.exact_match import ask
+from evals.exact_match import ask, ask_all
 from evals.schema import ExactMatch, FinishReason, ItemResult
 
 ITEM = Item(index=7, question="What is 2 + 2?", gold=Decimal(4))
@@ -111,3 +111,30 @@ def test_the_run_counts_follow_from_the_items() -> None:
         output_tok_s=278.0,
         server_peak_footprint_bytes=2**30,
     )
+
+
+def test_items_are_asked_one_at_a_time_in_order() -> None:
+    open_now = 0
+    most = 0
+    order: list[str] = []
+
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        nonlocal open_now, most
+        open_now += 1
+        most = max(most, open_now)
+        order.append(json.loads(request.content)["messages"][0]["content"])
+        await asyncio.sleep(0.01)
+        open_now -= 1
+        return httpx2.Response(200, text=_reply("\\boxed{4}"))
+
+    items = [Item(index=i, question=f"q{i}", gold=Decimal(4)) for i in range(4)]
+
+    async def main() -> list[ItemResult]:
+        transport = httpx2.MockTransport(handler)
+        async with httpx2.AsyncClient(base_url="http://target", transport=transport) as client:
+            return await ask_all(client, "served-model", items)
+
+    results = asyncio.run(main())
+    assert most == 1
+    assert [r.index for r in results] == [0, 1, 2, 3]
+    assert [o.split("\n")[0] for o in order] == ["q0", "q1", "q2", "q3"]

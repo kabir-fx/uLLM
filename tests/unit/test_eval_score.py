@@ -53,3 +53,7 @@ def test_the_gold_answer_follows_the_four_hashes() -> None:
 def test_a_gold_answer_that_is_not_one_number_is_refused(solution: str) -> None:
     with pytest.raises(ValueError, match="gold"):
         gold(solution)
+
+
+def test_an_unclosed_last_box_hides_an_earlier_closed_one() -> None:
+    assert answer("\\boxed{4} then, cut off: \\boxed{7") is None

@@ -6,13 +6,18 @@ from pathlib import Path
 
 from prometheus_client.parser import text_string_to_metric_families
 
+from ullm.core.block_manager import KvUsage
 from ullm.telemetry.metrics import Metrics
 
 DASHBOARD = Path(__file__).parents[2] / "deploy/grafana/dashboards/ullm.json"
 
 
 def _exported() -> set[str]:
-    text = Metrics().render(waiting=0, running=0).decode()
+    text = (
+        Metrics()
+        .render(waiting=0, running=0, kv=KvUsage.idle(num_blocks=1, block_size=16))
+        .decode()
+    )
     return {s.name for family in text_string_to_metric_families(text) for s in family.samples}
 
 

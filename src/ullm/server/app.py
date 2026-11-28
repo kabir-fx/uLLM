@@ -150,7 +150,7 @@ def create_app(
             # flush the counters include every reply a client has already read.
             hub.flush()
             load = running().health()
-            body = metrics.render(waiting=load.waiting, running=load.running)
+            body = metrics.render(waiting=load.waiting, running=load.running, kv=load.kv)
             return Response(body, media_type=CONTENT_TYPE_LATEST)
 
     @app.post("/v1/chat/completions")

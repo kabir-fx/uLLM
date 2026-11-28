@@ -1,6 +1,6 @@
 # M4-T1: Eval harness and datasets
 
-**State:** in build. You read this page to follow the build.
+**State:** DONE at `d90027e`. Type `/ship` to open the pull request.
 **Decision record:** [0035](../decisions/0035-eval-harness.md) (the full design, for agents) · **Spec:** roadmap M4-T1 (Q5)
 
 ## The goal
@@ -102,3 +102,32 @@ A batch changes the arithmetic, and a near-tie can then pick a different token. 
 </details>
 
 ## Result
+
+The slice is DONE. The proof says VERIFIED at `eae865b`. The review says READY at `d90027e`, after the fixes. `make ci` passed at `d90027e`.
+
+The first run is in `evals/results/m4/t1-qwen3-0.6b-bf16/`. The bf16 model answered 129 of 200 items correctly. Its perplexity is 23.12 ± 0.14 over 298,716 tokens. The Mac ran on battery for this run.
+
+The verifier ran all eight claims on the real server and the real models. It broke the change on a copy for each important claim, and the checks failed as they must. It also ran a full 4-bit run in its scratch folder. The repo does not keep that run.
+
+The reviewer found four problems:
+
+- The scorer ignored an earlier closed box when the last box had no end. The decision said otherwise. Decision 0035 now states the rule of the code, and a test holds it.
+- The brief gave the wrong make variable and the wrong rule for cut-off replies.
+- No test held the rule of one request at a time. Two new tests now hold it.
+- An `--out` path to a file gave a traceback. The run now refuses it.
+
+What is not proven:
+
+- The Linux CI job has not run the new tests yet.
+- Nobody repeated the full 200-item run. Two reruns of 20 items and one rerun of 5 items gave the same replies.
+
+What passes to later slices:
+
+- M4-T2 measures the speed on AC power. This run gave 49.7 output tokens per second. In the same session, mlx-lm gave 71.
+- A failed run leaves a partial results folder. You delete it before a new run.
+
+Read these yourself:
+
+- `evals/score.py:16`: the rule that finds the answer box.
+- `evals/exact_match.py:25`: the request body that every item sends.
+- `evals/run.py:55`: the start of the server, with `--max-num-seqs 1`.

@@ -56,8 +56,11 @@ def _kv_bytes_per_token(model: Any) -> int:
     """K and V in every layer. They take the activations' dtype: a quantized embedding
     gives its scales' dtype, a plain one its weight's."""
     args, embed = model.args, model.model.embed_tokens
-    dtype = getattr(embed, "scales", embed.weight).dtype
-    return 2 * args.num_hidden_layers * args.num_key_value_heads * args.head_dim * dtype.size
+    dtype: mx.Dtype = getattr(embed, "scales", embed.weight).dtype
+    layers: int = args.num_hidden_layers
+    heads: int = args.num_key_value_heads
+    head_dim: int = args.head_dim
+    return 2 * layers * heads * head_dim * dtype.size
 
 
 # Every apply_chat_template parameter except the template inputs tools and documents, as of

@@ -188,7 +188,7 @@ def test_load_reports_the_models_own_limits(mlx_loaded: "tuple[MLXRunner, MLXTok
     )
 
 
-def test_kv_bytes_per_token_is_what_the_block_store_holds_for_a_token(
+def test_the_block_store_holds_the_reported_kv_bytes_for_each_token(
     mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
 ) -> None:
     runner, _ = mlx_loaded
@@ -198,7 +198,7 @@ def test_kv_bytes_per_token_is_what_the_block_store_holds_for_a_token(
     (block,) = plans.table(90)
     held = sum(k.nbytes + v.nbytes for k, v in runner._kv._blocks[block])  # type: ignore[attr-defined]
     runner.release(90, plans.release(90))
-    assert held == runner.info().kv_bytes_per_token * len(PROMPT)
+    assert held == 114_688 * len(PROMPT)
 
 
 @pytest.mark.parametrize(

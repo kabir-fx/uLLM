@@ -29,8 +29,11 @@ def test_every_item_gets_one_reply_from_a_server_the_run_stops(tmp_path: Path) -
     assert all(r.completion_tokens > 0 and r.reply for r in results)
     assert summary.items == 5
     assert summary.output_tokens == sum(r.completion_tokens for r in results)
-    assert summary.server_peak_footprint_bytes is not None
-    assert summary.server_peak_footprint_bytes > 0
+    if sys.platform == "darwin":
+        assert summary.server_peak_footprint_bytes is not None
+        assert summary.server_peak_footprint_bytes > 0
+    else:  # footprint(1) is a macOS tool
+        assert summary.server_peak_footprint_bytes is None
     assert log.stat().st_size > 0
     with socket.socket() as s:
         assert s.connect_ex(("127.0.0.1", port)) != 0, "the server still listens"

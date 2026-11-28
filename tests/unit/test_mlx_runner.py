@@ -196,7 +196,11 @@ def test_the_block_store_holds_the_reported_kv_bytes_for_each_token(
     runner.add(90, GREEDY)
     runner.execute(plans.prefill(seq=90, token_ids=PROMPT, start=0))  # 16 tokens: one block
     (block,) = plans.table(90)
-    held = sum(k.nbytes + v.nbytes for k, v in runner._kv._blocks[block])  # type: ignore[attr-defined]
+    from ullm.runner.kv.store import BlockKV
+
+    store = runner._kv
+    assert isinstance(store, BlockKV)
+    held = sum(k.nbytes + v.nbytes for k, v in store._blocks[block])
     runner.release(90, plans.release(90))
     assert held == 114_688 * len(PROMPT)
 

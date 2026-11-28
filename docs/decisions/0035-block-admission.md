@@ -83,6 +83,6 @@ As built, with these changes to the sketch above:
 - `KvUsage` carries `block_size`, so `waste_ratio` is a property of the value.
 - The pool no longer adds `max_num_seqs` blocks (decision 0034's sizing): admission now checks the pool, so the margin has no job.
 - `load_mlx` takes the KV dtype from the embedding: `scales` for a quantized one, `weight` otherwise. On the three cached Qwen3-0.6B variants (bf16, 8-bit, 4-bit) it gives 114,688 bytes a token, equal to the K and V a forward wrote, measured with a throwaway script. `test_the_block_store_holds_the_reported_kv_bytes_for_each_token` holds it for the default model.
-- `/health`'s JSON gains a `kv` object, because `Health` is a dataclass that `asdict` serialises.
+- `/health`'s JSON gains a `kv` object with the free blocks, as C4 and decision 0011 planned for M3. `Health` is a dataclass that `asdict` serialises.
 - The terminal's KV figure now divides `step.kv_tokens` by the pool's `capacity_tokens`, so it shows KV use as a share of the pool.
 - A `--max-kv-slots` of 10^9 still builds a pool of 62.5 million blocks at startup, as in M3-T3, because the default pool follows the slot budget.

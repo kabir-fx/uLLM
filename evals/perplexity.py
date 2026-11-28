@@ -20,12 +20,14 @@ def windows(tokens: Sequence[int], size: int) -> list[list[int]]:
 
 def load(spec: ModelSpec) -> tuple[Any, Any]:
     """The pinned snapshot's model and tokenizer. Refuses to download one."""
+    path = local_path(spec)
+    if path is None:
+        raise SystemExit(
+            f"{spec.repo} is not downloaded: run `uv run python scripts/fetch_models.py {spec.key}`"
+        )
     # MLX is absent on Linux, where the unit tests still import this module.
     from mlx_lm import load as mlx_lm_load
 
-    path = local_path(spec)
-    if path is None:
-        raise SystemExit(f"{spec.repo} is not downloaded: run `make models` or fetch {spec.key}")
     loaded = mlx_lm_load(str(path))
     return loaded[0], loaded[1]
 

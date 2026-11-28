@@ -77,7 +77,7 @@ You chose GSM8K, WikiText-2 and the move of tool calls to M6-T2. You can still c
 - The model writes no `\boxed{}`. The item counts as wrong, and `result.json` counts the items with no answer.
 - The model puts units or words in the box, such as `\boxed{18 dollars}`. The scorer takes the last number, so the answer is 18.
 - The text in the box has no number. The item counts as wrong.
-- A model download is missing. The run stops before it starts the server and names `make models`.
+- A model download is missing. The run stops before it starts the server. It names the command that downloads the model.
 
 ## Words
 

@@ -61,3 +61,17 @@ class ExactMatch(Frozen):
             output_tok_s=tokens / wall_s,
             server_peak_footprint_bytes=server_peak_footprint_bytes,
         )
+
+
+class EvalResult(Frozen):
+    model: str  # a key of ullm.models.MODELS
+    repo: str
+    revision: str
+    dtype: Literal["bf16", "8bit", "4bit"]
+    datasets: dict[str, str]  # file under evals/datasets/ -> sha256
+    prompt_suffix: str
+    max_tokens: int
+    chat_template_kwargs: dict[str, bool]
+    perplexity: Perplexity
+    exact_match: ExactMatch
+    tool_calls: None = None  # tool-call validity (Q6) arrives with M6-T2

@@ -36,3 +36,13 @@ def test_percentiles_come_from_histograms() -> None:
     latency = [expr for expr in _queries() if "_seconds" in expr]
     assert latency
     assert all("histogram_quantile" in expr and "_bucket" in expr for expr in latency)
+
+
+def test_the_kv_usage_panel_shows_the_pool_in_use_cached_and_wasted() -> None:
+    panels = json.loads(DASHBOARD.read_text())["panels"]
+    (kv,) = [p for p in panels if p["title"] == "KV usage"]
+    exprs = " ".join(t["expr"] for t in kv["targets"])
+    assert 'state="in_use"' in exprs
+    assert 'state="cached"' in exprs
+    assert "ullm_kv_waste_ratio" in exprs
+    assert kv["fieldConfig"]["defaults"]["unit"] == "percentunit"

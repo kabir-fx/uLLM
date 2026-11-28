@@ -19,6 +19,28 @@ class OutOfBlocks(Exception):
     """The pool cannot give the blocks asked for. Nothing was changed."""
 
 
+@dataclass(frozen=True, slots=True)
+class KvUsage:
+    """The pool at one moment, for E8's metrics (decision 0035)."""
+
+    num_blocks: int
+    block_size: int
+    free: int
+    in_use: int
+    cached: int
+    empty_slots: int  # unwritten slots in each table's last block: the only waste
+
+    @classmethod
+    def idle(cls, num_blocks: int, block_size: int) -> "KvUsage":
+        return cls(num_blocks, block_size, free=num_blocks, in_use=0, cached=0, empty_slots=0)
+
+    @property
+    def waste_ratio(self) -> float:
+        """Empty slots over the slots of the blocks in use; 0 with none in use."""
+        slots = self.in_use * self.block_size
+        return self.empty_slots / slots if slots else 0.0
+
+
 @dataclass(slots=True)
 class _Table:
     blocks: list[BlockId]
@@ -45,11 +67,23 @@ class BlockManager:
 
     @property
     def num_in_use(self) -> int:
-        return sum(r > 0 for r in self._refs)
+        return self.num_blocks - len(self._free) - len(self._cached)
 
     @property
     def num_cached(self) -> int:
         return len(self._cached)
+
+    def usage(self) -> KvUsage:
+        return KvUsage(
+            num_blocks=self.num_blocks,
+            block_size=self.block_size,
+            free=self.num_free,
+            in_use=self.num_in_use,
+            cached=self.num_cached,
+            empty_slots=sum(
+                len(t.blocks) * self.block_size - t.num_tokens for t in self._tables.values()
+            ),
+        )
 
     def ref_count(self, block: BlockId) -> int:
         return self._refs[block]

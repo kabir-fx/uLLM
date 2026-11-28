@@ -401,6 +401,70 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "KV usage",
+      "description": "share of the block pool in use and Cached; waste is the unwritten slots in last blocks over the slots in use",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (instance) (ullm_kv_blocks{state=\"in_use\"}) / sum by (instance) (ullm_kv_blocks)",
+          "legendFormat": "{{instance}} in use",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (instance) (ullm_kv_blocks{state=\"cached\"}) / sum by (instance) (ullm_kv_blocks)",
+          "legendFormat": "{{instance}} cached",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (instance) (ullm_kv_waste_ratio)",
+          "legendFormat": "{{instance}} waste",
+          "refId": "C"
+        }
+      ]
     }
   ]
 }

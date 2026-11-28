@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 
+from prometheus_client.parser import text_string_to_metric_families
 from tests.prometheus import metric_totals
 from tests.recording import RecordingRunner
 from tests.serving import SERVED, serving, serving_app
@@ -113,5 +114,44 @@ def test_the_gauges_show_a_running_request_and_one_waiting_behind_it() -> None:
             second = post()
             assert await load_reaches((1, 1)) == (1, 1)
             await asyncio.gather(first, second)
+
+    _run(main)
+
+
+def test_the_kv_gauges_show_a_running_requests_blocks_and_an_idle_pool_after() -> None:
+    slow = Latency(
+        prefill_base_ms=1.0, prefill_per_token_ms=0.0, decode_base_ms=20.0, decode_per_row_ms=0.0
+    )
+    config = ServeConfig(served_model=SERVED, engine=EngineConfig(max_num_seqs=1))
+    body = {"model": SERVED, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 20}
+    pool = -(-EngineConfig().max_kv_slots // INFO.block_size)
+
+    async def main() -> None:
+        app = create_app(FakeRunner(INFO, slow), FakeTokenizer(), config)
+        async with serving_app(app) as client:
+
+            async def kv() -> dict[str, float]:
+                text = (await client.get("/metrics")).text
+                states = {
+                    f"kv_{s.labels['state']}": s.value
+                    for family in text_string_to_metric_families(text)
+                    for s in family.samples
+                    if s.name == "ullm_kv_blocks"
+                }
+                return metric_totals(text) | states
+
+            reply = asyncio.create_task(client.post("/v1/chat/completions", json=body))
+            for _ in range(200):
+                running = await kv()
+                if running["ullm_batch_size"] == 1:
+                    break
+                await asyncio.sleep(0.01)
+            assert running["kv_in_use"] >= 1
+            assert running["ullm_kv_blocks"] == pool  # free + in_use + cached
+            # Ten requests of max_model_len 4,096 fit the pool; max_num_seqs caps it at one.
+            assert running["ullm_kv_max_concurrent_seqs"] == 1
+            await reply
+            idle = await kv()
+            assert (idle["kv_free"], idle["kv_in_use"], idle["ullm_kv_waste_ratio"]) == (pool, 0, 0)
 
     _run(main)

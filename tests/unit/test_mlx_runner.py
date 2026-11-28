@@ -184,7 +184,25 @@ def test_load_reports_the_models_own_limits(mlx_loaded: "tuple[MLXRunner, MLXTok
         vocab_size=QWEN3_VOCAB,
         eos_token_ids=frozenset({151645}),
         max_model_len=40_960,  # max_position_embeddings in the pinned config.json
+        kv_bytes_per_token=114_688,  # K and V x 28 layers x 8 KV heads x 128 x 2 bytes (bf16)
     )
+
+
+def test_the_block_store_holds_the_reported_kv_bytes_for_each_token(
+    mlx_loaded: "tuple[MLXRunner, MLXTokenizer]",
+) -> None:
+    runner, _ = mlx_loaded
+    plans = Plans()
+    runner.add(90, GREEDY)
+    runner.execute(plans.prefill(seq=90, token_ids=PROMPT, start=0))  # 16 tokens: one block
+    (block,) = plans.table(90)
+    from ullm.runner.kv.store import BlockKV
+
+    store = runner._kv
+    assert isinstance(store, BlockKV)
+    held = sum(k.nbytes + v.nbytes for k, v in store._blocks[block])
+    runner.release(90, plans.release(90))
+    assert held == 114_688 * len(PROMPT)
 
 
 @pytest.mark.parametrize(

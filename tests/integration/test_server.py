@@ -246,6 +246,9 @@ def test_health_reports_a_dead_engine_and_requests_get_503() -> None:
         health = http.get("/health")
         assert health.status_code == 503
         assert health.json()["alive"] is False
+        # A dead engine holds no KV: the client reports the idle pool (0035).
+        assert health.json()["kv"]["free"] == health.json()["kv"]["num_blocks"]
+        assert health.json()["kv"]["in_use"] == 0
         refused = http.post("/v1/chat/completions", json=body())
         assert error_of(refused)[:2] == (503, "engine_unavailable")
         assert refused.headers["retry-after"] == "1"
@@ -254,7 +257,22 @@ def test_health_reports_a_dead_engine_and_requests_get_503() -> None:
 def test_health_reports_the_load(http: TestClient) -> None:
     response = http.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"alive": True, "in_flight": 0, "waiting": 0, "running": 0}
+    # C4: the load summary carries the free blocks from M3 (decisions 0011 and 0035).
+    pool = {
+        "num_blocks": 2560,
+        "block_size": 16,
+        "free": 2560,
+        "in_use": 0,
+        "cached": 0,
+        "empty_slots": 0,
+    }
+    assert response.json() == {
+        "alive": True,
+        "in_flight": 0,
+        "waiting": 0,
+        "running": 0,
+        "kv": pool,
+    }
 
 
 def test_x_request_id_is_echoed_only_when_sent(http: TestClient) -> None:

@@ -16,6 +16,7 @@ from queue import SimpleQueue
 from threading import Thread
 from typing import Literal
 
+from ullm.core.block_manager import KvUsage
 from ullm.core.engine import (
     Abort,
     Engine,
@@ -27,6 +28,7 @@ from ullm.core.engine import (
     Shutdown,
     Submit,
     Ticket,
+    pool_blocks,
 )
 from ullm.core.request import Emit
 from ullm.runner.base import Detokenizer, Runner, RunnerInfo, SamplingParams
@@ -47,6 +49,7 @@ class Health:
     in_flight: int
     waiting: int
     running: int
+    kv: KvUsage
 
 
 class EngineClient:
@@ -64,7 +67,8 @@ class EngineClient:
         self._inbound = inbound
         self._thread: Thread | None = None
         self._open: dict[str, asyncio.Queue[Output]] = {}
-        self._load = Load(waiting=0, running=0)
+        self._idle = Load(0, 0, KvUsage.idle(pool_blocks(config, info), info.block_size))
+        self._load = self._idle
         self._submitted = 0
         self._closing = False
         self._exited = asyncio.Event()
@@ -129,6 +133,7 @@ class EngineClient:
             in_flight=len(self._open),
             waiting=self._load.waiting,
             running=self._load.running,
+            kv=self._load.kv,
         )
 
     async def close(self) -> None:
@@ -173,7 +178,7 @@ class EngineClient:
         for queue in self._open.values():
             queue.put_nowait(Failed("error"))
         self._open.clear()
-        self._load = Load(waiting=0, running=0)
+        self._load = self._idle
         self._exited.set()
 
 

@@ -33,6 +33,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True, help="a new results directory")
     args = parser.parse_args(argv)
     out: Path = args.out
+    if out.exists() and not out.is_dir():
+        print(f"{out} is not a directory: choose a new directory", file=sys.stderr)
+        return 2
     if out.exists() and any(out.iterdir()):
         print(f"{out} already holds files: choose a new directory", file=sys.stderr)
         return 2

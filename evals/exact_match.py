@@ -46,6 +46,12 @@ async def ask(client: httpx2.AsyncClient, served: str, item: Item) -> ItemResult
     )
 
 
+async def ask_all(
+    client: httpx2.AsyncClient, served: str, items: Sequence[Item]
+) -> list[ItemResult]:
+    return [await ask(client, served, item) for item in items]
+
+
 async def _run(
     launch: str, port: int, items: Sequence[Item], log: Path
 ) -> tuple[ExactMatch, list[ItemResult]]:
@@ -57,7 +63,7 @@ async def _run(
             ) as client:
                 served = await ready(client, target, READY_TIMEOUT_S, None)
                 start = time.perf_counter()
-                results = [await ask(client, served, item) for item in items]
+                results = await ask_all(client, served, items)
                 wall_s = time.perf_counter() - start
             memory = footprint(target.proc.pid)
         finally:

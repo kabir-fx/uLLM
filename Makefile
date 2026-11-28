@@ -106,6 +106,13 @@ test: ## Every test that runs without the model
 
 # --- Model-backed and system targets -----------------------------------------
 
+EVAL_MODEL ?= qwen3-0.6b-bf16
+EVAL_OUT ?= evals/results/m4/$(EVAL_MODEL)
+
+.PHONY: evals
+evals: ## Q5 evals for one model (decision 0036): EVAL_MODEL=<key>, EVAL_OUT=<new directory>
+	$(UV) python -m evals.run --model $(EVAL_MODEL) --out $(EVAL_OUT)
+
 .PHONY: models goldens goldens-check
 models: ## Download the default model at its pinned revision (others: scripts/fetch_models.py --list)
 	$(UV) python scripts/fetch_models.py

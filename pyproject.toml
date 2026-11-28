@@ -84,8 +84,8 @@ ban-relative-imports = "all"
 [tool.mypy]
 python_version = "3.12"
 mypy_path = ["src", "."]
-files = ["src", "tests", "scripts", "bench"]
-exclude = ["^bench/results/"]
+files = ["src", "tests", "scripts", "bench", "evals"]
+exclude = ["^bench/results/", "^evals/results/"]
 explicit_package_bases = true
 plugins = ["pydantic.mypy"]
 strict = true

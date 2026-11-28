@@ -1,6 +1,6 @@
 # M3-T4: Admission by free blocks, memory metrics, KV usage panel
 
-**State:** in build. You approved the three recommended answers.
+**State:** NOT DONE. The Grafana claim waits for Docker. Read the Result.
 **Decision record:** [0035](../decisions/0035-block-admission.md) (the full design, for agents) · **Spec:** roadmap E6, E8 and O3, task M3-T4
 
 ## The goal
@@ -105,4 +105,31 @@ The sum of the reservations is at most the row count times the longest reservati
 </details>
 
 ## Result
+
+State: NOT DONE. The review is READY at `84cbecc`, and its fix commits run to `b15a51a`. The proof is INCONCLUSIVE at `84cbecc`. Claims 1 to 6 passed. Claim 7, the Grafana panel with live data, did not run because the Docker daemon was off. `make ci` passed at `b15a51a`.
+
+Changes against the plan:
+- `/health` now carries a `kv` object. C4 and decision 0011 planned that for M3.
+- `Metrics.render` takes the `KvUsage`, not the whole `Health`.
+- The pool example is now 8 GiB. A 2 GiB pool cannot hold one request of 40,960 tokens, so the engine refuses it.
+
+Bugs that review found:
+- No test checked the GiB unit.
+- No test checked ceil against floor when `max_model_len` is not a multiple of 16.
+- The decision record quoted 8-bit and 4-bit figures from a script that is not in the repo.
+- Roadmap E6 did not name the rule that holds until M3-T6.
+
+All four are fixed. A test now fails on each named mutation and passes without it.
+
+What is not proven:
+- The panel queries against a live Prometheus.
+- The KV bytes for the quantized models.
+- The block check under real-model load. At the default pool, the slot bound binds first.
+
+`make bench-smoke` ran on battery. Base `4a68e01` gave 59.8 output tok/s at the start and 35.1 when rerun later. Head `f721c87` gave 35.4. The machine state moved the figure, and the change did not.
+
+Read these yourself:
+- `src/ullm/core/scheduler.py:80`: the three checks in `_fits`.
+- `src/ullm/core/engine.py:315`: `pool_blocks` and its two refusals.
+- `src/ullm/runner/mlx_runner.py:55`: the dtype that `_kv_bytes_per_token` reads.
 

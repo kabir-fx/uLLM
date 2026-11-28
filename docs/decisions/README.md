@@ -33,6 +33,7 @@ One short file per design decision, numbered in order (roadmap 3.3). A decision 
 | [0032](0032-block-manager.md) | Block manager (E8): `BlockManager` owns each `SeqId`'s table; sharing goes through `allocate(..., shared=...)` and only blocks with a key are shared; keys are opaque until E10; eviction is implicit, least recently cached first, a freed table tail first; sizing and metrics in M3-T4 | M3-T1 |
 | [0033](0033-kv-layout.md) | KV layout (E9): B, the E7 working tensor plus blocks copied out as they fill; A's gather tax is 3.56× at B=8, 1k tokens; B holds 1.78× E7's KV memory there; C shows no gain with MLX's own operations | M3-T2 |
 | [0034](0034-kv-store.md) | KV store (E9): C3 v2 plans carry each sequence's block table and `release` names the freed blocks; the scheduler owns the `BlockManager`; `BlockKV` (layout B) by default, `ContiguousKV` (E7) as the reference; block output equals contiguous output | M3-T3 |
+| [0035](0035-eval-harness.md) | Eval harness (Q5): GSM8K's first 200 test items scored by exact match through `ullm serve`, one request at a time, greedy, thinking off; WikiText-2 raw test perplexity on the weights in 1,024-token windows; datasets copied byte for byte and hash-checked; tool calls left to M6-T2 | M4-T1 |
 
 ## Template
 

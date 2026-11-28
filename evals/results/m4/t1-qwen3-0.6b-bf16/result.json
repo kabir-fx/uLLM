@@ -1,0 +1,35 @@
+{
+  "model": "qwen3-0.6b-bf16",
+  "repo": "mlx-community/Qwen3-0.6B-bf16",
+  "revision": "42096995f6402fde107068cf530136fe64b604f8",
+  "dtype": "bf16",
+  "datasets": {
+    "gsm8k/test-200.jsonl": "bd70035c7acaf107b4e0d077c605a23c3d3a0acb4342e5bc60099e6ad9ff4284",
+    "wikitext-2/wiki.test.raw": "173c87a53759e0201f33e0ccf978e510c2042d7f2cb78229d9a50d79b9e7dd08"
+  },
+  "prompt_suffix": "\nPlease reason step by step, and put your final answer within \\boxed{}.",
+  "max_tokens": 512,
+  "chat_template_kwargs": {
+    "enable_thinking": false
+  },
+  "perplexity": {
+    "window": 1024,
+    "windows": 292,
+    "tokens": 298716,
+    "mean_nll": 3.140713930130005,
+    "perplexity": 23.12036729477062,
+    "standard_error": 0.1441543829195752
+  },
+  "exact_match": {
+    "items": 200,
+    "correct": 129,
+    "score": 0.645,
+    "no_answer": 6,
+    "truncated": 7,
+    "output_tokens": 51056,
+    "wall_s": 1027.442376375,
+    "output_tok_s": 49.69232452737123,
+    "server_peak_footprint_bytes": 1926285448
+  },
+  "tool_calls": null
+}

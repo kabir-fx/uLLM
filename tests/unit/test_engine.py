@@ -1,5 +1,6 @@
 """E5: the engine loop, run on the test thread with tickets queued in advance."""
 
+import dataclasses
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from queue import SimpleQueue
@@ -214,9 +215,8 @@ def test_the_trace_starts_with_hello() -> None:
     assert isinstance(hello, ev.Hello)
     assert (hello.replica, hello.source, hello.model) == ("r1", "engine", "fake")
     assert hello.limits == ev.Limits(max_num_seqs=16, max_prefill_tokens=256, max_model_len=256)
-    # The terminal divides capacity_tokens into unpadded kv_tokens; the slot budget counts
-    # padded slots, so it is not reported there (0020).
-    assert hello.kv == ev.KvInfo()
+    # Without a pool size, the pool holds as many tokens as the slot budget (0035).
+    assert hello.kv == ev.KvInfo(block_size=16, num_blocks=2560, capacity_tokens=40_960)
 
 
 def test_an_abort_of_a_waiting_request_fails_it_without_touching_the_runner() -> None:
@@ -318,6 +318,9 @@ def test_a_bug_in_the_loop_aborts_every_live_request_in_the_trace_and_raises() -
         ({"max_num_seqs": 2.0}, "max_num_seqs"),
         ({"max_kv_slots": 0}, "max_kv_slots"),
         ({"max_kv_slots": True}, "max_kv_slots"),
+        ({"kv_pool_bytes": 0}, "kv_pool_bytes"),
+        ({"kv_pool_bytes": True}, "kv_pool_bytes"),
+        ({"kv_pool_bytes": 1.5}, "kv_pool_bytes"),
     ],
     ids=repr,
 )
@@ -336,6 +339,67 @@ def test_the_engine_refuses_a_slot_budget_that_a_legal_request_could_never_fit()
             lambda batch, load: None,
             lambda event: None,
         )
+
+
+SIZED = dataclasses.replace(INFO, kv_bytes_per_token=100)  # 1,600 bytes a block
+
+
+def _engine(info: RunnerInfo, config: EngineConfig) -> Engine:
+    return Engine(
+        FakeRunner(info, FAST, sleep=lambda s: None),
+        FakeDetokenizer,
+        config,
+        SimpleQueue(),
+        lambda batch, load: None,
+        lambda event: None,
+    )
+
+
+def test_the_pool_takes_the_whole_blocks_its_byte_budget_holds() -> None:
+    ran = _run(
+        [_submit()],
+        runner=FakeRunner(SIZED, FAST, sleep=lambda s: None),
+        config=EngineConfig(kv_pool_bytes=20 * 1600 + 1599),
+    )
+    hello = ran.events[0]
+    assert isinstance(hello, ev.Hello)
+    assert hello.kv == ev.KvInfo(block_size=16, num_blocks=20, capacity_tokens=320)
+
+
+def test_the_engine_refuses_a_byte_budget_for_a_runner_that_reports_no_kv_bytes() -> None:
+    with pytest.raises(ValueError, match="kv_bytes_per_token"):
+        _engine(INFO, EngineConfig(kv_pool_bytes=1 << 30))
+
+
+def test_the_engine_refuses_a_pool_that_a_legal_request_could_never_fit() -> None:
+    # max_model_len 256 needs 16 blocks of 16 tokens.
+    _engine(SIZED, EngineConfig(kv_pool_bytes=16 * 1600))
+    with pytest.raises(ValueError, match="kv_pool_bytes"):
+        _engine(SIZED, EngineConfig(kv_pool_bytes=16 * 1600 - 1))
+
+
+def test_every_load_carries_the_pool_and_an_idle_engine_holds_no_block() -> None:
+    loads: list[Load] = []
+    inbound: SimpleQueue[Ticket] = SimpleQueue()
+    inbound.put(_submit(max_tokens=20))
+    on_deliver = _shutdown_when_all_end(1)
+
+    def deliver(batch: Sequence[tuple[str, Output]], load: Load) -> None:
+        loads.append(load)
+        on_deliver(batch, inbound)
+
+    engine = Engine(
+        FakeRunner(INFO, FAST, sleep=lambda s: None),
+        FakeDetokenizer,
+        EngineConfig(),
+        inbound,
+        deliver,
+        lambda event: None,
+    )
+    assert engine.load().kv.free == engine.load().kv.num_blocks == 2560
+    engine.run()
+    assert max(load.kv.in_use for load in loads) == 2  # 2 prompt tokens and 19 decoded: 21 slots
+    assert loads[-1].kv.free == 2560
 
 
 def _decode_rows(ran: Ran) -> list[int]:

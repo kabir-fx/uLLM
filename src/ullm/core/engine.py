@@ -12,6 +12,7 @@ from importlib.metadata import version
 from queue import Empty, SimpleQueue
 from typing import Literal
 
+from ullm.core.block_manager import KvUsage
 from ullm.core.request import AbortReason, Emit, Request, RequestState
 from ullm.core.scheduler import Scheduled, Scheduler
 from ullm.core.stop import FinishReason, StopCheck
@@ -20,6 +21,7 @@ from ullm.runner.base import (
     Detokenizer,
     PrefillPlan,
     Runner,
+    RunnerInfo,
     SamplingParams,
     require_ints,
 )
@@ -99,6 +101,7 @@ Output = Delta | Finished | Failed
 class Load:
     waiting: int
     running: int
+    kv: KvUsage
 
 
 Deliver = Callable[[Sequence[tuple[str, Output]], Load], None]  # once per loop turn; never blocks
@@ -108,6 +111,7 @@ Deliver = Callable[[Sequence[tuple[str, Output]], Load], None]  # once per loop 
 class EngineConfig:
     max_num_seqs: int = 16  # E6's starting value
     max_kv_slots: int = 40_960  # padded KV slots, rows x the longest reservation (0020)
+    kv_pool_bytes: int | None = None  # None: a pool of max_kv_slots tokens (0035)
     max_in_flight: int = 64  # submitted and not yet ended; beyond it, Unavailable
     replica: str = "r1"
     source: Literal["engine", "sim"] = "engine"
@@ -117,6 +121,9 @@ class EngineConfig:
             value = getattr(self, name)
             if type(value) is not int or value < 1:
                 raise ValueError(f"{name} must be an int >= 1, got {value!r}")
+        pool = self.kv_pool_bytes
+        if pool is not None and (type(pool) is not int or pool < 1):
+            raise ValueError(f"kv_pool_bytes must be an int >= 1 or None, got {pool!r}")
 
 
 class Engine:
@@ -144,10 +151,18 @@ class Engine:
         self._deliver = deliver
         self._emit = emit
         self._clock = clock or TelemetryClock.start()
-        self._scheduler = Scheduler(config.max_num_seqs, config.max_kv_slots, self._info.block_size)
+        self._scheduler = Scheduler(
+            config.max_num_seqs,
+            config.max_kv_slots,
+            self._info.block_size,
+            pool_blocks(config, self._info),
+        )
         self._live: dict[str, Request] = {}
         self._next_seq = 0
         self._steps = 0
+
+    def load(self) -> Load:
+        return Load(self._scheduler.waiting, self._scheduler.running, self._scheduler.kv_usage())
 
     def run(self) -> None:
         """The engine thread's body. Returns after a Shutdown ticket."""
@@ -158,7 +173,7 @@ class Engine:
                 running = self._take_tickets(out)
                 if running:
                     self._step(out)
-                self._deliver(out, Load(self._scheduler.waiting, self._scheduler.running))
+                self._deliver(out, self.load())
                 if not running:
                     return
         except BaseException:
@@ -270,6 +285,7 @@ class Engine:
         )
 
     def _hello(self) -> ev.Hello:
+        kv = self._scheduler.kv_usage()
         return ev.Hello(
             t=self._now(),
             replica=self._config.replica,
@@ -284,9 +300,31 @@ class Engine:
                 max_prefill_tokens=self._info.max_model_len,
                 max_model_len=self._info.max_model_len,
             ),
-            kv=ev.KvInfo(),
+            kv=ev.KvInfo(
+                block_size=kv.block_size,
+                num_blocks=kv.num_blocks,
+                capacity_tokens=kv.num_blocks * kv.block_size,
+            ),
             machine=None,
         )
 
     def _now(self) -> float:
         return self._clock.now_ms()
+
+
+def pool_blocks(config: EngineConfig, info: RunnerInfo) -> int:
+    """Whole blocks of the byte budget, else as many tokens as the slot budget (0035)."""
+    if config.kv_pool_bytes is None:
+        return -(-config.max_kv_slots // info.block_size)
+    if info.kv_bytes_per_token is None:
+        raise ValueError(
+            f"kv_pool_bytes is set, but runner {info.model_id} has no kv_bytes_per_token"
+        )
+    blocks = config.kv_pool_bytes // (info.kv_bytes_per_token * info.block_size)
+    if blocks < -(-info.max_model_len // info.block_size):
+        # A legal request reserves up to max_model_len tokens and would never be admitted.
+        raise ValueError(
+            f"kv_pool_bytes {config.kv_pool_bytes} holds {blocks} blocks, "
+            f"under one request of max_model_len {info.max_model_len}"
+        )
+    return blocks

@@ -1,6 +1,6 @@
-"""Q2 for E6 (decision 0020): over random arrivals, aborts and limits, the engine on
-``FakeRunner`` ends every request, admits first come first served within ``max_num_seqs``
-and the padded KV slot budget, and leaks nothing."""
+"""Q2 for E6 (decisions 0020 and 0035): over random arrivals, aborts and limits, the engine
+on ``FakeRunner`` ends every request, admits first come first served within ``max_num_seqs``,
+the padded KV slot budget and the block pool, and leaks nothing."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -36,7 +36,14 @@ from ullm.telemetry import events as ev
 from ullm.telemetry.check import check_trace
 from ullm.telemetry.trace import frames_from
 
-INFO = RunnerInfo(model_id="fake", vocab_size=50, eos_token_ids=frozenset({0}), max_model_len=256)
+INFO = RunnerInfo(
+    model_id="fake",
+    vocab_size=50,
+    eos_token_ids=frozenset({0}),
+    max_model_len=256,
+    kv_bytes_per_token=1,
+)
+MIN_BLOCKS = INFO.max_model_len // INFO.block_size  # one request of max_model_len
 FAST = Latency(
     prefill_base_ms=1.0, prefill_per_token_ms=0.1, decode_base_ms=2.0, decode_per_row_ms=0.5
 )
@@ -73,6 +80,7 @@ class Checked:
     because the engine numbers requests as they arrive."""
 
     config: EngineConfig
+    num_blocks: int
     arrivals: list[ev.ReqArrived]
     inner: FakeRunner = field(default_factory=lambda: FakeRunner(INFO, FAST, lambda s: None))
     written: dict[SeqId, int] = field(default_factory=dict)  # KV slots per held sequence
@@ -107,6 +115,12 @@ class Checked:
             self.violations.append(f"{rows} rows held, max_num_seqs {self.config.max_num_seqs}")
         if rows * reservation > self.config.max_kv_slots:
             self.violations.append(f"{rows} rows x reservation {reservation} reserved")
+        reserved = sum(
+            -(-(self.arrivals[s].prompt_tokens + self.arrivals[s].max_tokens) // INFO.block_size)
+            for s in self.written
+        )
+        if reserved > self.num_blocks:
+            self.violations.append(f"{reserved} blocks reserved, the pool has {self.num_blocks}")
         match plan:
             case PrefillPlan(seq=seq, token_ids=token_ids, blocks=blocks):
                 self.written[seq] = len(token_ids)
@@ -195,12 +209,17 @@ def _admitted_first_come_first_served(events: list[ev.Event]) -> None:
 @given(
     max_num_seqs=st.integers(1, 8),
     max_kv_slots=st.integers(INFO.max_model_len, 4 * INFO.max_model_len),
+    num_blocks=st.integers(MIN_BLOCKS, 4 * MIN_BLOCKS),
     turns=TURNS,
 )
 def test_every_request_ends_first_come_first_served_within_the_limits(
-    max_num_seqs: int, max_kv_slots: int, turns: list[list[Action]]
+    max_num_seqs: int, max_kv_slots: int, num_blocks: int, turns: list[list[Action]]
 ) -> None:
-    config = EngineConfig(max_num_seqs=max_num_seqs, max_kv_slots=max_kv_slots)
+    config = EngineConfig(
+        max_num_seqs=max_num_seqs,
+        max_kv_slots=max_kv_slots,
+        kv_pool_bytes=num_blocks * INFO.block_size,  # one byte a token
+    )
     events: list[ev.Event] = []
     arrivals: list[ev.ReqArrived] = []
 
@@ -209,7 +228,7 @@ def test_every_request_ends_first_come_first_served_within_the_limits(
         if isinstance(e, ev.ReqArrived):
             arrivals.append(e)
 
-    runner = Checked(config, arrivals)
+    runner = Checked(config, num_blocks, arrivals)
     script = Script(turns)
     inbound: SimpleQueue[Ticket] = SimpleQueue()
     script.feed(inbound)
@@ -233,5 +252,6 @@ def test_every_request_ends_first_come_first_served_within_the_limits(
     _admitted_first_come_first_served(events)
     assert runner.adds == runner.releases
     assert runner.written == {}
-    assert loads[-1] == Load(waiting=0, running=0)
+    assert (loads[-1].waiting, loads[-1].running) == (0, 0)
+    assert loads[-1].kv.free == loads[-1].kv.num_blocks
     assert check_trace(frames_from(events, "r1")).problems == []

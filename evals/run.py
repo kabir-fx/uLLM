@@ -4,7 +4,8 @@ and ``server.log`` into a new results directory.
 
     uv run python -m evals.run --model qwen3-0.6b-bf16 --out evals/results/m4/qwen3-0.6b-bf16
 
-Exits 0 when the run finished, and 2 when it refuses to start.
+Exits 0 when the run finished, 1 when the model is not downloaded or a request fails, and 2
+when the output directory is refused.
 """
 
 import argparse
